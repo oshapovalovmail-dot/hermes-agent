@@ -13,6 +13,40 @@ from hermes_constants import get_hermes_home
 logger = logging.getLogger("run_agent")
 
 
+def resolve_memory_provider_names(config: dict[str, Any]) -> list[str]:
+    """Ordered opt-in fan-out; the singular setting remains the legacy fallback."""
+    raw = config.get("providers")
+    if not isinstance(raw, (list, tuple)):
+        raw = [config.get("provider", "")]
+    return list(dict.fromkeys(name.strip() for name in raw if isinstance(name, str) and name.strip()))
+
+
+def initialize_memory_providers(agent, config: dict[str, Any], platform):
+    """Initialize opted-in providers independently; one failure must not disable its siblings."""
+    from agent.memory_manager import MemoryManager
+    from agent.memory_provider import is_core_memory_provider
+
+    names = [name for name in resolve_memory_provider_names(config) if not is_core_memory_provider(name)]
+    if not names:
+        return None
+    manager = MemoryManager()
+    for name in names:
+        try:
+            provider = resolve_memory_provider(name, say=agent._emit_startup_warning)
+            if provider is not None:
+                manager.add_provider(provider)
+        except Exception:
+            logger.exception("Memory provider '%s' registration failed", name)
+    try:
+        if manager.providers and manager.initialize_for_agent(
+                say=agent._emit_startup_warning, **_memory_provider_init_kwargs(agent, platform)):
+            logger.info("Memory providers activated: %s", ", ".join(p.name for p in manager.providers))
+            return manager
+    except Exception:
+        logger.exception("Memory provider plugin init failed")
+    return None
+
+
 # Deduped: the gateway builds a fresh AIAgent per message, so it would warn every turn.
 _warned_unavailable_providers: set[tuple[str, str, str]] = set()
 

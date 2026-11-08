@@ -24,6 +24,7 @@
         "agent.image_gen_provider",
         "agent.memory_manager",
         "agent.memory_provider",
+        "agent.recall_query",
         "agent.secret_scope",
         "agent.secret_sources.base",
         "agent.subagent_lifecycle",

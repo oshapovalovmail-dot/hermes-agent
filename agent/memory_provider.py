@@ -15,6 +15,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
+from agent.recall_query import is_continuation_prompt
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +80,7 @@ def is_trivial_prompt(text: Optional[str]) -> bool:
     stripped = (text or "").strip()
     if not stripped or stripped.startswith("/"):
         return True
-    return bool(TRIVIAL_PROMPT_RE.match(stripped))
+    return bool(TRIVIAL_PROMPT_RE.match(stripped)) or is_continuation_prompt(stripped)
 
 
 class MemoryProvider(ABC):
