@@ -4835,6 +4835,13 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         await query.answer(text=text)
         try:
             await query.edit_message_reply_markup(reply_markup=None)
+            assert self._bot is not None
+            await self._bot.send_message(
+                chat_id=event.source.chat_id,
+                text=f"Команда: {text}",
+                message_thread_id=int(event.source.thread_id) if event.source.thread_id else None,
+                reply_markup={"remove_keyboard": True},
+            )
         except Exception:  # health: allow BLE001 -- fail closed without exposing private Telegram transport details
             await query.answer(text="Не удалось обработать нажатие.")
             return

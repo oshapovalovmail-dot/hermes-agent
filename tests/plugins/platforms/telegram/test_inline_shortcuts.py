@@ -199,13 +199,13 @@ async def test_short_edit_flood_retry_keeps_inline(adapter, monkeypatch):
     assert all(c.kwargs["reply_markup"] == INLINE for c in adapter._bot.edit_message_text.await_args_list)
 
 
-def callback_update(adapter, data="qa:status", *, user_id=501, chat_id=int(CHAT), message=True):
+def callback_update(adapter, data="qa:status", *, user_id=501, chat_id=int(CHAT), message=True, thread_id=71, is_forum=True):
     human = User(user_id, "Reader", False, last_name="Human", username="reader")
     bot_user = User(700, "Assistant", True)
-    chat = Chat(chat_id, "supergroup", title="Fixture group", is_forum=True)
+    chat = Chat(chat_id, "supergroup", title="Fixture group", is_forum=is_forum)
     msg = Message(800, datetime(2026, 1, 1, tzinfo=UTC), chat,
-                  from_user=bot_user, text="Assistant answer", message_thread_id=71,
-                  is_topic_message=True) if message else None
+                  from_user=bot_user, text="Assistant answer", message_thread_id=thread_id,
+                  is_topic_message=thread_id is not None) if message else None
     if msg is not None:
         msg.set_bot(adapter._bot)
     query = CallbackQuery("fixture-query", human, "fixture-instance", message=msg, data=data)
@@ -298,7 +298,10 @@ async def test_click_dismisses_only_clicked_row_before_ordinary_ingress(adapter,
 
     async def handler(event):
         assert [step[0] for step in order] == ["ack", "dismiss"]
-        adapter._bot.send_message.assert_not_awaited()
+        adapter._bot.send_message.assert_awaited_once_with(
+            chat_id=CHAT, text=f"Команда: {text}", message_thread_id=71,
+            reply_markup={"remove_keyboard": True},
+        )
         assert event.text == text
         assert event.source.user_id == "501"
         assert event.source.is_bot is False
@@ -322,7 +325,8 @@ async def test_click_dismisses_only_clicked_row_before_ordinary_ingress(adapter,
     assert "message_thread_id" not in edit
     adapter._bot.edit_message_text.assert_not_awaited()
     adapter._bot.do_api_request.assert_not_awaited()
-    adapter._bot.send_message.assert_awaited_once()
+    assert adapter._bot.send_message.await_count == 2
+    assert adapter._bot.send_message.await_args_list[0].kwargs["reply_markup"] == {"remove_keyboard": True}
     assert adapter._bot.send_message.await_args.kwargs["reply_markup"] == INLINE
     resolver.assert_not_called()
 
@@ -356,5 +360,49 @@ async def test_failed_ack_does_not_dismiss_or_dispatch(adapter, error):
     with pytest.raises(type(error)):
         await adapter._handle_callback_query(callback_update(adapter), None)
     adapter._bot.edit_message_reply_markup.assert_not_awaited()
+    adapter._bot.send_message.assert_not_awaited()
     handler.assert_not_awaited()
     assert not adapter._session_tasks
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("data,text", [("qa:status", "статус?"), ("qa:continue", "доделывай"), ("qa:approve", "разрешаю")])
+@pytest.mark.parametrize("thread_id,is_forum,expected_thread", [(None, False, None), (None, True, 1), (71, True, 71)])
+async def test_echo_removes_reply_keyboard_before_real_ingress(adapter, data, text, thread_id, is_forum, expected_thread):
+    adapter.set_authorization_check(lambda *args, **kwargs: True)
+    events = []
+
+    async def handler(event):
+        adapter._bot.edit_message_reply_markup.assert_awaited_once()
+        adapter._bot.send_message.assert_awaited_once_with(
+            chat_id=CHAT, text=f"Команда: {text}", message_thread_id=expected_thread,
+            reply_markup={"remove_keyboard": True},
+        )
+        events.append(event)
+
+    adapter.set_message_handler(handler)
+    await adapter._handle_callback_query(callback_update(adapter, data, thread_id=thread_id, is_forum=is_forum), None)
+    await asyncio.gather(*list(adapter._session_tasks.values()))
+    assert len(events) == 1
+    assert events[0].text == text
+    assert events[0].source.thread_id == (str(expected_thread) if expected_thread else None)
+    assert events[0].internal is False and events[0].prompt_response is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [BadRequest("private details"), TimedOut(), RuntimeError("private details")])
+async def test_echo_failure_does_not_dispatch_or_resolve_approval(adapter, monkeypatch, error):
+    resolver = Mock(side_effect=AssertionError("shortcut must not resolve approvals"))
+    monkeypatch.setattr("tools.approval.resolve_gateway_approval_card", resolver)
+    adapter.set_authorization_check(lambda *args, **kwargs: True)
+    handler = AsyncMock()
+    adapter.set_message_handler(handler)
+    adapter._bot.send_message.side_effect = error
+    await adapter._handle_callback_query(callback_update(adapter, "qa:approve"), None)
+    adapter._bot.edit_message_reply_markup.assert_awaited_once()
+    adapter._bot.send_message.assert_awaited_once()
+    assert [c.kwargs["text"] for c in adapter._bot.answer_callback_query.await_args_list] == [
+        "разрешаю", "Не удалось обработать нажатие."]
+    handler.assert_not_awaited()
+    assert not adapter._session_tasks
+    resolver.assert_not_called()
