@@ -19,6 +19,12 @@ from hermes_cli import setup_platforms
 
 logger = logging.getLogger(__name__)
 
+_QUICK_ACTION_TEXT = {
+    "qa:status": "статус?",
+    "qa:continue": "доделывай",
+    "qa:approve": "разрешаю",
+}
+
 from agent.deadline import run_bounded_async
 from agent.ssl_verify import platform_ssl_context
 from gateway.platforms._shared import (
@@ -1555,6 +1561,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         finalizes without send+delete. Same contract as :meth:`_try_send_rich`."""
         # No topic routing on edits: message_thread_id/direct_messages_topic_id make Telegram reject it.
         payload = {**self._rich_payload_base(chat_id, content), "message_id": int(message_id)}
+        payload.update(self._inline_keyboard_kwargs(chat_id))
         try:
             await _await_with_thread_deadline(
                 self._bot.do_api_request("editMessageText", api_kwargs=payload),
@@ -3454,7 +3461,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         logger.info("[%s] Disconnected from Telegram", self.name)
 
     def _reply_keyboard_markup(self, chat_id: str) -> Optional[dict[str, Any]]:
-        """Return a persistent composer keyboard only for explicitly scoped chats."""
+        """Return configured reply or inline shortcuts for explicitly scoped chats."""
         settings = self.config.extra.get("reply_keyboard")
         if not isinstance(settings, dict):
             return None
@@ -3467,12 +3474,28 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             for row in rows
         ):
             return None
+        mode = settings.get("mode", "reply")
+        if mode == "inline":
+            callbacks = {text: data for data, text in _QUICK_ACTION_TEXT.items()}
+            if any(label not in callbacks for row in rows for label in row):
+                return None
+            return {"inline_keyboard": [
+                [{"text": label, "callback_data": callbacks[label]} for label in row]
+                for row in rows
+            ]}
+        if mode != "reply":
+            return None
         return {
             "keyboard": rows,
             "is_persistent": True,
             "resize_keyboard": True,
             "one_time_keyboard": False,
         }
+
+    def _inline_keyboard_kwargs(self, chat_id: str) -> dict[str, Any]:
+        """Edits and overflow continuations accept only inline reply markup."""
+        keyboard = self._reply_keyboard_markup(chat_id)
+        return {"reply_markup": keyboard} if isinstance(keyboard, dict) and "inline_keyboard" in keyboard else {}
 
 
     def _should_thread_reply(self, reply_to: Optional[str], chunk_index: int) -> bool:
@@ -3520,7 +3543,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
 
     async def _send_chunk_with_retries(
         self, chat_id: str, chunk: str, index: int, reply_to: Optional[str], metadata: Optional[dict[str, Any]],
-        thread_id: Optional[str], used_thread_fallback: bool, error_types: tuple):
+        thread_id: Optional[str], used_thread_fallback: bool, error_types: tuple, *, last_chunk: bool = True):
         """Deliver one chunk: routing, up to 3 attempts, thread-not-found / deleted-anchor / flood handling.
 
         Returns ``(msg, used_thread_fallback)`` on success or a ``SendResult`` to return verbatim (fail-loud DM-topic
@@ -3536,12 +3559,15 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             thread_kwargs = dict(thread_kwargs)
             thread_kwargs["message_thread_id"] = None
         effective_thread_id = thread_kwargs.get("message_thread_id")
+        keyboard = self._reply_keyboard_markup(chat_id)
+        if isinstance(keyboard, dict) and "inline_keyboard" in keyboard and not last_chunk:
+            keyboard = None
         for _send_attempt in range(3):
             try:
                 send_kwargs = {
                     "chat_id": normalize_telegram_chat_id(chat_id), "reply_to_message_id": reply_to_id, **thread_kwargs,
                     **self._link_preview_kwargs(), **self._notification_kwargs(metadata),
-                    "reply_markup": self._reply_keyboard_markup(chat_id)}
+                    "reply_markup": keyboard}
                 return await self._send_chunk_markdown_or_plain(chunk, send_kwargs), used_thread_fallback
             except _NetErr as send_err:
                 # BadRequest subclasses NetworkError in PTB but is permanent; handle specific cases.
@@ -3759,9 +3785,10 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         requested_thread_id = self._message_thread_id_for_send(thread_id)
         used_thread_fallback = False
         prior = len(delivered)
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
             outcome = await self._send_chunk_with_retries(
-                chat_id, chunk, len(delivered), reply_to, metadata, thread_id, used_thread_fallback, error_types)
+                chat_id, chunk, len(delivered), reply_to, metadata, thread_id, used_thread_fallback, error_types,
+                last_chunk=i == len(chunks) - 1)
             if isinstance(outcome, SendResult):
                 # Every SendResult returned here is a DEFINITE non-delivery (flood cap, DM-topic refusal);
                 # ambiguous timeouts raise instead, so the remainder is safe to resume from.
@@ -3843,24 +3870,28 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             self._status_message_ids[key] = str(result.message_id)
         return result
 
-    async def _edit_text(self, chat_id: str, message_id: str, text: str, parse_mode: Any = None) -> None:
+    async def _edit_text(
+        self, chat_id: str, message_id: str, text: str, parse_mode: Any = None, *, inline_keyboard: bool = True) -> None:
         """``editMessageText`` with normalized ids; ``parse_mode=None`` sends plain text."""
         kwargs: dict[str, Any] = {"chat_id": normalize_telegram_chat_id(chat_id), "message_id": int(message_id), "text": text}
+        if inline_keyboard:
+            kwargs.update(self._inline_keyboard_kwargs(chat_id))
         if parse_mode is not None:
             kwargs["parse_mode"] = parse_mode
         await _await_with_thread_deadline(
             self._bot.edit_message_text(**kwargs), timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
 
-    async def _edit_markdown_or_plain(self, chat_id: str, message_id: str, formatted: str, plain: str, warn_fmt: str) -> bool:
+    async def _edit_markdown_or_plain(
+        self, chat_id: str, message_id: str, formatted: str, plain: str, warn_fmt: str, *, inline_keyboard: bool = True) -> bool:
         """MarkdownV2 edit with plain-text fallback. Returns True on a "not modified" no-op (caller may
         skip further work); the fallback edit's exceptions propagate."""
         try:
-            await self._edit_text(chat_id, message_id, formatted, ParseMode.MARKDOWN_V2)
+            await self._edit_text(chat_id, message_id, formatted, ParseMode.MARKDOWN_V2, inline_keyboard=inline_keyboard)
         except Exception as fmt_err:
             if "not modified" in str(fmt_err).lower():
                 return True
             logger.warning(warn_fmt, self.name, _redact_telegram_error_text(fmt_err))
-            await self._edit_text(chat_id, message_id, plain)
+            await self._edit_text(chat_id, message_id, plain, inline_keyboard=inline_keyboard)
         return False
 
     async def edit_message(
@@ -4006,10 +4037,12 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
 
     async def _send_overflow_continuation(
         self, chat_id: str, chunk: str, reply_to_id: Optional[int], thread_kwargs: dict[str, Any],
-        thread_id: Optional[str], metadata: Optional[dict[str, Any]], finalize: bool):
+        thread_id: Optional[str], metadata: Optional[dict[str, Any]], finalize: bool, *, inline_keyboard: bool = False):
         """Send one continuation chunk (MarkdownV2 then plain on finalize; raw when streaming); drops the
         reply anchor once on 'reply message not found'. Returns the sent message or None."""
         base = {**self._link_preview_kwargs(), **self._notification_kwargs(metadata)}
+        if inline_keyboard:
+            base.update(self._inline_keyboard_kwargs(chat_id))
         for use_markdown in (True, False) if finalize else (False,):
             try:
                 if use_markdown:
@@ -4057,9 +4090,10 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             if finalize:
                 await self._edit_markdown_or_plain(
                     chat_id, message_id, _separate_chunk_indicator_from_fence(self.format_message(first_chunk)), _strip_mdv2(first_chunk),
-                    "[%s] Overflow split: MarkdownV2 first-chunk edit failed, falling back to plain text: %s")
+                    "[%s] Overflow split: MarkdownV2 first-chunk edit failed, falling back to plain text: %s",
+                    inline_keyboard=len(chunks) == 1)
             else:
-                await self._edit_text(chat_id, message_id, first_chunk)
+                await self._edit_text(chat_id, message_id, first_chunk, inline_keyboard=len(chunks) == 1)
         except Exception as e:
             if "not modified" not in str(e).lower():  # identical first chunk still sends continuations
                 logger.error("[%s] Overflow split: first-chunk edit failed: %s", self.name, _redact_telegram_error_text(e), exc_info=True)
@@ -4069,10 +4103,11 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         delivered_chunks = [first_chunk]
         prev_id = message_id
         thread_id = self._metadata_thread_id(metadata)
-        for chunk in chunks[1:]:
+        for i, chunk in enumerate(chunks[1:], start=1):
             reply_to_id = int(prev_id) if prev_id else None
             thread_kwargs = self._thread_kwargs_for_send(chat_id, thread_id, metadata, reply_to_message_id=reply_to_id)
-            sent_msg = await self._send_overflow_continuation(chat_id, chunk, reply_to_id, thread_kwargs, thread_id, metadata, finalize)
+            sent_msg = await self._send_overflow_continuation(
+                chat_id, chunk, reply_to_id, thread_kwargs, thread_id, metadata, finalize, inline_keyboard=i == len(chunks) - 1)
             if sent_msg is None:
                 # Partial delivery: do NOT report success — the consumer would treat it as final delivery.
                 logger.warning("[%s] Overflow split: stopped at %d/%d chunks delivered", self.name, 1 + len(continuation_ids), len(chunks))
@@ -4746,6 +4781,9 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         self._accept_update()
         data = query.data
         cb = self._callback_ctx(query)
+        if data.startswith("qa:"):
+            await self._handle_quick_action_callback(query, data, update.update_id)
+            return
         # Model picker / generic choice picker (/reasoning, /fast) need a chat id.
         for prefixes, handler in (
             (("mp:", "mpg:", "mpv:", "mm:", "mc:", "mb", "mx", "mg:"), self._handle_model_picker_callback),
@@ -4763,6 +4801,39 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             if data.startswith(prefix):
                 await handler(query, data, cb)
                 return
+
+    async def _handle_quick_action_callback(self, query, data: str, update_id: Optional[int]) -> None:
+        """Text shortcuts use ordinary human ingress, never approval resolvers."""
+        message = query.message
+        chat = getattr(message, "chat", None)
+        chat_id = getattr(message, "chat_id", None)
+        chat_type = getattr(chat, "type", None)
+        markup = self._reply_keyboard_markup(str(chat_id))
+        text = _QUICK_ACTION_TEXT.get(data)
+        if (
+            message is None or not hasattr(message, "text") or not text
+            or not isinstance(markup, dict) or "inline_keyboard" not in markup
+            or not any(button["callback_data"] == data for row in markup["inline_keyboard"] for button in row)
+        ):
+            await query.answer(text="Кнопка больше недоступна.")
+            return
+        if not self._is_callback_user_authorized(
+            str(getattr(query.from_user, "id", "")), chat_id=chat_id,
+            chat_type=str(chat_type) if chat_type is not None else None,
+            thread_id=self._effective_message_thread_id(message), user_name=getattr(query.from_user, "first_name", None),
+        ):
+            await query.answer(text="⛔ Нет доступа.")
+            return
+        event = self._build_message_event(message, MessageType.TEXT, update_id=update_id, user_override=query.from_user)
+        event.text = text
+        event.message_id = None
+        event.reply_to_message_id = str(message.message_id)
+        event.reply_to_text = message.text or message.caption or self._extract_rich_reply_text(message)
+        event.reply_to_is_own_message = True
+        event.raw_message = query
+        event.timestamp = datetime.now(UTC)
+        await query.answer(text=text)
+        await self.handle_message(event)
 
     async def _claim_callback_state(self, query, cb: dict[str, Any], state: dict, key, denial: str, resolved: str, *, pop: bool = True):
         """Auth-gate a button tap, then claim its pending entry; None (after answering) when refused or expired."""
@@ -7132,11 +7203,12 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
                 reply_to_text = None
         return reply_to_id, reply_to_text
 
-    def _build_message_event(self, message: Message, msg_type: MessageType, update_id: Optional[int] = None) -> MessageEvent:
+    def _build_message_event(
+        self, message: Message, msg_type: MessageType, update_id: Optional[int] = None, *, user_override: Any = None) -> MessageEvent:
         """Build a MessageEvent from a Telegram message. ``update_id`` lets ``/restart`` record the
         triggering offset so the new gateway process advances past it."""
         chat = message.chat
-        user = message.from_user
+        user = user_override if user_override is not None else message.from_user
         telegram_chat_type = self._chat_type_str(chat)  # str() so PTB enums and plain-string mocks both work
         chat_type = "group" if telegram_chat_type in {"group", "supergroup"} else ("channel" if telegram_chat_type == "channel" else "dm")
         # Shared normalizer so gating and session routing agree (reply-UI anchors dropped, General → "1").
