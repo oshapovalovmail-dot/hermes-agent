@@ -36,6 +36,8 @@ from agent.chat_completion_headers import _chat_completion_capturing_headers
 from agent.chat_completion_stream_monitor import StreamingWaitMonitor, StreamLifetimeExceeded
 from agent.transports.chat_completions import is_router_timeout_shim, router_timeout_shim_may_follow
 from agent.fast_mode import effective_request_overrides
+from agent.chat_completion_cache import cache_family_params
+from agent.prompt_cache_scope import resolve_prompt_cache_scope_safe
 from agent.turn_context import substitute_api_content
 from agent.gemini_native_adapter import is_native_gemini_base_url
 # Remote endpoints must never be fingerprinted: the probe waterfall is only valid for local/LM-Studio/Ollama
@@ -485,17 +487,6 @@ def _provider_preferences_for_agent(agent) -> dict[str, Any]:
     merged["sort"] = _validated_openrouter_provider_sort(merged["sort"])
     merged["require_parameters"] = True if merged["require_parameters"] else None
     return {key: value for key, value in merged.items() if value}
-
-
-def _prompt_cache_scope_for_agent(agent) -> str | None:
-    """Rotation-stable logical cache scope for *agent*, or None (transports then
-    fall back to the physical session_id, so a failure never blocks the build)."""
-    try:
-        from agent.prompt_cache_scope import resolve_prompt_cache_scope_safe
-        return resolve_prompt_cache_scope_safe(agent)
-    except Exception:
-        logger.debug("prompt-cache scope resolution failed", exc_info=True)
-        return None
 
 
 def _merge_nous_portal_messages_extra_body(agent, anthropic_kwargs: dict, api_messages: list) -> dict:
@@ -1424,6 +1415,7 @@ def _build_codex_kwargs(agent, api_messages, tools_for_api, reasoning_config, re
         messages=agent._prepare_messages_for_non_vision_model(api_messages), tools=tools_for_api,
         reasoning_config=reasoning_config, session_id=getattr(agent, "session_id", None),
         cache_scope_id=cache_scope_id, base_url=agent.base_url,
+        **cache_family_params(agent, "codex_responses"),
         max_tokens=ephemeral_out if ephemeral_out is not None else agent.max_tokens,
         timeout=agent._resolved_api_call_timeout(), request_overrides=request_overrides,
         provider=getattr(agent, "provider", None),
@@ -1472,6 +1464,7 @@ def _build_chat_completions_kwargs(agent, api_messages, tools_for_api, reasoning
         max_tokens_param_fn=agent._max_tokens_param, reasoning_config=reasoning_config,
         request_overrides=request_overrides, session_id=getattr(agent, "session_id", None),
         cache_scope_id=cache_scope_id, ollama_num_ctx=agent._ollama_num_ctx,
+        **cache_family_params(agent, "chat_completions"),
         provider_preferences=_prefs or None, openrouter_min_coding_score=agent.openrouter_min_coding_score,
         supports_reasoning=agent._supports_reasoning_extra_body(),
         lmstudio_reasoning_options=agent._lmstudio_reasoning_options_cached() if _is_lmstudio else None,
@@ -1534,7 +1527,7 @@ def _build_api_kwargs_for_mode(agent, api_messages: list, tools_for_api: list | 
         return _build_bedrock_kwargs(agent, api_messages, tools_for_api, reasoning_config)
     # Rotation-stable logical cache scope shared by every OpenAI-wire branch
     # (memoized on the agent); anthropic/bedrock above don't use it.
-    cache_scope_id = _prompt_cache_scope_for_agent(agent)
+    cache_scope_id = resolve_prompt_cache_scope_safe(agent)
     builder = _build_codex_kwargs if agent.api_mode == "codex_responses" else _build_chat_completions_kwargs
     return builder(agent, api_messages, tools_for_api, reasoning_config, request_overrides, cache_scope_id)
 

@@ -6,6 +6,7 @@ provider-specific work lives in build_kwargs (max_tokens, reasoning, extra_body)
 
 import hashlib
 import json
+import logging
 import re
 import string
 from typing import Any
@@ -19,6 +20,7 @@ from agent.message_metadata import DATA_USE, MESSAGE_UID, data_use_requirement
 from agent.message_sanitization import coalesce_tool_call_id, normalize_finish_reason as _normalize_finish_reason
 from agent.moonshot_schema import is_moonshot_model, sanitize_moonshot_tools
 from agent.prompt_builder import DEVELOPER_ROLE_MODELS
+from agent.prompt_cache_family import derive_prompt_cache_family, log_prompt_cache_family
 from agent.transports.base import ProviderTransport
 from agent.transports.types import NormalizedResponse, ToolCall, Usage
 
@@ -45,6 +47,8 @@ _STRIP_MSG_KEYS = (
 )
 _STRIP_TC_KEYS = ("call_id", "response_item_id")
 _HIGH_EFFORTS = {"high", "xhigh", "max", "ultra"}
+
+logger = logging.getLogger(__name__)
 
 
 def _rename_tool_search_bridge_for_xai(tools: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, str]]:
@@ -78,6 +82,8 @@ def _add_prompt_cache_key(
     api_kwargs: dict[str, Any], *, messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None, supports_prompt_cache_key: bool,
     session_id: str | None = None, cache_scope_id: str | None = None,
+    stable_prompt_prefix: str | None = None, cache_isolation_scope: str | None = None,
+    model: str | None = None, api_mode: str | None = None,
 ) -> None:
     """Add a content-addressed ``prompt_cache_key`` only for a capable endpoint.
 
@@ -109,11 +115,36 @@ def _add_prompt_cache_key(
         return
     if not supports_prompt_cache_key:
         return
-    cache_key = _content_cache_key(
+    legacy_cache_key = _content_cache_key(
         _static_prompt_instructions(messages), tools, _cache_scope_from_session_id(cache_scope_id or session_id),
     )
+    cache_key = legacy_cache_key
+    family = None
+    family_inputs_supplied = all(
+        value is not None
+        for value in (stable_prompt_prefix, cache_isolation_scope, api_mode)
+    )
+    if family_inputs_supplied:
+        family = derive_prompt_cache_family(
+            wire_model=model or api_kwargs.get("model"),
+            api_mode=api_mode or "chat_completions",
+            isolation_scope=cache_isolation_scope,
+            stable_prompt_prefix=stable_prompt_prefix,
+            tools=tools,
+        )
+        if family.key:
+            cache_key = family.key
     if cache_key:
         api_kwargs["prompt_cache_key"] = cache_key
+    if family is not None:
+        log_prompt_cache_family(
+            logger,
+            family=family,
+            selected_key=api_kwargs.get("prompt_cache_key"),
+            legacy_key=legacy_cache_key,
+            wire_model=model or api_kwargs.get("model"),
+            api_mode=api_mode or "chat_completions",
+        )
 
 
 _ROUTER_TIMEOUT_SHIM = "Connect timeout, please try again later."
@@ -413,6 +444,8 @@ def _finish_kwargs(api_kwargs: dict[str, Any], sanitized: list, params: dict, *,
     _add_prompt_cache_key(
         api_kwargs, messages=sanitized, tools=api_kwargs.get("tools"), supports_prompt_cache_key=supports_prompt_cache_key,
         session_id=params.get("session_id"), cache_scope_id=params.get("cache_scope_id"),
+        stable_prompt_prefix=params.get("stable_prompt_prefix"), cache_isolation_scope=params.get("cache_isolation_scope"),
+        model=api_kwargs.get("model"), api_mode=params.get("api_mode"),
     )
     return api_kwargs
 

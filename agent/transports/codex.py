@@ -17,6 +17,7 @@ from agent.reasoning_effort import (
     # per-model — "max" availability varies; "minimal"/"ultra" clamp to a listed level.
     codex_supported_efforts,
 )
+from agent.prompt_cache_family import derive_prompt_cache_family, log_prompt_cache_family
 from agent.transports.base import ProviderTransport
 from agent.transports.types import NormalizedResponse, ToolCall
 
@@ -443,7 +444,10 @@ def _content_cache_key(instructions: str, tools: Optional[list[dict[str, Any]]],
         sorted_tools = sorted(
             (t for t in tools if isinstance(t, dict)), key=lambda t: str(t.get("name") or t.get("type") or ""),
         )
-        tools_part = json.dumps(sorted_tools, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        try:
+            tools_part = json.dumps(sorted_tools, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        except (TypeError, ValueError, UnicodeEncodeError):
+            return None
     # \x00 separators so a boundary can't be forged by content containing the same bytes.
     content = f"{scope_id}\x00{instructions or ''}\x00{tools_part}"
     return "pck_" + hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()[:24]
@@ -799,7 +803,19 @@ class ResponsesApiTransport(ProviderTransport):
         # Content-addressed (instructions + tools) within a logical scope that survives
         # compression rotation; session_id itself stays untouched for transcript isolation.
         _cache_scope = _cache_scope_from_session_id(params.get("cache_scope_id") or session_id)
-        cache_key = _content_cache_key(instructions, response_tools, _cache_scope) or _cache_scope
+        legacy_cache_key = _content_cache_key(instructions, response_tools, _cache_scope) or _cache_scope
+        cache_key = legacy_cache_key
+        family = None
+        if endpoint.prompt_cache_key and not is_xai_responses and all(
+            params.get(name) is not None
+            for name in ("stable_prompt_prefix", "cache_isolation_scope", "api_mode")
+        ):
+            family = derive_prompt_cache_family(
+                wire_model=wire_model, api_mode=params["api_mode"],
+                isolation_scope=params["cache_isolation_scope"],
+                stable_prompt_prefix=params["stable_prompt_prefix"], tools=response_tools,
+            )
+            cache_key = family.key or legacy_cache_key
         # xAI takes prompt_cache_key in extra_body (below); endpoints declaring
         # ``responses_prompt_cache_key=False`` opt out entirely.
         if endpoint.prompt_cache_key and not is_xai_responses and cache_key:
@@ -844,6 +860,11 @@ class ResponsesApiTransport(ProviderTransport):
         _sanitize_astra_request_kwargs(kwargs, model, params.get("base_url"))
 
         _bound_prompt_cache_key_field(kwargs)
+        if family is not None:
+            log_prompt_cache_family(
+                logger, family=family, selected_key=kwargs.get("prompt_cache_key"),
+                legacy_key=legacy_cache_key, wire_model=wire_model, api_mode=params["api_mode"],
+            )
 
         # Older xAI models reject ``service_tier`` (HTTP 400); only Grok 4.6 accepts Priority Processing.
         # Grok 4.6 accepts Priority Processing, but continue stripping stale or unsupported tier values on

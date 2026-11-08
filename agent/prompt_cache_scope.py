@@ -10,6 +10,9 @@ walk and is hashed to ``gwk_<sha256[:24]>`` (it embeds platform/chat/user identi
 """
 
 import hashlib
+import json
+import os
+from pathlib import Path
 import logging
 from typing import Any, Optional
 
@@ -261,4 +264,124 @@ def resolve_prompt_cache_scope_safe(agent: Any) -> Optional[str]:
         return resolve_prompt_cache_scope(agent) or None
     except Exception:
         logger.debug("prompt-cache scope resolution failed", exc_info=True)
+        return None
+
+
+_LOCAL_NO_USER_PLATFORMS = frozenset({"cli", "tui", "desktop", "acp", "cron"})
+
+
+def _profile_identity(agent: Any) -> Optional[tuple[str, str]]:
+    """Return resolved active profile home/name, or ``None`` on failure."""
+    try:
+        from agent.system_prompt import _agent_home, _profile_name_for_home
+        from hermes_constants import get_hermes_home
+
+        home = _agent_home(agent)
+        if home is None:
+            home = get_hermes_home()
+        resolved_home = Path(home).expanduser().resolve()
+        if not str(resolved_home):
+            return None
+        profile_name = _profile_name_for_home(resolved_home)
+        if not isinstance(profile_name, str) or not profile_name.strip():
+            return None
+        return str(resolved_home), profile_name.strip()
+    except Exception as exc:  # health: allow BLE001 -- identity failures must not log private profile paths
+        logger.debug(
+            "prompt-cache profile identity resolution failed (%s)",
+            type(exc).__name__,
+        )
+        return None
+
+
+def _principal_identity(agent: Any) -> Optional[Any]:
+    """Return a platform-scoped principal or an approved local owner."""
+    try:
+        platform_value = getattr(agent, "platform", None)
+        platform = platform_value.strip().lower() if isinstance(platform_value, str) else ""
+
+        concrete_user_id: Optional[str] = None
+        for attribute in ("_user_id_alt", "_user_id"):
+            value = getattr(agent, attribute, None)
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (str, int)) and str(value).strip():
+                concrete_user_id = str(value).strip()
+                break
+
+        if concrete_user_id is None:
+            # Only explicitly reviewed local first-party surfaces may reuse a
+            # profile-wide family without a concrete gateway principal.
+            return "profile-owner" if platform in _LOCAL_NO_USER_PLATFORMS else None
+
+        if not platform:
+            # Never collapse the same raw user id across an unknown platform.
+            return None
+        return {"platform": platform, "user_id": concrete_user_id}
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _tenant_identity(agent: Any) -> Optional[str]:
+    """Resolve the tenant authority without falling back to a user value."""
+    for attribute in ("_tenant_id", "tenant_id", "tenant"):
+        value = getattr(agent, attribute, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    value = os.getenv("HERMES_TENANT")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return "local"
+
+
+def resolve_prompt_cache_isolation_scope(agent: Any) -> Optional[str]:
+    """Return ``piso_<sha256[:24]>`` for the family isolation tuple.
+
+    The returned digest is the only value transported to the family builder;
+    raw home, tenant, platform, and principal values never enter request fields
+    or logs. ``session_id`` and volatile prompt content are intentionally
+    excluded so a fresh physical session can reuse a proven family.
+    """
+    if getattr(agent, "_prompt_cache_scope_invalid", False):
+        return None
+    tenant = _tenant_identity(agent)
+    profile = _profile_identity(agent)
+    principal = _principal_identity(agent)
+    if tenant is None:
+        return None
+    if profile is None:
+        return None
+    if principal is None:
+        return None
+
+    identity = {
+        "profile_home": profile[0],
+        "profile_name": profile[1],
+        "principal": principal,
+        "tenant": tenant,
+        "version": 1,
+    }
+    try:
+        serialized = json.dumps(
+            identity,
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError):
+        return None
+    digest = hashlib.sha256(serialized).hexdigest()[:24]
+    return f"piso_{digest}"
+
+
+def resolve_prompt_cache_isolation_scope_safe(agent: Any) -> Optional[str]:
+    """Never-raising wrapper for request-builder call sites."""
+    try:
+        return resolve_prompt_cache_isolation_scope(agent)
+    except Exception as exc:  # health: allow BLE001 -- fail-closed identity boundary cannot log principal-bearing exceptions
+        logger.debug(
+            "prompt-cache isolation scope resolution failed (%s)",
+            type(exc).__name__,
+        )
         return None

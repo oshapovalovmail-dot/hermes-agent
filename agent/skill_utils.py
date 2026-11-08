@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import sys
+from dataclasses import dataclass
 import threading
 from pathlib import Path, PurePath
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
@@ -481,17 +482,22 @@ def resolve_skill_catalog(entries: list[dict[str, Any]]) -> list[dict[str, Any]]
     for i, e in enumerate(out):
         skill_dir = Path(e["path"]).parent
         e["relative_path"] = skill_dir.relative_to(e["root"]).as_posix()
-        for alias in {str(e["name"]), skill_dir.name, e["relative_path"]}:
+        for alias in {str(e["name"]), skill_dir.name, e["relative_path"], *e.get("aliases", [])}:
             owners.setdefault(alias, []).append(i)
     winner: dict[str, Optional[int]] = {}
     for alias, idxs in owners.items():
+        # A declared alias cannot take a canonical identity from another tier.
+        if len(idxs) > 1 and any(alias in out[j].get("aliases", []) for j in idxs):
+            winner[alias] = None
+            continue
         won, _ = pick_skill_candidate([
             (out[j]["tier"], str(out[j]["root"]), skill_candidate_rank(out[j]["path"], out[j]["root"]), out[j]["path"])
             for j in idxs])
         winner[alias] = None if won is None else idxs[won]
     for i, e in enumerate(out):
         name, rel = str(e["name"]), e["relative_path"]
-        higher = [j for j in owners[name] if out[j]["tier"] < e["tier"]]
+        higher = [j for j in owners[name] if out[j]["tier"] < e["tier"]
+                  and name not in out[j].get("aliases", [])]
         if higher or winner[name] not in (None, i):  # lower tier, or an identical same-root copy
             e.update(status="shadowed", load_name=None)
             # A symlink view or byte-identical copy of the winner hides nothing worth a warning.
@@ -725,11 +731,182 @@ def is_external_skill_path(path) -> bool:
     return any(candidate.is_relative_to(_resolve_for_skill_ownership(root)) for root in roots)
 
 
-def _hermes_metadata(frontmatter: dict[str, Any]) -> dict[str, Any]:
-    """``metadata.hermes`` mapping from frontmatter, or ``{}`` when malformed."""
+def _hermes_metadata(frontmatter: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """Return the ``metadata.hermes`` mapping, preserving malformed containers.
+
+    A missing ``metadata`` section, or a mapping without a ``hermes`` key, is
+    the legacy shape and therefore returns an empty mapping.  A present
+    non-mapping container returns ``None`` so catalog validation can fail
+    closed instead of silently promoting the skill to global visibility.
+    """
+    if "metadata" not in frontmatter:
+        return {}
     metadata = frontmatter.get("metadata")
-    hermes = metadata.get("hermes") if isinstance(metadata, dict) else None
-    return hermes if isinstance(hermes, dict) else {}
+    if not isinstance(metadata, dict):
+        return None
+    if "hermes" not in metadata:
+        return {}
+    hermes = metadata.get("hermes")
+    return hermes if isinstance(hermes, dict) else None
+
+
+CATALOG_VISIBILITIES = frozenset(("global", "profile", "on_demand"))
+_CATALOG_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_CATALOG_METADATA_WARNINGS: set[str] = set()
+
+
+@dataclass(frozen=True)
+class SkillCatalogMetadata:
+    """Validated catalog controls carried by ``metadata.hermes``.
+
+    ``valid`` is deliberately separate from ``visibility``.  A malformed
+    declaration must not silently become a global skill, so callers can keep
+    explicit loads available while excluding the entry from the model index.
+    """
+
+    visibility: str
+    profiles: tuple[str, ...]
+    aliases: tuple[str, ...]
+    valid: bool = True
+    error: Optional[str] = None
+
+
+def _catalog_warning(message: str) -> None:
+    """Log one warning per malformed declaration shape to avoid scan log floods."""
+    if message not in _CATALOG_METADATA_WARNINGS:
+        _CATALOG_METADATA_WARNINGS.add(message)
+        logger.warning("Invalid skill catalog metadata: %s", message)
+
+
+def _catalog_string_list(
+    value: Any, field: str, *, allow_empty: bool = False,
+) -> tuple[tuple[str, ...], Optional[str]]:
+    """Validate a catalog string list; malformed values never get coerced."""
+    if not isinstance(value, list) or (not value and not allow_empty):
+        qualifier = "list" if allow_empty else "non-empty list"
+        return (), f"{field} must be a {qualifier} of names"
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or item != item.strip() or not item.strip() or not _CATALOG_NAME_RE.fullmatch(item):
+            return (), f"{field} contains an invalid name"
+        result.append(item)
+    if len(set(result)) != len(result):
+        return (), f"{field} contains duplicate names"
+    return tuple(result), None
+
+
+def extract_skill_catalog_metadata(
+    frontmatter: dict[str, Any], *, skill_name: Optional[str] = None,
+) -> SkillCatalogMetadata:
+    """Parse and validate hierarchical catalog metadata.
+
+    Missing ``visibility`` keeps legacy skills global.  Invalid metadata is
+    reported and returned as ``valid=False`` so model-visible callers can fail
+    closed without preventing an explicit ``skill_view`` lookup.
+    """
+    hermes = _hermes_metadata(frontmatter)
+    if hermes is None:
+        raw_metadata = frontmatter.get("metadata")
+        error = (
+            "metadata must be a mapping"
+            if not isinstance(raw_metadata, dict)
+            else "metadata.hermes must be a mapping"
+        )
+        _catalog_warning(f"{skill_name or '<unknown>'}: {error}")
+        return SkillCatalogMetadata("on_demand", (), (), False, error)
+    raw_visibility = hermes.get("visibility", "global")
+    if not isinstance(raw_visibility, str) or raw_visibility.strip() not in CATALOG_VISIBILITIES:
+        error = "visibility must be one of global, profile, on_demand"
+        _catalog_warning(f"{skill_name or '<unknown>'}: {error}")
+        return SkillCatalogMetadata("on_demand", (), (), False, error)
+    visibility = raw_visibility.strip()
+
+    raw_profiles = hermes.get("profiles")
+    profiles: tuple[str, ...] = ()
+    if raw_profiles is not None:
+        profiles, error = _catalog_string_list(raw_profiles, "profiles")
+        if error:
+            _catalog_warning(f"{skill_name or '<unknown>'}: {error}")
+            return SkillCatalogMetadata("on_demand", (), (), False, error)
+    if visibility == "profile" and not profiles:
+        error = "profiles must be a non-empty list when visibility=profile"
+        _catalog_warning(f"{skill_name or '<unknown>'}: {error}")
+        return SkillCatalogMetadata("on_demand", (), (), False, error)
+
+    raw_aliases = hermes.get("aliases")
+    aliases: tuple[str, ...] = ()
+    if raw_aliases is not None:
+        aliases, error = _catalog_string_list(raw_aliases, "aliases", allow_empty=True)
+        if error:
+            _catalog_warning(f"{skill_name or '<unknown>'}: {error}")
+            return SkillCatalogMetadata(visibility, profiles, (), False, error)
+        canonical = (skill_name or frontmatter.get("name") or "").strip()
+        if canonical and canonical in aliases:
+            error = "aliases must not contain the canonical skill name"
+            _catalog_warning(f"{skill_name or '<unknown>'}: {error}")
+            return SkillCatalogMetadata(visibility, profiles, (), False, error)
+    return SkillCatalogMetadata(visibility, profiles, aliases)
+
+
+# Short alias for callers that naturally use a parser name.
+parse_skill_catalog_metadata = extract_skill_catalog_metadata
+
+
+def get_active_skill_profiles() -> frozenset[str]:
+    """Return configured catalog profiles, failing closed for malformed config."""
+    raw = _skills_cfg_get("active_profiles")
+    if raw is None:
+        return frozenset()
+    if not isinstance(raw, list):
+        logger.warning("skills.active_profiles must be a list; ignoring malformed value")
+        return frozenset()
+    profiles: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or item != item.strip() or not item.strip() or not _CATALOG_NAME_RE.fullmatch(item):
+            logger.warning("skills.active_profiles contains an invalid profile; ignoring the profile list")
+            return frozenset()
+        profiles.append(item)
+    return frozenset(profiles)
+
+
+def skill_catalog_visible(
+    frontmatter: dict[str, Any], active_profiles: set[str] | frozenset[str] | None = None,
+    *, project: bool = False, skill_name: Optional[str] = None,
+) -> bool:
+    """Whether a skill belongs in the model-visible catalog index."""
+    metadata = extract_skill_catalog_metadata(frontmatter, skill_name=skill_name)
+    if not metadata.valid:
+        return False
+    if metadata.visibility == "on_demand":
+        return False
+    if project:
+        return True
+    if metadata.visibility == "profile":
+        return bool(set(active_profiles or ())) and bool(set(metadata.profiles) & set(active_profiles or ()))
+    return True
+
+
+def skill_catalog_entry_visible(
+    entry: dict[str, Any], active_profiles: set[str] | frozenset[str] | None = None,
+    *, project: bool = False,
+) -> bool:
+    """Snapshot equivalent of :func:`skill_catalog_visible`."""
+    if entry.get("catalog_valid") is False:
+        return False
+    visibility = entry.get("visibility", "global")
+    if visibility == "on_demand":
+        return False
+    if project:
+        return True
+    if visibility == "profile":
+        return bool(set(active_profiles or ()) & set(entry.get("profiles") or ()))
+    return visibility == "global"
+
+
+def skill_catalog_aliases(frontmatter: dict[str, Any], *, skill_name: Optional[str] = None) -> tuple[str, ...]:
+    """Return validated aliases, or an empty tuple for malformed metadata."""
+    metadata = extract_skill_catalog_metadata(frontmatter, skill_name=skill_name)
+    return metadata.aliases if metadata.valid else ()
 
 
 # ``session_platforms`` is the gateway-channel gate: session platforms the skill
@@ -739,14 +916,14 @@ _CONDITION_KEYS = ("fallback_for_toolsets", "requires_toolsets", "fallback_for_t
 
 def extract_skill_conditions(frontmatter: dict[str, Any]) -> dict[str, list]:
     """Extract conditional activation fields from parsed frontmatter (absent = ``[]``)."""
-    hermes = _hermes_metadata(frontmatter)
+    hermes = _hermes_metadata(frontmatter) or {}
     return {key: hermes.get(key, []) for key in _CONDITION_KEYS}
 
 
 def extract_skill_config_vars(frontmatter: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract ``metadata.hermes.config`` declarations (key/description/default/prompt).
     Entries missing ``key`` or ``description`` are skipped; ``prompt`` defaults to the description."""
-    raw = _hermes_metadata(frontmatter).get("config")
+    raw = (_hermes_metadata(frontmatter) or {}).get("config")
     if isinstance(raw, dict):
         raw = [raw]
     if not raw or not isinstance(raw, list):

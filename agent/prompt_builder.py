@@ -1078,8 +1078,8 @@ _SKILLS_PROMPT_CACHE_MAX = 32
 _SKILLS_PROMPT_CACHE: OrderedDict[tuple, str] = OrderedDict()
 _SKILLS_PROMPT_CACHE_LOCK = threading.Lock()
 # v2 added org provenance fields (org_id/org_author); v4 adds ``rel`` (SKILL.md path relative to its root) for
-# duplicate-name resolution; v5 stores descriptions clipped at a word boundary. Older snapshots are rebuilt.
-_SKILLS_SNAPSHOT_VERSION = 5
+# duplicate-name resolution; v5 clips descriptions; v6 adds catalog metadata. Older snapshots are rebuilt.
+_SKILLS_SNAPSHOT_VERSION = 6
 
 
 def _skills_prompt_snapshot_path() -> Path:
@@ -1139,6 +1139,8 @@ def _build_snapshot_entry(skill_file: Path, skills_dir: Path, frontmatter: dict,
     parts = skill_file.relative_to(skills_dir).parts
     skill_name = skill_file.parent.name  # == parts[-2] whenever a parent component exists
     category = "general" if len(parts) < 2 else "/".join(parts[:-2]) if len(parts) > 2 else parts[0]
+    from agent.skill_utils import extract_skill_catalog_metadata
+    catalog = extract_skill_catalog_metadata(frontmatter, skill_name=str(frontmatter.get("name") or skill_name))
     platforms = frontmatter.get("platforms") or []
     platforms = [platforms] if isinstance(platforms, str) else platforms
     entry = {
@@ -1147,6 +1149,8 @@ def _build_snapshot_entry(skill_file: Path, skills_dir: Path, frontmatter: dict,
         "description": description, "platforms": [str(p).strip() for p in platforms if str(p).strip()],
         "conditions": extract_skill_conditions(frontmatter),
         "requires_apps": _requires_apps_list(frontmatter),
+        "visibility": catalog.visibility, "profiles": list(catalog.profiles),
+        "aliases": list(catalog.aliases), "catalog_valid": catalog.valid,
     }
     return entry
 
@@ -1204,7 +1208,10 @@ def _plugin_skill_prompt_rows(
             name = str(meta.get("name") or "")
             if not name or name in disabled:
                 continue
+            from agent.skill_utils import get_active_skill_profiles, skill_catalog_visible
             frontmatter = meta.get("frontmatter") or {}
+            if not skill_catalog_visible(frontmatter, get_active_skill_profiles(), skill_name=name):
+                continue
             if not (skill_matches_platform(frontmatter) and skill_matches_environment(frontmatter)
                     and skill_matches_apps(frontmatter)):
                 continue
@@ -1369,6 +1376,8 @@ def _build_skills_system_prompt_inner(
     available_toolsets: set[str] | None, compact_categories: frozenset[str] | None,
 ) -> str:
     # The resolved platform is part of the key: per-platform disabled-skill lists need distinct cache entries.
+    from agent.skill_utils import get_active_skill_profiles, skill_catalog_entry_visible
+    active_profiles = get_active_skill_profiles()
     _platform_hint = _current_session_platform_hint()
     disabled = get_disabled_skill_names(_platform_hint or None)
     # Plugin-registered skills (ctx.register_skill) are registry state, not files under any scanned
@@ -1385,7 +1394,7 @@ def _build_skills_system_prompt_inner(
         tuple(sorted(str(t) for t in (available_tools or set()))),
         tuple(sorted(str(ts) for ts in (available_toolsets or set()))),
         _platform_hint, tuple(sorted(disabled)), tuple(sorted(compact_categories or ())),
-        _oneshot_prompt_variant(), tuple(plugin_rows),
+        _oneshot_prompt_variant(), tuple(plugin_rows), tuple(sorted(active_profiles)),
     )
     snapshot = _load_skills_snapshot(skills_dir, manifest)
     app_gated = snapshot is not None and any(
@@ -1427,7 +1436,8 @@ def _build_skills_system_prompt_inner(
         rows += _scan_extra_root(root, iter_skill_index_files(root, "SKILL.md"), tier, "Error reading external skill %s: %s")
     resolved = resolve_skill_catalog([
         {**entry, "name": _entry_name(entry), "path": entry["root"] / entry["rel"],
-         "visible": ok and not hides(entry.get("skill_name") or "", entry.get("conditions") or {})}
+         "visible": ok and skill_catalog_entry_visible(entry, active_profiles, project=entry["tier"] == TIER_PROJECT)
+         and not hides(entry.get("skill_name") or "", entry.get("conditions") or {})}
         for entry, ok in rows])
     visible_entries = [e for e in resolved
                        if e["visible"] and e["status"] != "shadowed" and not is_disabled_entry(e, disabled)]

@@ -255,7 +255,9 @@ def _skill_catalog(*, skip_disabled: bool = False, include_hidden: bool = False)
                 if not description:  # first non-heading body line (a null value stays null)
                     description = next((ln for ln in map(str.strip, body.strip().split("\n"))
                                         if ln and not ln.startswith("#")), description)
+                from tools.skills_tool_catalog import catalog_fields
                 scanned.append({
+                    **catalog_fields(frontmatter, str(frontmatter.get("name") or skill_md.parent.name)),
                     "name": frontmatter.get("name", skill_md.parent.name)[:MAX_NAME_LENGTH],
                     "description": _truncate_description(description),
                     "category": _get_category_from_path(skill_md), "tier": tier, "root": scan_dir,
@@ -278,7 +280,8 @@ def find_all_skills(*, skip_disabled: bool = False) -> list[dict[str, Any]]:
     """Loadable skills (name, description, category): ``name`` is what skill_view() accepts —
     the declared name, or the exact relative path for a same-tier duplicate. Shadowed and
     unloadable copies are left out. ``skip_disabled=True`` ignores disabled state (config UI)."""
-    return [{"name": s["load_name"], "description": s["description"], "category": s["category"]}
+    return [{"name": s["load_name"], "description": s["description"], "category": s["category"],
+             **{key: s[key] for key in ("visibility", "profiles", "aliases", "metadata_valid")}}
             for s in _skill_catalog(skip_disabled=skip_disabled) if s["load_name"]]
 
 
@@ -287,8 +290,8 @@ def sort_skills(skills: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(skills, key=lambda s: (s.get("category") or "", s["name"]))
 
 
-def skills_list(category: str | None = None, task_id: str | None = None) -> str:
-    """Tier 1 listing: name + description (+ category) only; ``task_id`` is handler parity."""
+def skills_list(category: str | None = None, task_id: str | None = None, query: str | None = None) -> str:
+    """L2 discovery, including deferred skills; query searches canonical names, aliases and descriptions."""
     try:
         _skills_dir().mkdir(parents=True, exist_ok=True)
         all_skills = find_all_skills()
@@ -296,7 +299,10 @@ def skills_list(category: str | None = None, task_id: str | None = None) -> str:
             from hermes_cli.plugins import discover_plugins, get_plugin_manager
             discover_plugins()
             for plugin_skill in get_plugin_manager().list_plugin_skill_metadata():
+                from tools.skills_tool_catalog import catalog_fields
+                plugin_skill = dict(plugin_skill)
                 frontmatter = plugin_skill.pop("frontmatter", {})
+                plugin_skill.update(catalog_fields(frontmatter, plugin_skill["name"]))
                 if not skill_matches_platform(frontmatter) or _is_skill_disabled(plugin_skill["name"]):
                     continue
                 all_skills.append(plugin_skill)
@@ -307,7 +313,8 @@ def skills_list(category: str | None = None, task_id: str | None = None) -> str:
                           "message": "No skills found in skills/ directory."})
         if category:
             all_skills = [s for s in all_skills if s.get("category") == category]
-        all_skills = sort_skills(all_skills)
+        from tools.skills_tool_catalog import filter_catalog_query
+        all_skills = sort_skills(filter_catalog_query(all_skills, query))
         categories = sorted({s.get("category") for s in all_skills if s.get("category")})
         return _json({
             "success": True, "skills": all_skills, "categories": categories,
@@ -433,8 +440,11 @@ def _collect_skill_candidates(name, local_category_name, all_dirs):
         # Recursive by directory name plus frontmatter `name:` — skills_list()
         # exposes the frontmatter name, so skill_view(name) must accept it too.
         for found_skill_md in iter_skill_index_files(search_dir, "SKILL.md"):
+            from agent.skill_utils import skill_catalog_aliases
+            frontmatter = _safe_frontmatter(found_skill_md)
             if (found_skill_md.parent.name == name
-                    or _safe_frontmatter(found_skill_md).get("name") == name):
+                    or frontmatter.get("name") == name
+                    or name in skill_catalog_aliases(frontmatter, skill_name=str(frontmatter.get("name") or found_skill_md.parent.name))):
                 _record(found_skill_md.parent, found_skill_md)
         # Legacy flat <name>.md anywhere under the dir. Markdown owned by an ancestor
         # directory skill loads through file_path and must not shadow a real skill.
@@ -542,6 +552,9 @@ def locate_skill(name: str, local_category_name: Optional[str], roots):
         return _fail(
             "Skills directory does not exist yet. It will be created on first install."), None, None
     candidates = _collect_skill_candidates(name, local_category_name, all_dirs)
+    from tools.skills_tool_catalog import alias_ambiguity
+    if error := alias_ambiguity(name, candidates):
+        return _fail(error, matches=[str(md) for _, md in candidates]), None, None
     tier_of = {d: t for t, d in roots}
     if len(candidates) > 1:
         owned = [(c, _owning_search_dir(c[1], all_dirs)) for c in candidates]
@@ -656,7 +669,8 @@ def skill_view(
                 hint="Use a relative path within the skill directory")
         # tags/related_skills: metadata.hermes.* (agentskills.io) first, then top-level.
         metadata = frontmatter.get("metadata")
-        hermes_meta = (metadata.get("hermes", {}) or {}) if isinstance(metadata, dict) else {}
+        from tools.skills_tool_catalog import hermes_metadata
+        hermes_meta = hermes_metadata(frontmatter)
         tags, related_skills = (
             _parse_tags(hermes_meta.get(k) or frontmatter.get(k, "")) for k in ("tags", "related_skills"))
         linked_files = _skill_linked_files(skill_dir)
@@ -695,7 +709,9 @@ def skill_view(
                     + "` and reload."
                 )
 
+        from tools.skills_tool_catalog import catalog_fields
         result = {
+            **catalog_fields(frontmatter, str(skill_name)),
             "success": True, "name": skill_name, "description": frontmatter.get("description", ""),
             "tags": tags, "related_skills": related_skills, "content": rendered_content,
             "path": rel_path, "skill_dir": str(skill_dir) if skill_dir else None,
@@ -724,7 +740,8 @@ SKILLS_LIST_SCHEMA = {
             "category": {
                 "type": "string",
                 "description": "Optional category filter to narrow results",
-            }
+            },
+            "query": {"type": "string", "description": "Optional case-insensitive search over name, aliases, description and category"},
         },
         "required": [],
     },
@@ -751,7 +768,7 @@ SKILL_VIEW_SCHEMA = {
 
 registry.register(
     name="skills_list", toolset="skills", schema=SKILLS_LIST_SCHEMA,
-    handler=lambda args, **kw: skills_list(category=args.get("category"), task_id=kw.get("task_id")),
+    handler=lambda args, **kw: skills_list(category=args.get("category"), task_id=kw.get("task_id"), query=args.get("query")),
     check_fn=check_skills_requirements, emoji="📚")
 
 

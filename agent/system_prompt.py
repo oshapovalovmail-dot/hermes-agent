@@ -706,7 +706,7 @@ def _coding_parts(agent: Any) -> tuple[list[str], list[str], list[str]]:
 def _post_workspace_parts(agent: Any) -> list[str]:
     """Blocks that follow the worktree-specific context: environment probe
     (config.yaml agent.environment_probe; one line, nothing when clean, skipped
-    for remote backends), bot-mode protocol, platform hint."""
+    for remote backends) and bot-mode protocol. These are volatile family metadata."""
     parts: list[str] = []
     if getattr(agent, "_environment_probe", True):
         try:
@@ -716,7 +716,6 @@ def _post_workspace_parts(agent: Any) -> list[str]:
             pass  # Probe failure must never block prompt build.
     if getattr(agent, "_bot_mode_protocol", True):
         parts.extend(_bot_mode_parts(agent))
-    parts.append(platform_hint(agent))
     return parts
 
 
@@ -743,9 +742,9 @@ def _join_tier(parts: list[Optional[str]]) -> str:
 
 def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) -> dict[str, str]:
     """Assemble the system prompt as three ordered cache tiers: ``stable`` (identity,
-    guidance and the coding brief), ``context`` (caller ``system_message``, project
+    guidance, skills and the coding brief), ``context`` (caller ``system_message``, project
     context files, workspace snapshot and remaining workspace guidance) and
-    ``volatile`` (skills index, memory, user profile, external memory block,
+    ``volatile`` (memory, user profile, external memory block,
     timestamp line, runtime environment hints).  Worktree-dependent blocks follow project context so a
     shared context file can remain in the longest common prefix across worktrees.
     Never re-rendered mid-session."""
@@ -765,6 +764,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # in the rendered index (pure string check — inherits the index's stability).
     if "skill_view" in (agent.valid_tool_names or set()) and "- hermes-agent:" in skills_prompt:
         stable_parts[_help_guidance_slot] = HERMES_AGENT_HELP_GUIDANCE
+    stable_parts.extend([skills_prompt, platform_hint(agent)])
     stable_parts.extend(_alibaba_identity_part(agent))
     # Pinned skills are per-agent constants (resolved once), so they live in the stable prefix.
     stable_parts.extend(_auto_load_parts(agent))
@@ -782,20 +782,20 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         context_parts.append(system_message)
     context_parts.extend(_context_files_part(agent, _ctx_len, _soul_loaded))
     if coding_workspace_parts:
-        context_parts.extend([*coding_workspace_parts, *coding_trailing_parts, *post_workspace_parts])
+        context_parts.extend([*coding_workspace_parts, *coding_trailing_parts])
     else:
         # Preserve the stable placement for non-workspace sessions; there is no
         # worktree snapshot whose later position would improve their prefix.
-        stable_parts.extend([*coding_trailing_parts, *post_workspace_parts])
+        stable_parts.extend(coding_trailing_parts)
     # ── Volatile tier (most likely to differ on a rebuild; kept last so the stable prefix stays reusable) ──
-    # Skills are runtime-mutable, so the index leads the volatile band: on a longest-prefix
-    # backend an unchanged index stays inside the reused prefix; a changed one re-prefills from here.
-    volatile_parts: list[str] = [skills_prompt, *_memory_parts(agent)]
+    # The skill catalog is frozen for a conversation; runtime probes and memory are not family identity.
+    volatile_parts: list[str] = [*_memory_parts(agent)]
     # Plugin sections are confined to one coarse anchor in the volatile tail so
     # a resumed process can reconstruct the stable prefix without re-running plugins.
     volatile_parts.extend(_plugin_section_blocks(_frozen_plugin_prompt_sections(agent), "after_memory"))
     # The profile line names this home's path, so it rides in the volatile tier: the stable
     # prefix then stays byte-identical across every profile (and home) on the host.
+    volatile_parts.extend(post_workspace_parts)
     volatile_parts.append(_active_profile_line(agent))
     volatile_parts.append(_timestamp_line(agent))
     # Keep the renderer-owned runtime anchor after all user/plugin prose so quoted
@@ -812,7 +812,7 @@ def build_system_prompt(agent: Any, system_message: Optional[str] = None) -> str
     only rebuilt after compression.  Tiers are ordered stable -> context ->
     volatile so implicit longest-prefix caches keep the unchanged scaffold."""
     parts = build_system_prompt_parts(agent, system_message=system_message)
-    agent._cached_system_prompt_static = parts["stable"]
+    agent._cached_system_prompt_static = "\n\n".join(p for p in (parts["stable"], parts["context"]) if p)
     # Surface context-file truncation warnings in chat, not only in logs.
     for warning in drain_truncation_warnings():
         agent._emit_diagnostic_status(warning)
@@ -843,7 +843,7 @@ def invalidate_system_prompt(agent: Any) -> None:
 def reconstruct_static_prefix(agent: Any, system_message: Optional[str] = None, *, log_label: str = "restore") -> None:
     """Reconstruct ``_cached_system_prompt_static`` for a stored prompt.
     Only the full prompt is persisted, so restore / keep-prompt compression /
-    mid-turn failover to a cache-on provider must rebuild the stable tier to
+    mid-turn failover to a cache-on provider must rebuild the stable + context prefix to
     regain the ``[static, volatile]`` layout.  The rebuilt tier is used ONLY
     when the stored prompt literally starts with it; otherwise static stays
     None and the stored bytes are sent untouched.  A failed rebuild is memoized
@@ -858,7 +858,8 @@ def reconstruct_static_prefix(agent: Any, system_message: Optional[str] = None, 
     ):
         return
     try:
-        static = build_system_prompt_parts(agent, system_message=system_message)["stable"]
+        parts = build_system_prompt_parts(agent, system_message=system_message)
+        static = "\n\n".join(p for p in (parts["stable"], parts["context"]) if p)
         if static and stored.startswith(static):
             agent._cached_system_prompt_static = static
             agent._static_rebuild_failed_for = None

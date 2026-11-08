@@ -485,7 +485,7 @@ def test_build_system_prompt_records_stable_prefix():
         prompt = build_system_prompt(agent)
 
     assert prompt.startswith(agent._cached_system_prompt_static)
-    assert prompt[len(agent._cached_system_prompt_static):].startswith("\n\ncontext")
+    assert agent._cached_system_prompt_static.endswith("context")
 
 
 def test_coding_prompt_orders_shared_context_before_workspace(monkeypatch):
@@ -544,7 +544,7 @@ def test_coding_prompt_orders_shared_context_before_workspace(monkeypatch):
         prompt = build_system_prompt(agent, system_message="SYSTEM_MESSAGE")
 
     assert prompt == expected
-    assert agent._cached_system_prompt_static == "\n\n".join(expected.split("\n\n")[:4])
+    assert agent._cached_system_prompt_static == expected.split("\n\n" + expected_profile)[0]
 
 
 class TestTelegramRichMessagesHint:
@@ -672,26 +672,21 @@ def _build(builder, **overrides):
         return builder(agent)
 
 
-class TestSkillsInVolatileBand:
-    """The skills index is runtime-mutable, so it lives in the volatile band,
-    not the stable band, to keep the cached stable prefix reusable when a
-    rebuild picks up a skill change."""
+class TestSkillsInStableBand:
+    """The frozen catalog contributes to the reusable cache family before project context."""
 
-    def test_skills_not_in_stable_band(self):
+    def test_skills_in_stable_band(self):
         parts = _build(build_system_prompt_parts)
-        assert _SKILLS not in parts["stable"]
+        assert _SKILLS in parts["stable"]
 
-    def test_skills_lead_the_volatile_band(self):
+    def test_skills_not_in_volatile_band(self):
         parts = _build(build_system_prompt_parts)
-        assert parts["volatile"].startswith(_SKILLS)
+        assert _SKILLS not in parts["volatile"]
 
-    def test_full_order_is_stable_context_then_skills(self):
-        # build_system_prompt joins stable + context + volatile, so the skills
-        # index renders after the context files and before the per-turn
-        # memory/timestamp tail.
+    def test_full_order_is_skills_context_then_runtime(self):
         full = _build(build_system_prompt)
-        assert full.index(_CONTEXT) < full.index(_SKILLS)
-        assert full.index(_SKILLS) < full.index("Conversation started:")
+        assert full.index(_SKILLS) < full.index(_CONTEXT)
+        assert full.index(_CONTEXT) < full.index("Conversation started:")
 
 
 class TestMemoryProviderSystemPromptGating:

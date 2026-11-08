@@ -476,7 +476,8 @@ def skill_command_collision_note(name: str) -> Optional[str]:
     return f"slash command /{cmd_name} unavailable — name taken by built-in; use /skill {name}"
 
 
-def _scan_skill_md(skill_md: Path, disabled: set, seen_names: set, commands: dict[str, dict[str, Any]]) -> None:
+def _scan_skill_md(skill_md: Path, disabled: set, seen_names: set, commands: dict[str, dict[str, Any]],
+                   *, project: bool = False) -> None:
     """Register one SKILL.md in *commands* (no-op when filtered or colliding)."""
     from tools.skills_tool import _parse_frontmatter, skill_matches_apps, skill_matches_platform, skill_matches_environment
     if any(part in _SCAN_SKIP_PARTS for part in skill_md.parts):
@@ -485,7 +486,10 @@ def _scan_skill_md(skill_md: Path, disabled: set, seen_names: set, commands: dic
     # OS gate is hard; environment gate (kanban/docker/s6) is offer-time only.
     if not skill_matches_platform(frontmatter) or not skill_matches_environment(frontmatter) or not skill_matches_apps(frontmatter):
         return
+    from agent.skill_utils import get_active_skill_profiles, skill_catalog_visible
     name = frontmatter.get('name', skill_md.parent.name)
+    if not skill_catalog_visible(frontmatter, get_active_skill_profiles(), project=project, skill_name=str(name)):
+        return
     if name in seen_names or name in disabled:
         return
     description = frontmatter.get('description', '') or next(
@@ -541,7 +545,8 @@ def scan_skill_commands() -> dict[str, dict[str, Any]]:
         for entry in _skill_catalog():
             if entry["status"] == "unique":
                 try:
-                    _scan_skill_md(Path(entry["path"]), disabled, seen_names, commands)
+                    from agent.skill_utils import TIER_PROJECT
+                    _scan_skill_md(Path(entry["path"]), disabled, seen_names, commands, project=entry["tier"] == TIER_PROJECT)
                 except Exception:
                     continue
     except Exception:
@@ -620,7 +625,9 @@ def _skill_dirs_signature() -> Optional[tuple]:
     from tools.skills_tool import _get_disabled_skill_names, skill_search_dirs, _skills_scan_signature
     try:
         roots, _active = skill_search_dirs()
-        return _skills_scan_signature([d for _tier, d in roots], _get_disabled_skill_names())
+        from agent.skill_utils import get_active_skill_profiles
+        return (*_skills_scan_signature([d for _tier, d in roots], _get_disabled_skill_names()),
+                tuple(sorted(get_active_skill_profiles())))
     except OSError:
         logger.debug("Skill dir signature failed", exc_info=True)
         return None
