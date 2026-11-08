@@ -39,13 +39,17 @@ def capture_messages(user: str, assistant: str, messages: list[dict[str, Any]] |
             for kind, text in spans if text]
     if messages is not None:
         copied = [dict(message) for message in messages]
-        # Restrict replacement to the current turn. Do not annotate an older
-        # callback just because its bytes reappear in conversation history.
+        # Only typed /steer rows extend the current turn's user boundary.
+        # Textual markers and historical byte matches do not establish origin.
         for index in range(len(copied) - 1, -1, -1):
             if copied[index].get("role") == "user":
+                if copied[index].get("display_kind") == "steer":
+                    continue
                 # Skill scaffolding was removed from provider-facing text, not
                 # from the canonical transcript used to locate this turn.
                 if copied[index].get("content") == (user if original_user is None else original_user):
                     return copied[:index] + rows + copied[index + 1:]
                 break
+        # A supplied transcript is authoritative, even if empty or unmatched.
+        return messages
     return rows + [{"role": "assistant", "content": assistant}]
