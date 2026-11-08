@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "origin": "Operator-owned standalone FRIDA ONNX INT8 CPU serving wrapper",
+  "upstream_model": "ai-forever/FRIDA",
+  "upstream_revision": "850455b605544a944739b25f81ddf812b6e3d0d5",
+  "embedding_contract": "frida-850455b6-document-mean-l2-frida512-overlap20-v2",
+  "files": {
+    "server.py": {
+      "original_sha256": "7e4eebffd4463382c53a32c875cabe17a61e3e6118f6308e961c259d7e9c19c5",
+      "published_sha256": "00836df7eb6c8bf034a563d9ec8d491b234d9254c07bc4e724af01db59bb5c68"
+    },
+    "run.sh": {
+      "original_sha256": "998630a78c789754457ac2d31f3ce10809be955d518294fac605fc35fb089922",
+      "published_sha256": "998630a78c789754457ac2d31f3ce10809be955d518294fac605fc35fb089922"
+    },
+    "requirements-runtime.lock": {
+      "original_sha256": "159222e66306bbd48fc5f3ab12b90509fe70feb2b6a569bf6dbe03b4cb65b860",
+      "published_sha256": "159222e66306bbd48fc5f3ab12b90509fe70feb2b6a569bf6dbe03b4cb65b860"
+    }
+  },
+  "adaptations": [
+    "Formatting, explicit float32 array conversion and equivalent list typing",
+    "Resolve the unchanged FRIDA_MODEL_PATH/FRIDA_TOKENIZER_PATH settings at the first model load, not at module import",
+    "Reviewed readiness/503 error-type boundary keeps private paths out of HTTP responses"
+  ],
+  "excluded": [
+    "Weights and tokenizers (separate model publication)",
+    "Service configuration and launchd units",
+    "Credentials, datasets, caches, logs and backfill scripts"
+  ]
+}
