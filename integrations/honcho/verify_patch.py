@@ -23,11 +23,11 @@ def verify(source: Path, python: Path) -> int:
     with tempfile.TemporaryDirectory(prefix="honcho-patch-") as td:
         sandbox = Path(td)
         # Read only immutable Git objects. No checkout config, .env, skills, or runtime state.
-        archive = subprocess.check_output(["git", "-C", str(source), "archive", BASE, "src", *FILES])
+        archive = subprocess.check_output(["git", "-C", str(source), "archive", BASE, "src", *FILES], timeout=60)
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
             tar.extractall(sandbox, filter="data")
         for args in (["--check"], []):
-            subprocess.run(["git", "apply", *args, str(patch)], cwd=sandbox, check=True)
+            subprocess.run(["git", "apply", *args, str(patch)], cwd=sandbox, check=True, timeout=30)
         # Run the actual patched module outside Honcho's app/database conftests.
         tests = sandbox / "unit"
         tests.mkdir()
@@ -50,7 +50,7 @@ def verify(source: Path, python: Path) -> int:
         return subprocess.run([str(python), "-m", "pytest", "-c", "/dev/null", "--confcutdir", str(tests),
                                "-o", "asyncio_mode=auto", "-o", "asyncio_default_fixture_loop_scope=function",
                                str(tests / "test_embedding_client.py"), "-q", "--tb=short", "-p", "no:cacheprovider"],
-                              cwd=sandbox, env=env).returncode
+                              cwd=sandbox, env=env, check=False, timeout=150).returncode
 
 
 if __name__ == "__main__":

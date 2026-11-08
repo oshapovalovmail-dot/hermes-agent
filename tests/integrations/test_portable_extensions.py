@@ -157,7 +157,6 @@ def test_real_discovery_from_fresh_home(tmp_path, monkeypatch):
 
 
 def test_qyp_disabled_refuses_before_any_process(tmp_path, monkeypatch):
-    before = set(tmp_path.rglob("*"))
     plugin = load("qyp-delegate")
     monkeypatch.setattr(plugin.qyp_delegate.subprocess, "run", Mock(side_effect=AssertionError("no process")))
     result = json.loads(plugin.qyp_delegate.handle_delegate_qyp({"goal": "not executed"}, jobs_root=tmp_path / "jobs"))
@@ -259,7 +258,7 @@ def test_qyp_physical_symlink_escape_rejected_without_ssh(tmp_path, monkeypatch)
     (allowed / "escape").symlink_to(outside, target_is_directory=True)
     monkeypatch.setattr(plugin.qyp_delegate, "_settings", lambda: {"allowed_roots": [str(allowed)]})
     for path, expected in [(allowed, 0), (allowed / "escape", 1)]:
-        result = subprocess.run(["bash", "-c", plugin.qyp_delegate._remote_cd(str(path))], capture_output=True)
+        result = subprocess.run(["bash", "-c", plugin.qyp_delegate._remote_cd(str(path))], capture_output=True, check=False, timeout=3)
         assert result.returncode == expected
 
 
@@ -299,3 +298,32 @@ def test_qyp_background_spec_never_serializes_inherited_private_environment(tmp_
     assert "SYNTHETIC_PRIVATE_SETTING" not in spec["env"]
     assert "not-for-job-artifacts" not in json.dumps(spec)
     spawn.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["connect", "send"])
+async def test_reminder_profile_resolution_does_not_block_loop(tmp_path, monkeypatch, operation):
+    import threading
+    from gateway.config import PlatformConfig
+    from importlib import import_module
+
+    plugin = load("reminder-actions")
+    module = import_module(plugin.__name__ + ".adapter")
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "original"))
+    adapter = module.ReminderAdapter(PlatformConfig(), root=tmp_path / "store", route={}, jobs=[])
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "other"))
+    resolve = Path.resolve
+    loop_thread = threading.get_ident()
+
+    def nonblocking_resolve(path, *args, **kwargs):
+        assert threading.get_ident() != loop_thread, "filesystem resolution must run off-loop"
+        return resolve(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "resolve", nonblocking_resolve)
+        if operation == "connect":
+            assert await adapter.connect() is False
+        else:
+            result = await adapter.send("inbox", "synthetic")
+            assert not result.success
+            assert result.error == "reminder_profile_mismatch"

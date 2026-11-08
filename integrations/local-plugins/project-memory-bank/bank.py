@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import fcntl
 import hashlib
 import json
@@ -36,7 +36,7 @@ def key(value: str) -> str:
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def project_path(project: str) -> Path:
@@ -163,7 +163,7 @@ def digest(bank: Path) -> str:
 def revision(bank: Path) -> str | None:
     p = json.loads(read(bank / ".hermes-project.json", bank))["project"]
     # No code traversal, indexing, dirty-file discovery or monorepo-root scanning.
-    run = subprocess.run(["git", "-C", p, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=3)
+    run = subprocess.run(["git", "-C", p, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=3, check=False)
     return run.stdout.strip() if run.returncode == 0 else None
 
 

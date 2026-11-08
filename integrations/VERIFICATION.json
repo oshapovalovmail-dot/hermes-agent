@@ -1,7 +1,7 @@
 {
   "base": "21ae0e1238fdf466fa52a85a6ebf75d6899e49da",
   "tests": {
-    "portable_extensions": 19,
+    "portable_extensions": 21,
     "yandex_provider": 15,
     "meeting_context": 3,
     "honcho_patched_embedding_client": 51

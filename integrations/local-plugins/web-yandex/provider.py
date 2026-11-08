@@ -1,6 +1,7 @@
 """Profile-local Yandex search providers over direct HTTP."""
 from __future__ import annotations
 
+import logging
 import ssl
 from urllib.parse import urlsplit
 
@@ -9,6 +10,7 @@ import httpx
 from agent.web_search_provider import WebSearchProvider
 
 DIRECT = "https://ya.ru/search/xml/generative"
+logger = logging.getLogger(__name__)
 
 CONTEXT_CHARS = 4000
 
@@ -110,4 +112,5 @@ class YandexSearchProvider(WebSearchProvider):
                 return {"success": False, "error": "Search response exceeds 2 MB"}
             return normalize(response.json(), limit, self.name)
         except Exception as exc:
+            logger.exception("Yandex search failed")
             return {"success": False, "provider": self.name, "error": f"{type(exc).__name__}: {exc}"}

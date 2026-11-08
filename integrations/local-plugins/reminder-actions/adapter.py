@@ -40,7 +40,7 @@ class ReminderAdapter(native.TelegramAdapter):
         return await asyncio.to_thread(self._store, function, *args, **kwargs)
 
     async def connect(self, **kwargs):
-        if Path(get_hermes_home()).resolve() != self._reminder_home:
+        if await asyncio.to_thread(Path(get_hermes_home()).resolve) != self._reminder_home:
             return False
         connected = await super().connect(**kwargs)
         if connected:
@@ -51,7 +51,7 @@ class ReminderAdapter(native.TelegramAdapter):
         return connected
 
     async def send(self, chat_id, content, reply_to=None, metadata=None):
-        if Path(get_hermes_home()).resolve() != self._reminder_home:
+        if await asyncio.to_thread(Path(get_hermes_home()).resolve) != self._reminder_home:
             return SendResult(success=False, error='reminder_profile_mismatch')
         metadata = metadata or {}
         job = metadata.get('job_id')
@@ -96,7 +96,7 @@ class ReminderAdapter(native.TelegramAdapter):
                                   raw_response={'message_ids': receipts, 'reminder_controls': True,
                                                 'delivery_id': delivery['id']})
             except Exception as exc:
-                logger.error('Reminder controls delivery failed: %s', type(exc).__name__)
+                logger.exception('Reminder controls delivery failed: %s', type(exc).__name__)
                 return SendResult(success=False, error='reminder_controls_' + type(exc).__name__)
 
     def _admit_draft(self, event):
@@ -122,7 +122,7 @@ class ReminderAdapter(native.TelegramAdapter):
     async def reminder_callback(self, update, context):
         query = update.callback_query
         try:
-            if Path(get_hermes_home()).resolve() != self._reminder_home:
+            if await asyncio.to_thread(Path(get_hermes_home()).resolve) != self._reminder_home:
                 raise ValueError('reminder_profile_mismatch')
             match = re.fullmatch(r'wr:([cd]):([a-f0-9]{32})', query.data or '')
             message = query.message
@@ -139,18 +139,14 @@ class ReminderAdapter(native.TelegramAdapter):
                     ids = [int(mid) for mid in dict.fromkeys(result['message_ids'])
                            if int(mid) != message.message_id] + [message.message_id]
                     try:
-                        for mid in ids:
-                            try:
-                                await context.bot.delete_message(chat_id=message.chat.id, message_id=mid)
-                            except BadRequest as exc:
-                                if 'message to delete not found' not in str(exc).lower():
-                                    raise
+                        await self._delete_notifications(context.bot, message.chat.id, ids)
                     except Exception as exc:
-                        logger.error('Reminder notification deletion failed: %s', type(exc).__name__)
+                        logger.exception('Reminder notification deletion failed: %s', type(exc).__name__)
                         warning = 'Вопрос закрыт, но удалить уведомление не удалось. Нажми «Закрыть» ещё раз.'
                         try:
                             await query.answer(warning, show_alert=True)
                         except Exception:
+                            logger.exception('Reminder deletion warning acknowledgement failed')
                             await self.send(str(message.chat.id), warning,
                                             metadata={'thread_id': str(message.message_thread_id)})
                     else:
@@ -185,7 +181,15 @@ class ReminderAdapter(native.TelegramAdapter):
         except ValueError:
             await query.answer('Эта кнопка недоступна в данном чате или для данного пользователя.', show_alert=True)
         except Exception as exc:
-            logger.error('Reminder callback failed: %s', type(exc).__name__)
+            logger.exception('Reminder callback failed: %s', type(exc).__name__)
             with suppress(Exception):
                 await query.answer('Не удалось обработать кнопку. Статус черновика не подтверждён.', show_alert=True)
         raise ApplicationHandlerStop
+
+    async def _delete_notifications(self, bot, chat_id, message_ids):
+        for mid in message_ids:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=mid)
+            except BadRequest as exc:
+                if 'message to delete not found' not in str(exc).lower():
+                    raise
