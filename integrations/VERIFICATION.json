@@ -1,0 +1,20 @@
+{
+  "base": "21ae0e1238fdf466fa52a85a6ebf75d6899e49da",
+  "tests": {
+    "portable_extensions": 21,
+    "yandex_provider": 15,
+    "meeting_context": 3,
+    "honcho_patched_embedding_client": 51
+  },
+  "runtime": "CPython 3.14.9; isolated PM-built candidate environments",
+  "network_execution": "No SSH/QYP, Telegram/search provider, Honcho service, GitHub, or HF execution; HTTP/provider tests mocked; Honcho socket fence active",
+  "honcho_base": "2ad56a4d715b015d744ea86f05a287069d264898",
+  "honcho_patch_sha256": "0d79b7ab0597d24d7c50e8218484b557c75dba8607c8f64f2ddd841586e8dde8",
+  "known_warnings": [
+    "google-genai uses a Python typing alias deprecated for Python 3.17"
+  ],
+  "excluded_policy_hooks": [
+    "restrict-arcadia-search.py",
+    "role-write-policy.py"
+  ]
+}

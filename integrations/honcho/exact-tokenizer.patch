@@ -1,0 +1,516 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 7c858e233c7b57da2295361c124c5bcc3c59dea7..63917c6fc2fb9cbd12981a0a62752bddddf7fa48 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -37,6 +37,7 @@ dependencies = [
+     "scikit-learn>=1.6.0",
+     "prometheus_client>=0.21.0",
+     "cloudevents>=1.12.0,<2.0",
++    "tokenizers>=0.21,<1",
+ ]
+ [project.optional-dependencies]
+ lancedb = [
+diff --git a/src/config.py b/src/config.py
+index 8082732732d6730b1c34c4a71a316a394b4ab948..4f4c7007f9b2ca8ddc811547653347063a2e5433 100644
+--- a/src/config.py
++++ b/src/config.py
+@@ -1,11 +1,11 @@
+ import logging
+ import math
+ import os
++import tomllib
+ from pathlib import Path
+ from typing import Annotated, Any, ClassVar, Literal, cast, get_args
+ from urllib.parse import urlparse
+ 
+-import tomllib
+ from dotenv import load_dotenv
+ from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
+ from pydantic.fields import FieldInfo
+@@ -820,6 +820,12 @@ class EmbeddingSettings(HonchoSettings):
+     VECTOR_DIMENSIONS: Annotated[int, Field(default=1536, gt=0)] = 1536
+     MAX_INPUT_TOKENS: Annotated[int, Field(default=8192, gt=0)] = 8192
+     MAX_TOKENS_PER_REQUEST: Annotated[int, Field(default=300_000, gt=0)] = 300_000
++    MAX_CONCURRENT_BATCHES: Annotated[int, Field(default=10, gt=0, le=100)] = 10
++    # Optional exact tokenizer for OpenAI-compatible embedding providers whose
++    # tokenization differs from tiktoken (for example local FRIDA).
++    TOKENIZER_PATH: str | None = None
++    INPUT_PREFIX: str = ""
++    CHUNK_OVERLAP_RATIO: Annotated[float, Field(default=0.2, ge=0, lt=1)] = 0.2
+     # Caps concurrent message-embedding fan-out on the API request path (the
+     # immediate-embed background task). The reconciler is unaffected.
+     MAX_CONCURRENT_EMBEDDINGS: Annotated[int, Field(default=10, gt=0, le=100)] = 10
+diff --git a/src/embedding_client.py b/src/embedding_client.py
+index d3f4e369410c2ceff5b7a3139ca01ef81f130d5d..421543555771f1787228cc052b18e98cc9e10e0d 100644
+--- a/src/embedding_client.py
++++ b/src/embedding_client.py
+@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeVar, cast
+ 
+ import tiktoken
+ from nanoid import generate as generate_nanoid
++from tokenizers import Tokenizer
+ 
+ from .config import (
+     EmbeddingEncodingFormat,
+@@ -179,6 +180,71 @@ class BatchItem(NamedTuple):
+     token_count: int
+ 
+ 
++class _HuggingFaceEmbeddingTokenizer:
++    """Exact provider tokenizer for token accounting and source-preserving chunks."""
++
++    def __init__(
++        self,
++        tokenizer_path: str,
++        *,
++        input_prefix: str = "",
++        overlap_ratio: float = 0.2,
++    ) -> None:
++        if not 0 <= overlap_ratio < 1:
++            raise ValueError("overlap_ratio must be in [0, 1)")
++        self._tokenizer: Tokenizer = Tokenizer.from_file(tokenizer_path)
++        self._tokenizer.no_truncation()
++        self._tokenizer.no_padding()
++        self._input_prefix: str = input_prefix
++        self._overlap_ratio: float = overlap_ratio
++
++    def encode(self, text: str) -> list[int]:
++        return self._tokenizer.encode(text, add_special_tokens=False).ids
++
++    def decode(self, tokens: list[int]) -> str:
++        return self._tokenizer.decode(tokens, skip_special_tokens=True)
++
++    def count(self, text: str) -> int:
++        return len(self._tokenizer.encode(self._input_prefix + text).ids)
++
++    def chunk(self, text: str, max_tokens: int) -> list[tuple[str, int]]:
++        total = self.count(text)
++        if total <= max_tokens:
++            return [(text, total)]
++
++        offsets = self._tokenizer.encode(text, add_special_tokens=False).offsets
++        if not offsets:
++            raise ValueError("Text exceeds token limit but has no content token offsets")
++
++        overlap_tokens = int(max_tokens * self._overlap_ratio)
++        chunks: list[tuple[str, int]] = []
++        start = 0
++        while start < len(offsets):
++            end = min(len(offsets), start + max_tokens)
++            chunk_text = ""
++            chunk_count = max_tokens + 1
++            while end > start:
++                char_start = 0 if start == 0 else offsets[start][0]
++                char_end = len(text) if end == len(offsets) else offsets[end][0]
++                chunk_text = text[char_start:char_end]
++                chunk_count = self.count(chunk_text)
++                if chunk_count <= max_tokens:
++                    break
++                end -= 1
++            if end <= start or not chunk_text:
++                raise ValueError(
++                    "Unable to create a non-empty chunk within the provider token limit"
++                )
++            chunks.append((chunk_text, chunk_count))
++            if end == len(offsets):
++                break
++            start = max(
++                start + 1,
++                end - min(overlap_tokens, end - start - 1),
++            )
++        return chunks
++
++
+ class _EmbeddingClient:
+     """
+     Embedding client supporting OpenAI and Gemini with chunking and batching support.
+@@ -193,6 +259,8 @@ class _EmbeddingClient:
+         max_tokens_per_request: int,
+         send_dimensions: bool,
+         encoding_format: EmbeddingEncodingFormat = "float",
++        embedding_tokenizer: _HuggingFaceEmbeddingTokenizer | None = None,
++        max_concurrent_batches: int = 10,
+     ):
+         self.transport: str = config.transport
+         self.model: str = config.model
+@@ -242,7 +310,18 @@ class _EmbeddingClient:
+             self.encoding: tiktoken.Encoding = tiktoken.encoding_for_model(self.model)
+         except KeyError:
+             self.encoding = tiktoken.get_encoding("cl100k_base")
++        self.embedding_tokenizer: _HuggingFaceEmbeddingTokenizer | None = (
++            embedding_tokenizer
++        )
+         self.max_embedding_tokens_per_request: int = max_tokens_per_request
++        self._batch_semaphore: asyncio.Semaphore = asyncio.Semaphore(
++            max_concurrent_batches
++        )
++
++    def _count_tokens(self, text: str) -> int:
++        if self.embedding_tokenizer is not None:
++            return self.embedding_tokenizer.count(text)
++        return len(self.encoding.encode(text))
+ 
+     @property
+     def provider(self) -> str:
+@@ -280,7 +359,7 @@ class _EmbeddingClient:
+             )
+ 
+     async def embed(self, query: str) -> list[float]:
+-        token_count = len(self.encoding.encode(query))
++        token_count = self._count_tokens(query)
+ 
+         if token_count > self.max_embedding_tokens:
+             raise EmbeddingTokenLimitError(
+@@ -337,6 +416,9 @@ class _EmbeddingClient:
+ 
+         Decode/re-encode after slicing: BPE boundaries can re-expand past the cap.
+         """
++        if self.embedding_tokenizer is not None:
++            return self.embedding_tokenizer.chunk(text, self.max_embedding_tokens)[0]
++
+         token_ids = self.encoding.encode(text)
+         keep = self.max_embedding_tokens
+         while len(token_ids) > self.max_embedding_tokens:
+@@ -379,10 +461,10 @@ class _EmbeddingClient:
+         prepared_texts: list[str] = []
+         token_counts: list[int] = []
+         for idx, text in enumerate(texts):
+-            token_ids = self.encoding.encode(text)
+-            if len(token_ids) > self.max_embedding_tokens:
++            tokens = self._count_tokens(text)
++            if tokens > self.max_embedding_tokens:
+                 if on_oversize == "truncate":
+-                    original_count = len(token_ids)
++                    original_count = tokens
+                     text, tokens = self._truncate_to_token_limit(text)
+                     logger.warning(
+                         "truncated oversize embedding input at idx %d: %d->%d tokens",
+@@ -393,10 +475,8 @@ class _EmbeddingClient:
+                 else:
+                     raise EmbeddingTokenLimitError(
+                         f"Text at index {idx} exceeds maximum token limit of "
+-                        + f"{self.max_embedding_tokens} tokens (got {len(token_ids)} tokens)"
++                        + f"{self.max_embedding_tokens} tokens (got {tokens} tokens)"
+                     )
+-            else:
+-                tokens = len(token_ids)
+             prepared_texts.append(text)
+             token_counts.append(tokens)
+ 
+@@ -408,7 +488,7 @@ class _EmbeddingClient:
+ 
+         batches = self._create_batches(text_chunks)
+         batch_results = await asyncio.gather(
+-            *[self._process_batch(batch) for batch in batches],
++            *[self._process_batch_bounded(batch) for batch in batches],
+         )
+ 
+         combined: dict[str, list[list[float]]] = self._accumulate_embeddings(
+@@ -452,7 +532,7 @@ class _EmbeddingClient:
+ 
+         # 3. Process all batches concurrently
+         batch_results = await asyncio.gather(
+-            *[self._process_batch(batch) for batch in batches],
++            *[self._process_batch_bounded(batch) for batch in batches],
+         )
+ 
+         # 4. Accumulate results preserving chunk order
+@@ -474,6 +554,11 @@ class _EmbeddingClient:
+         """
+         out: dict[str, list[tuple[str, int]]] = {}
+         for text_id, text in id_resource_dict.items():
++            if self.embedding_tokenizer is not None:
++                out[text_id] = self.embedding_tokenizer.chunk(
++                    text, self.max_embedding_tokens
++                )
++                continue
+             tokens = self.encoding.encode(text)
+             if len(tokens) > self.max_embedding_tokens:
+                 out[text_id] = _chunk_text_with_tokens(
+@@ -614,6 +699,12 @@ class _EmbeddingClient:
+ 
+         raise last_exception or RuntimeError("Batch processing failed")
+ 
++    async def _process_batch_bounded(
++        self, batch: list[BatchItem]
++    ) -> dict[str, dict[int, list[float]]]:
++        async with self._batch_semaphore:
++            return await self._process_batch(batch)
++
+     def _accumulate_embeddings(
+         self, batch_results: list[dict[str, dict[int, list[float]]]]
+     ) -> dict[str, list[list[float]]]:
+@@ -706,6 +797,15 @@ class EmbeddingClient:
+             with self._lock:
+                 if self._instance is None or self._instance_signature != signature:
+                     runtime_config = self._resolve_runtime_config()
++                    exact_tokenizer = (
++                        _HuggingFaceEmbeddingTokenizer(
++                            settings.EMBEDDING.TOKENIZER_PATH,
++                            input_prefix=settings.EMBEDDING.INPUT_PREFIX,
++                            overlap_ratio=settings.EMBEDDING.CHUNK_OVERLAP_RATIO,
++                        )
++                        if settings.EMBEDDING.TOKENIZER_PATH
++                        else None
++                    )
+                     self._instance = _EmbeddingClient(
+                         runtime_config,
+                         vector_dimensions=settings.EMBEDDING.VECTOR_DIMENSIONS,
+@@ -713,6 +813,8 @@ class EmbeddingClient:
+                         max_tokens_per_request=settings.EMBEDDING.MAX_TOKENS_PER_REQUEST,
+                         send_dimensions=settings.EMBEDDING.resolve_send_dimensions(),
+                         encoding_format=settings.EMBEDDING.resolve_encoding_format(),
++                        embedding_tokenizer=exact_tokenizer,
++                        max_concurrent_batches=settings.EMBEDDING.MAX_CONCURRENT_BATCHES,
+                     )
+                     self._instance_signature = signature
+                     logger.debug(
+@@ -739,6 +841,10 @@ class EmbeddingClient:
+             settings.EMBEDDING.MAX_TOKENS_PER_REQUEST,
+             settings.EMBEDDING.resolve_send_dimensions(),
+             settings.EMBEDDING.resolve_encoding_format(),
++            settings.EMBEDDING.TOKENIZER_PATH,
++            settings.EMBEDDING.INPUT_PREFIX,
++            settings.EMBEDDING.CHUNK_OVERLAP_RATIO,
++            settings.EMBEDDING.MAX_CONCURRENT_BATCHES,
+         )
+ 
+     async def embed(self, query: str) -> list[float]:
+@@ -792,16 +898,22 @@ class EmbeddingClient:
+         return self._get_client().vector_dimensions
+ 
+     @property
+-    def encoding(self) -> tiktoken.Encoding:
+-        """Get the tiktoken encoding.
++    def encoding(self) -> tiktoken.Encoding | _HuggingFaceEmbeddingTokenizer:
++        """Get the configured raw-content encoding.
+ 
+-        Resolved without constructing the underlying client: tiktoken needs no
+-        API key, and token-counting callers (e.g. the document dedup tie-break)
+-        must work in environments with no embedding credentials, such as CI for
+-        pull requests from forks.
++        Exact-token deployments must expose their canonical tokenizer to every
++        token-dependent caller, including the document dedup tie-break. Resolve
++        without constructing the underlying provider client so this remains
++        usable without embedding credentials.
+         """
+         if self._instance is not None:
+-            return self._instance.encoding
++            return self._instance.embedding_tokenizer or self._instance.encoding
++        if settings.EMBEDDING.TOKENIZER_PATH:
++            return _HuggingFaceEmbeddingTokenizer(
++                settings.EMBEDDING.TOKENIZER_PATH,
++                input_prefix=settings.EMBEDDING.INPUT_PREFIX,
++                overlap_ratio=settings.EMBEDDING.CHUNK_OVERLAP_RATIO,
++            )
+         try:
+             return tiktoken.encoding_for_model(self._resolve_runtime_config().model)
+         except KeyError:
+diff --git a/tests/llm/test_embedding_client.py b/tests/llm/test_embedding_client.py
+index 7fd9237dbf20dbad2f96fba9b1d3a39c20cda875..995093a99f43d2f113be011850931d9f10e76696 100644
+--- a/tests/llm/test_embedding_client.py
++++ b/tests/llm/test_embedding_client.py
+@@ -1,4 +1,5 @@
+ import array
++import asyncio
+ import base64
+ from types import SimpleNamespace
+ from typing import Any, cast
+@@ -16,6 +17,7 @@ from src.embedding_client import (
+     EmbeddingClient,
+     EmbeddingTokenLimitError,
+     _EmbeddingClient,  # pyright: ignore[reportPrivateUsage]
++    _HuggingFaceEmbeddingTokenizer,  # pyright: ignore[reportPrivateUsage]
+ )
+ 
+ 
+@@ -1241,3 +1243,189 @@ async def test_provider_dimension_mismatch_is_not_a_token_limit_error(
+         await client.embed("short query")
+ 
+     assert not isinstance(excinfo.value, EmbeddingTokenLimitError)
++
++
++def _write_word_level_tokenizer(path: str) -> None:
++    from tokenizers import Tokenizer, models, pre_tokenizers, processors
++
++    tokenizer = Tokenizer(
++        models.WordLevel(
++            vocab={
++                "[UNK]": 0,
++                "search_document": 1,
++                ":": 2,
++                "слово": 3,
++                "[EOS]": 4,
++            },
++            unk_token="[UNK]",
++        )
++    )
++    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
++    tokenizer.post_processor = processors.TemplateProcessing(
++        single="$A [EOS]",
++        special_tokens=[("[EOS]", 4)],
++    )
++    tokenizer.save(path)
++
++
++def test_exact_tokenizer_chunks_with_provider_prefix(
++    monkeypatch: pytest.MonkeyPatch,
++    tmp_path: Any,
++) -> None:
++    fake_embeddings = FakeOpenAIEmbeddingsAPI([0.1] * 4)
++
++    class FakeOpenAIClient:
++        def __init__(self, *, api_key: str | None, base_url: str | None) -> None:
++            self.embeddings = fake_embeddings
++
++    monkeypatch.setattr("openai.AsyncOpenAI", FakeOpenAIClient)
++    tokenizer_path = str(tmp_path / "tokenizer.json")
++    _write_word_level_tokenizer(tokenizer_path)
++    exact_tokenizer = _HuggingFaceEmbeddingTokenizer(
++        tokenizer_path,
++        input_prefix="search_document: ",
++        overlap_ratio=0.2,
++    )
++    client = _EmbeddingClient(
++        EmbeddingModelConfig(
++            transport="openai",
++            model="frida",
++            api_key="test-key",
++            base_url="http://localhost:8001/v1",
++        ),
++        vector_dimensions=4,
++        max_input_tokens=5,
++        max_tokens_per_request=1000,
++        send_dimensions=False,
++        embedding_tokenizer=exact_tokenizer,
++    )
++
++    original = "слово слово слово слово слово слово слово"
++    result = client.prepare_chunks({"message": original})["message"]
++
++    assert len(result) > 1
++    assert result[0].startswith("слово")
++    assert result[-1].endswith("слово")
++    assert all(exact_tokenizer.count(chunk) <= 5 for chunk in result)
++
++
++def test_exact_tokenizer_disables_serialized_limits_and_preserves_whitespace(
++    tmp_path: Any,
++) -> None:
++    from tokenizers import Tokenizer
++
++    tokenizer_path = str(tmp_path / "tokenizer.json")
++    _write_word_level_tokenizer(tokenizer_path)
++    serialized = Tokenizer.from_file(tokenizer_path)
++    serialized.enable_truncation(max_length=1)
++    serialized.enable_padding(length=8, pad_id=0, pad_token="[UNK]")
++    serialized.save(tokenizer_path)
++
++    exact_tokenizer = _HuggingFaceEmbeddingTokenizer(
++        tokenizer_path,
++        input_prefix="search_document: ",
++        overlap_ratio=0,
++    )
++    original = "  слово  слово  слово  слово  "
++    chunks = exact_tokenizer.chunk(original, max_tokens=5)
++
++    assert exact_tokenizer.count(original) > 1
++    assert "".join(chunk for chunk, _ in chunks) == original
++    assert all(count <= 5 for _, count in chunks)
++
++
++def test_embedding_client_exposes_configured_exact_tokenizer(
++    monkeypatch: pytest.MonkeyPatch,
++    tmp_path: Any,
++) -> None:
++    tokenizer_path = str(tmp_path / "tokenizer.json")
++    _write_word_level_tokenizer(tokenizer_path)
++    client = EmbeddingClient()
++    monkeypatch.setattr(client, "_instance", None)
++    monkeypatch.setattr("src.embedding_client.settings.EMBEDDING.TOKENIZER_PATH", tokenizer_path)
++    monkeypatch.setattr(
++        "src.embedding_client.settings.EMBEDDING.INPUT_PREFIX", "search_document: "
++    )
++
++    assert client.encoding.encode("слово") == [3]
++
++
++@pytest.mark.asyncio
++async def test_exact_tokenizer_rejects_query_over_provider_limit(
++    monkeypatch: pytest.MonkeyPatch,
++    tmp_path: Any,
++) -> None:
++    fake_embeddings = FakeOpenAIEmbeddingsAPI([0.1] * 4)
++
++    class FakeOpenAIClient:
++        def __init__(self, *, api_key: str | None, base_url: str | None) -> None:
++            self.embeddings = fake_embeddings
++
++    monkeypatch.setattr("openai.AsyncOpenAI", FakeOpenAIClient)
++    tokenizer_path = str(tmp_path / "tokenizer.json")
++    _write_word_level_tokenizer(tokenizer_path)
++    exact_tokenizer = _HuggingFaceEmbeddingTokenizer(
++        tokenizer_path,
++        input_prefix="search_document: ",
++        overlap_ratio=0.2,
++    )
++    client = _EmbeddingClient(
++        EmbeddingModelConfig(
++            transport="openai",
++            model="frida",
++            api_key="test-key",
++            base_url="http://localhost:8001/v1",
++        ),
++        vector_dimensions=4,
++        max_input_tokens=5,
++        max_tokens_per_request=1000,
++        send_dimensions=False,
++        embedding_tokenizer=exact_tokenizer,
++    )
++
++    with pytest.raises(EmbeddingTokenLimitError, match="maximum token limit"):
++        await client.embed("слово слово слово")
++    assert fake_embeddings.calls == []
++
++
++@pytest.mark.asyncio
++async def test_provider_batch_concurrency_is_bounded(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    fake_embeddings = FakeOpenAIEmbeddingsAPI([0.1] * 4)
++
++    class FakeOpenAIClient:
++        def __init__(self, *, api_key: str | None, base_url: str | None) -> None:
++            self.embeddings = fake_embeddings
++
++    monkeypatch.setattr("openai.AsyncOpenAI", FakeOpenAIClient)
++    client = _EmbeddingClient(
++        EmbeddingModelConfig(
++            transport="openai",
++            model="text-embedding-3-small",
++            api_key="test-key",
++        ),
++        vector_dimensions=4,
++        max_input_tokens=10,
++        max_tokens_per_request=1,
++        send_dimensions=False,
++        max_concurrent_batches=2,
++    )
++    active = 0
++    peak = 0
++
++    async def fake_process_batch(
++        batch: list[Any],
++    ) -> dict[str, dict[int, list[float]]]:
++        nonlocal active, peak
++        active += 1
++        peak = max(peak, active)
++        await asyncio.sleep(0.01)
++        active -= 1
++        return {item.text_id: {item.chunk_index: [0.1] * 4} for item in batch}
++
++    monkeypatch.setattr(client, "_process_batch", fake_process_batch)
++    result = await client.simple_batch_embed(["a"] * 8)
++
++    assert len(result) == 8
++    assert peak == 2

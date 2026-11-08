@@ -1,0 +1,4 @@
+name: meeting-context
+version: "0.1.0"
+description: "Bind Telegram meeting topics to local transcripts and meeting context."
+author: Local contributors

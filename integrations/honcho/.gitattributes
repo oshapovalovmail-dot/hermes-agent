@@ -1,0 +1,2 @@
+# Unified-diff context lines contain one literal space; preserve exported bytes.
+*.patch -text whitespace=-blank-at-eol
