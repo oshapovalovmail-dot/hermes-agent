@@ -6,8 +6,8 @@
       "commit": "7dd3702933d5cc1ce1f0a44bba6525cc61ee6e16",
       "subdir": "hermes-plugin-honcho",
       "source_sha256": "cb753f49b540e8bf250a5dbc2c24c37f5de4c6c446143a1e4cc406cf008a8f50",
-      "patch_sha256": "0e079258937b3ab4be5e6e65d9afa11755c4ce114835bf850d4cb33e6dc90d35",
-      "result_sha256": "f1506e5940f53e5366f9da1425e1b7604bdaad3dd8d54b54f26a7154bc9c15ab",
+      "patch_sha256": "fad64fd3ba033de7de350619bafe2c57bb1f536c7c99ab38eb6fabdb66f4e391",
+      "result_sha256": "ac9e32564303dd0363e29132f0e1d5ca7366fa3f05d5993c08f5d29aa7ad19c1",
       "license": "MIT",
       "license_path": "LICENSE"
     },

@@ -291,7 +291,7 @@ async def _self_post_chat_completion(adapter: Any, *, text: str, session_id: str
                         )
                         logger.warning("%s; attempt %d/%d", last_err, attempt + 1, attempts)
                         continue
-                    if resp.status >= 400:  # non-transient (auth/validation): fail immediately
+                    if not 200 <= resp.status < 300:  # redirects are not wake delivery
                         body = (await resp.text())[:300]
                         raise RuntimeError(
                             f"wake self-post failed for session {session_id}: HTTP {resp.status}: {body}"

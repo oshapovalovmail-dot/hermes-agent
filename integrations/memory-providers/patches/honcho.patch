@@ -304,16 +304,17 @@
          self._turn_count = turn_number
          self._previous_turn_message = kwargs.get("previous_message") or ""
          self._turn_author = {"id": kwargs.get("author_id") or None, "name": kwargs.get("author_name") or None,
-@@ -817,7 +712,7 @@
+@@ -817,7 +712,8 @@
  
      def on_session_switch(self, new_session_id: str, **kwargs) -> None:
          """Discard in-flight recall even when the configured backend session is pinned."""
 -        self._recall_generation = object()
 +        self._recall_sync_generation = object()
++        self._activate_recall("", new_session_id)
  
      # ----- Writes -----
  
-@@ -856,31 +751,26 @@
+@@ -856,31 +752,26 @@
  
          return chunks
  
@@ -363,7 +364,7 @@
          session_kwargs: dict[str, str] = {}
          if author.get("is_bot"):
              # A bot's turn never lands in the human's session: its own a2a session or nothing.
-@@ -891,9 +781,9 @@
+@@ -891,9 +782,9 @@
              if not author_id:
                  logger.debug("Honcho sync skipped a bot-authored turn that named no author id")
                  return
@@ -376,7 +377,7 @@
                  logger.debug("Honcho sync skipped a bot-authored turn: author %s has no peer of its own", author_id)
                  return
              session_key = self._a2a_session_key({**author, "id": author_id})
-@@ -901,22 +791,50 @@
+@@ -901,22 +792,50 @@
              session_kwargs["user_peer_id"] = bot_peer_id
              author_peer_id = None
          else:
@@ -440,7 +441,7 @@
  
      def _a2a_session_key(self, author: Dict[str, Any]) -> str:
          """Honcho session for one sender bot's turns into this agent, named from core's ``a2a_key``.
-@@ -1133,7 +1051,7 @@
+@@ -1133,7 +1052,7 @@
      def shutdown(self) -> None:
          """Join the write threads, flush and stop the manager, then join every other thread this provider or its
          manager spawned, all within one budget. A daemon thread still blocked in httpx I/O at exit aborts the process."""
@@ -763,13 +764,14 @@
  import re
  import threading
  import time
-@@ -168,37 +169,77 @@
+@@ -168,37 +169,80 @@
          structured = "\n" in result and bool("##" in result or "•" in result or _STRUCTURE_RE.search(result))
          return structured or len(result.strip()) > 300
  
 -    def _run_dialectic_depth(self, query: str, *, use_query_rewrite: bool = True) -> str:
 -        """Run up to dialecticDepth .chat() passes, bailing early once a pass returns
 -        strong signal. Returns the last non-empty result."""
+-        if not self._manager or not self._session_key:
 +    @staticmethod
 +    def _automatic_dialectic_prompt(query: str) -> str:
 +        return (
@@ -789,7 +791,8 @@
 +        Each pass is conditional — bails early if prior pass returned strong signal.
 +        Returns the best (usually last) result.
 +        """
-         if not self._manager or not self._session_key:
++        manager, session_key, generation = _owner or (self._manager, self._session_key, self._recall_generation)
++        if not manager or not session_key:
              return ""
 +
          is_cold = not self._base_context_cache
@@ -852,6 +855,8 @@
 +                apply_injection_cap=False,
 +                raise_errors=True,
 +            )
++            if generation != self._recall_generation:
++                return ""
              results.append(result or "")
 -        return next((r for r in reversed(results) if r and r.strip()), "")
 +
