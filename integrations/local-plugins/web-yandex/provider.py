@@ -112,5 +112,5 @@ class YandexSearchProvider(WebSearchProvider):
                 return {"success": False, "error": "Search response exceeds 2 MB"}
             return normalize(response.json(), limit, self.name)
         except Exception as exc:
-            logger.exception("Yandex search failed")
+            logger.warning("Yandex search failed: %s", type(exc).__name__)
             return {"success": False, "provider": self.name, "error": f"{type(exc).__name__}: {exc}"}

@@ -32,9 +32,9 @@ def save_checkpoint(*, session_id="", **kwargs):
         active = bank.bound(session_id)
         if active is not None:
             bank.handoff(active, session_id)
-    except Exception:
+    except Exception as exc:
         # Isolate optional memory maintenance; do not fail tool or turn delivery.
-        logger.exception("project-memory handoff unavailable")
+        logger.warning("project-memory handoff unavailable: %s", type(exc).__name__)
 
 
 def register(ctx):

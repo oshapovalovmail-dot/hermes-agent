@@ -96,7 +96,7 @@ class ReminderAdapter(native.TelegramAdapter):
                                   raw_response={'message_ids': receipts, 'reminder_controls': True,
                                                 'delivery_id': delivery['id']})
             except Exception as exc:
-                logger.exception('Reminder controls delivery failed: %s', type(exc).__name__)
+                logger.warning('Reminder controls delivery failed: %s', type(exc).__name__)
                 return SendResult(success=False, error='reminder_controls_' + type(exc).__name__)
 
     def _admit_draft(self, event):
@@ -141,12 +141,12 @@ class ReminderAdapter(native.TelegramAdapter):
                     try:
                         await self._delete_notifications(context.bot, message.chat.id, ids)
                     except Exception as exc:
-                        logger.exception('Reminder notification deletion failed: %s', type(exc).__name__)
+                        logger.warning('Reminder notification deletion failed: %s', type(exc).__name__)
                         warning = 'Вопрос закрыт, но удалить уведомление не удалось. Нажми «Закрыть» ещё раз.'
                         try:
                             await query.answer(warning, show_alert=True)
-                        except Exception:
-                            logger.exception('Reminder deletion warning acknowledgement failed')
+                        except Exception as ack_exc:
+                            logger.warning('Reminder deletion warning acknowledgement failed: %s', type(ack_exc).__name__)
                             await self.send(str(message.chat.id), warning,
                                             metadata={'thread_id': str(message.message_thread_id)})
                     else:
@@ -181,7 +181,7 @@ class ReminderAdapter(native.TelegramAdapter):
         except ValueError:
             await query.answer('Эта кнопка недоступна в данном чате или для данного пользователя.', show_alert=True)
         except Exception as exc:
-            logger.exception('Reminder callback failed: %s', type(exc).__name__)
+            logger.warning('Reminder callback failed: %s', type(exc).__name__)
             with suppress(Exception):
                 await query.answer('Не удалось обработать кнопку. Статус черновика не подтверждён.', show_alert=True)
         raise ApplicationHandlerStop
