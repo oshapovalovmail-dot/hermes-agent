@@ -1,0 +1,339 @@
+--- a/__init__.py
++++ b/__init__.py
+@@ -22,0 +23 @@
++import sqlite3
+@@ -40,0 +42 @@
++from agent.recall_query import automatic_recall_terms, recall_has_topic, is_continuation_prompt
+@@ -159,0 +162 @@
++    {"key": "startup_catalog", "description": "Opt in to startup filename catalog", "type": "boolean", "default": False},
+@@ -1417 +1420 @@
+-                logger.warning("OpenViking structured sync failed; falling back to text sync: %s", batch_error)
++                logger.warning("OpenViking structured sync failed; falling back to individual DTOs: %s", batch_error)
+@@ -1422,9 +1425,4 @@
+-        # Plain-text fallback: one user + one assistant message.
+-        user_message: Dict[str, Any] = {"role": "user", "parts": [{"type": "text", "text": self.user_content[:4000]}]}
+-        if self.user_peer_id:
+-            user_message["peer_id"] = self.user_peer_id
+-        assistant_message: Dict[str, Any] = {"role": "assistant", "parts": [{"type": "text", "text": _message_text(self.assistant_content)[:4000]}]}
+-        if self.assistant_peer_id:
+-            assistant_message["peer_id"] = self.assistant_peer_id
+-        client.post(f"/api/v1/sessions/{self.sid}/messages/batch",
+-                    {"messages": [user_message, assistant_message]})
++        # Older servers get the same source-aware DTOs individually, never text reclassification.
++        for payload in self.batch_messages[self.next_index:]:
++            client.post(f"/api/v1/sessions/{self.sid}/messages", payload)
++            self.next_index += 1
+@@ -1521,0 +1520 @@
++        self._profile_prefetch_scope = ""
+@@ -2004,0 +2004,2 @@
++        if is_continuation_prompt(query_text):
++            return ""
+@@ -2150 +2151 @@
+-                deadline=deadline, request_timeout=cfg["request_timeout_seconds"], full_read_limit=cfg["full_read_limit"],
++                deadline=deadline, request_timeout=cfg["request_timeout_seconds"], full_read_limit=cfg["full_read_limit"], query=query_text,
+@@ -2399 +2400,6 @@
+-        if session_key in self._profile_prefetched_sessions:
++        home, marker = self._startup_profile_identity()
++        marker = marker.replace(" -->", f" peer={self._current_sender_peer()} -->")
++        if marker != self._profile_prefetch_scope:
++            self._profile_prefetched_sessions.clear()
++            self._profile_prefetch_scope = marker
++        if session_key in self._profile_prefetched_sessions or self._saved_startup_profile(home, session_id or self._session_id, marker):
+@@ -2400,0 +2407 @@
++        catalog = self._profile_config_and_env()[0].get("startup_catalog") is True
+@@ -2423 +2430 @@
+-            for uri in uris[1:]:
++            for uri in uris[1:] if catalog else () :
+@@ -2430,0 +2438,2 @@
++        if len(self._profile_prefetched_sessions) >= 128:
++            self._profile_prefetched_sessions.pop()
+@@ -2432,2 +2441,3 @@
+-        return self._build_session_start_memory_block(
+-            profile=profile, preferences=listings[0], entities=listings[1], token_budget=self._profile_token_budget(), uris=uris,
++        block = self._build_session_start_memory_block(
++            profile=profile, preferences=listings[0] if catalog else [], entities=listings[1] if catalog else [],
++            token_budget=self._profile_token_budget() if catalog else min(self._profile_token_budget(), 800), uris=uris,
+@@ -2434,0 +2445 @@
++        return f"{marker}\n{block}" if block else ""
+@@ -2463,0 +2475 @@
++        tokens = cls._query_tokens(query)
+@@ -2467,0 +2480,4 @@
++                continue
++            if item.get("level") in (0, 1) or uri.endswith(("/", "/.abstract.md", "/.overview.md")):
++                continue
++            if not cls._recall_has_topic(cls._recall_abstract(item), tokens):
+@@ -2482,4 +2498,12 @@
+-    def _build_prefetch_entries(self, client: _VikingClient, items: List[Dict[str, Any]], *, prefer_abstract: bool,
+-                                max_injected_chars: int, deadline: float, request_timeout: float, full_read_limit: int) -> List[str]:
+-        """One entry per item: abstract, or a full L2 read (budgeted by ``full_read_limit``) for
+-        leaf hits / items without an explicit summary; total size capped by ``max_injected_chars``."""
++    def _build_prefetch_entries(
++        self,
++        client: _VikingClient,
++        items: List[Dict[str, Any]],
++        *,
++        prefer_abstract: bool,
++        max_injected_chars: int,
++        deadline: float,
++        request_timeout: float,
++        full_read_limit: int,
++        query: str = "",
++    ) -> List[str]:
+@@ -2488 +2512 @@
+-        full_reads = 0
++        read_state = {"full_reads": 0}
+@@ -2490,10 +2514,27 @@
+-            content = self._recall_abstract(item)
+-            has_explicit_summary = any(isinstance(item.get(key), str) and item.get(key).strip() for key in _RECALL_SUMMARY_KEYS)
+-            uri = str(item.get("uri") or "")
+-            if not (prefer_abstract and has_explicit_summary) and uri and (item.get("level") == 2 or not has_explicit_summary) and full_reads < full_read_limit:
+-                try:
+-                    timeout = self._remaining_recall_timeout(deadline, request_timeout)
+-                    full_reads += 1
+-                    content = self._extract_text_content(client.get("/api/v1/content/read", params={"uri": uri}, timeout=timeout), strict=True) or content
+-                except Exception as e:
+-                    logger.debug("OpenViking prefetch full read failed for %s: %s", uri, e)
++            content = self._resolve_recall_content(
++                client,
++                item,
++                prefer_abstract=prefer_abstract,
++                deadline=deadline,
++                request_timeout=request_timeout,
++                read_state=read_state,
++                full_read_limit=full_read_limit,
++            )
++            if query:
++                # Select complete paragraphs/list points, including following
++                # scope/negation sentences and wrapped continuation lines. An
++                # oversized unit is omitted, never windowed into a different claim.
++                tokens = self._query_tokens(query)
++                excerpts = []
++                excerpt_chars = 0
++                for unit in re.split(r"\n\s*\n|\n(?=[-*+]\s|\d+\.\s|#{1,6}\s)", content):
++                    # A heading is a label, not corroborating body evidence.
++                    unit = "\n".join(line for line in unit.splitlines()
++                                     if not re.match(r"^\s*#{1,6}\s", line)).strip()
++                    if not unit or not self._recall_has_topic(unit, tokens):
++                        continue
++                    cost = len(unit) + (2 if excerpts else 0)
++                    if len(unit) <= 1000 and excerpt_chars + cost <= 1200:
++                        excerpts.append(unit)
++                        excerpt_chars += cost
++                content = "\n\n".join(excerpts)
+@@ -2502,6 +2543,11 @@
+-            category = str(item.get("category") or "").strip() or "memory"
+-            entry = "\n".join([f"- [{category}]", f"  <uri>{item.get('uri', '')}</uri>", *[f"  {line}" for line in content.splitlines()]])
+-            projected_chars = total_chars + (1 if entries else 0) + len(entry)
+-            if projected_chars <= max_injected_chars:
+-                entries.append(entry)
+-                total_chars = projected_chars
++            entry = "\n".join([
++                f"- [{str(item.get('category') or '').strip() or 'memory'}]",
++                f"  <uri>{item.get('uri', '')}</uri>",
++                *[f"  {line}" for line in content.splitlines()],
++            ])
++            separator_chars = 1 if entries else 0
++            projected_chars = total_chars + separator_chars + len(entry)
++            if projected_chars > max_injected_chars:
++                continue
++            entries.append(entry)
++            total_chars = projected_chars
+@@ -2572 +2618,14 @@
+-            parts: List[Dict[str, Any]] = [{"type": "text", "text": text}] if text else []
++            parts: List[Dict[str, Any]] = []
++            for kind, scope, source_text in OpenVikingMemoryProvider._capture_text_sources(message, text) if text else ():
++                if kind in {"user", "human", "user_turn", "assistant", "assistant_turn"}:
++                    if len(OpenVikingMemoryProvider._capture_text_sources(message, text)) == 1:
++                        parts.append({"type": "text", "text": source_text})
++                        if role == "user" and "[ASYNC DELEGATION" in source_text:
++                            parts.append({"type": "text", "text": "Capture attribution guard: quoted or unclosed runtime callbacks, worker prompts, notifications and assistant proposals are task-scoped machine assertions, not user preferences. Preserve human corrections. Promote standing preferences only from explicit durable human statements or explicit human endorsement; never promote task-local restrictions to global policy."})
++                    else:
++                        emit(role, [{"type": "text", "text": source_text}])
++                else:
++                    emit("assistant", [_tool_part("source-" + hashlib.sha256(source_text.encode()).hexdigest()[:16],
++                         "hermes_source", {"source_kind": kind, "scope": scope, "original_role": role, "human_endorsed": False},
++                         "completed", tool_output=source_text)])
++                    payload_messages[-1]["message_kind"] = "tool_transport"
+@@ -2615,0 +2675,2 @@
++        if not turn_messages:
++            turn_messages = [{"role": "user", "content": user_content}, {"role": "assistant", "content": assistant_content}]
+@@ -3407,0 +3469,179 @@
++    def _startup_profile_identity(self) -> tuple[Path, str]:
++        from hermes_constants import get_hermes_home
++
++        home = Path(self._hermes_home) if self._hermes_home else get_hermes_home()
++        identity = [str(home.resolve()), self._endpoint, self._account,
++                    self._user, self._agent, self._api_key]
++        scope = hashlib.sha256(json.dumps(identity).encode()).hexdigest()
++        return home, f"<!-- openviking-start-profile scope={scope} -->"
++
++    @staticmethod
++    def _saved_startup_profile(home: Path, session_id: str, marker: str) -> bool:
++        """Read the existing API sidecar; never create/migrate a SessionDB.
++
++        Only active user rows with our scoped marker inside a memory fence
++        count. Old unscoped profiles get one compact replacement; inferring a
++        tenant from those old bytes would suppress another user's profile.
++        """
++        if not session_id:
++            return False
++        try:
++            conn = sqlite3.connect((home / "state.db").resolve().as_uri() + "?mode=ro",
++                                   uri=True, timeout=0.1)
++            try:
++                return conn.execute(
++                    "SELECT 1 FROM messages WHERE session_id = ? "
++                    "AND role = 'user' AND active = 1 "
++                    "AND instr(api_content, ?) > instr(api_content, '<memory-context>') "
++                    "AND instr(api_content, '<memory-context>') > 0 "
++                    "AND instr(api_content, ?) < instr(api_content, '</memory-context>') "
++                    "AND instr(COALESCE(content, ''), ?) = 0 LIMIT 1",
++                    (session_id, marker, marker, marker),
++                ).fetchone() is not None
++            finally:
++                conn.close()
++        except (OSError, sqlite3.Error):
++            # Missing/legacy/locked DB must not disable memory or create state.
++            return False
++
++    @staticmethod
++    def _query_tokens(query: str) -> List[str]:
++        # Lexical anchors are conservative corroboration, not a second vector
++        # search. Generic request verbs/stopwords must not certify a topic.
++        stop = set((
++            "the and for with from this that what which should would could please "
++            "user memory context recall install check inspect explain help about "
++            "как что это для или при мне тебя почему пожалуйста установи "
++            "разберись работает другой нужно проверь расскажи "
++            "подбери придумай выбери сравни учти топ приоритет желательно "
++            "если такое возможно возможности качество надежность стандартных "
++            "recommend suggest advise pick shortlist give offer make "
++            "recommendation recommendations suggestion selection prioritize prioritise "
++            "порекомендуй рекомендуй посоветуй предложи выбрать выбирать подобрать сравнить "
++            "выбор рекомендации "
++            # Pronouns, auxiliaries and polite request framing are not topics.
++            "you your yours yourself yourselves our ours ourselves they their theirs them "
++            "he him his himself her hers herself its itself was were are been being "
++            "has have had does did doing will shall might must can may not nor but "
++            "these those than then when where why who whom whose whether both either "
++            "neither each all more most less many much just even very really "
++            "like kindly appreciate looking ask asking help "
++            "вам вас ваши ваш вами нас нам наши наш нами меня мной твой твои тебе тобой "
++            "себя себе помоги подскажи хотелось хотел хотела хотим можете можно "
++            # Keep generic framing aligned with the other automatic selector.
++            "also any assistant current how if need only project request show some "
++            "such task tell use used want wants где его задача запрос использовать "
++            "любой мои мой надо найди некоторые она они покажи про проект также "
++            "текущий только хочу "
++            # Continuation commands do not supply a topic or renew permissions.
++            "continue proceed resume finish complete carry done next "
++            "делай доделай доделывай доделать продолжай продолжить продолжи "
++            "заверши закончи закончить "
++            "best top choose compare find select priority quality reliable reliability "
++            "possible possibility capabilities preferably standard"
++        ).split())
++        return automatic_recall_terms(query, stop)
++
++    @classmethod
++    def _recall_has_topic(cls, text: str, query_tokens: List[str]) -> bool:
++        return recall_has_topic(text, query_tokens)
++
++    def _resolve_recall_content(
++        self,
++        client: _VikingClient,
++        item: Dict[str, Any],
++        *,
++        prefer_abstract: bool,
++        deadline: float,
++        request_timeout: float,
++        read_state: Dict[str, int],
++        full_read_limit: int,
++    ) -> str:
++        abstract = self._recall_abstract(item)
++        has_explicit_summary = any(
++            isinstance(item.get(key), str) and item.get(key).strip()
++            for key in ("abstract", "overview", "text", "content")
++        )
++        if prefer_abstract and has_explicit_summary:
++            return abstract
++        uri = str(item.get("uri") or "")
++        if uri and (item.get("level") == 2 or not has_explicit_summary):
++            if read_state["full_reads"] >= full_read_limit:
++                return ""
++            try:
++                timeout = self._remaining_recall_timeout(deadline, request_timeout)
++                read_state["full_reads"] += 1
++                content = self._extract_text_content(
++                    client.get(
++                        "/api/v1/content/read",
++                        params={"uri": uri},
++                        timeout=timeout,
++                    )
++                )
++                if content:
++                    return content
++            except Exception as e:
++                logger.debug("OpenViking prefetch full read failed for %s: %s", uri, e)
++            # An unverified leaf summary must not substitute for its actual body.
++            return ""
++        return abstract
++
++    @staticmethod
++    def _capture_text_sources(message: Dict[str, Any], text: str) -> List[tuple[str, str, str]]:
++        """Keep human text and runtime frames separate, without guessing quote intent.
++
++        Source/scope supplied by canonical callers wins. Legacy transport only
++        has role=user: recognize the exact runtime shapes at unquoted boundaries.
++        Async frames have no closing delimiter, so only standalone frames are
++        provable; embedded/quoted/unclosed text is retained unchanged.
++        """
++        metadata = message.get("metadata")
++        metadata = metadata if isinstance(metadata, dict) else {}
++        kind = message.get("source_kind") or metadata.get("source_kind")
++        if kind:
++            return [(str(kind), str(message.get("scope") or metadata.get("scope") or "session"), text)]
++        if message.get("role") != "user":
++            return [("assistant", "session", text)]
++        # Async formatters have no body terminator. Even a standalone-looking
++        # prefix cannot prove the origin of its tail; only explicit source_kind
++        # above may classify that entire message as machine-owned.
++        spans = []
++        fenced = False
++        offset = 0
++        for line in text.splitlines(keepends=True):
++            if line.lstrip().startswith(("```", "~~~")):
++                fenced = not fenced
++            if not fenced and line.startswith("[IMPORTANT: Background process "):
++                # Colon-introduced blocks can be operator-supplied quotations or
++                # documents. Without structured origin, keep them as supplied.
++                if text[:offset].rstrip().endswith(":"):
++                    offset += len(line)
++                    continue
++                tail = text[offset:]
++                if re.match(r"\[IMPORTANT: Background process [^\n]*\nCommand:[^\n]*\n"
++                            r"(?:Output|Matched output):\n", tail):
++                    depth = 0
++                    for index, ch in enumerate(tail):
++                        depth += (ch == "[") - (ch == "]")
++                        if depth == 0:
++                            end = offset + index + 1
++                            if end == len(text) or text[end] in "\r\n":
++                                spans.append((offset, end))
++                            break
++            offset += len(line)
++        if not spans:
++            return [("user", "session", text)]
++        sources = []
++        start = 0
++        for left, right in spans:
++            if left < start:
++                continue
++            if text[start:left].strip():
++                sources.append(("user", "session", text[start:left].strip()))
++            sources.append(("machine_notification", "task", text[left:right]))
++            start = right
++        if text[start:].strip():
++            sources.append(("user", "session", text[start:].strip()))
++        return sources
++
++

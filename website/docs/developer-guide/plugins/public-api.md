@@ -32,6 +32,7 @@ with a name allows that one name only.
 | `agent.image_gen_provider` | whole module | developer-guide / plugins docs |
 | `agent.memory_manager` | whole module | developer-guide / plugins docs |
 | `agent.memory_provider` | whole module | developer-guide / plugins docs |
+| `agent.recall_query` | whole module | developer-guide / plugins docs |
 | `agent.secret_scope` | whole module | developer-guide / plugins docs |
 | `agent.secret_sources.base` | whole module | developer-guide / plugins docs |
 | `agent.subagent_lifecycle` | whole module | developer-guide / plugins docs |

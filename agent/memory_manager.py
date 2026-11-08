@@ -1,7 +1,7 @@
 """MemoryManager — fans the agent's memory hooks out to registered providers.
 
-The builtin provider is always allowed; only ONE external plugin provider may be
-registered at a time (tool-schema bloat, conflicting backends).
+Independent providers fan out in registration order; duplicate names are ignored
+and the first registered provider owns any conflicting tool name.
 """
 
 from __future__ import annotations
@@ -197,7 +197,7 @@ class _StuckCallGate:
 
 
 class MemoryManager:
-    """Builtin provider (always first) plus at most one external provider.
+    """Builtin provider and opt-in independent external providers.
 
     Failures in one provider never block the other: every fan-out hook logs and
     swallows per-provider exceptions.
@@ -281,15 +281,9 @@ class MemoryManager:
         self._has_external = any(p.name != "builtin" for p in self._providers)
 
     def add_provider(self, provider: MemoryProvider) -> None:
-        """Register a provider; builtin always accepted, only ONE external allowed."""
-        if provider.name != "builtin" and self._has_external:
-            existing = next((p.name for p in self._providers if p.name != "builtin"), "unknown")
-            logger.warning(
-                "Rejected memory provider '%s' — external provider '%s' is "
-                "already registered. Only one external memory provider is "
-                "allowed at a time. Configure which one via memory.provider "
-                "in config.yaml.", provider.name, existing,
-            )
+        """Register a provider once; schema errors leave registration untouched."""
+        if any(p.name == provider.name for p in self._providers):
+            logger.warning("Memory provider '%s' already registered; ignoring duplicate", provider.name)
             return
 
         # Load schemas BEFORE mutating any manager state: a provider whose schema

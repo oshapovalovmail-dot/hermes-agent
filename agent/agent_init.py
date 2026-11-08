@@ -28,7 +28,7 @@ from agent.agent_init_params import _CALLBACK_PARAMS, _GATEWAY_IDENTITY_PARAMS, 
 from agent.agent_runtime_helpers import _ra
 from agent.iteration_budget import IterationBudget, normalize_budget_warning_ratio
 from agent.memory_context import StreamingContextScrubber
-from agent.memory_provider import is_core_memory_provider
+
 from agent.session_activity import ActivityProvenance
 from agent.model_metadata import (
     MINIMUM_CONTEXT_LENGTH, fetch_model_metadata, is_local_endpoint
@@ -38,7 +38,7 @@ from agent.agent_init_compression_notice import _emit_compression_summary
 from agent.primary_runtime_snapshot import _snapshot_primary_runtime
 from agent.process_bootstrap import _install_safe_stdio
 from agent.subdirectory_hints import SubdirectoryHintTracker
-from agent.agent_init_memory_provider import _memory_provider_init_kwargs, resolve_memory_provider
+from agent.agent_init_memory_provider import initialize_memory_providers
 from agent.think_scrubber import StreamingThinkScrubber
 from agent.tool_guardrails import (
     ToolCallGuardrailConfig, ToolCallGuardrailController
@@ -1172,6 +1172,7 @@ def _init_memory(agent, _agent_cfg, skip_memory, platform, memory_manager=None):
     # request: a caller that denylists memory while its default toolset still names it must not get
     # MEMORY.md loaded by an enabled-only check. (Cron agents now run with skip_memory=False and take the
     # normal path here.)
+    mem_config: dict[str, Any] = {}
     _memory_toolset_requested = (
         "memory" in (agent.enabled_toolsets or [])
         and "memory" not in (agent.disabled_toolsets or [])
@@ -1201,7 +1202,7 @@ def _init_memory(agent, _agent_cfg, skip_memory, platform, memory_manager=None):
                 )
                 agent._memory_store.load_from_disk()
 
-    # External memory provider plugin (one at a time, alongside built-in): memory.provider.
+    # External providers run alongside the built-in memory store.
     agent._memory_manager = None
     if memory_manager is not None and not skip_memory:
         # A caller that rebuilds the agent per turn (gateway api_server) hands back the session's
@@ -1209,23 +1210,7 @@ def _init_memory(agent, _agent_cfg, skip_memory, platform, memory_manager=None):
         # of being re-initialized (#120116). No initialize_all — the providers are already bound.
         agent._memory_manager = memory_manager
     elif not skip_memory:
-        try:
-            _mem_provider_name = mem_config.get("provider", "") if mem_config else ""
-            if not is_core_memory_provider(_mem_provider_name):
-                from agent.memory_manager import MemoryManager as _MemoryManager
-                agent._memory_manager = _MemoryManager()
-                _mp = resolve_memory_provider(_mem_provider_name, say=agent._emit_startup_warning)
-                if _mp is not None:
-                    agent._memory_manager.add_provider(_mp)
-                if agent._memory_manager.providers and agent._memory_manager.initialize_for_agent(
-                        say=agent._emit_startup_warning, **_memory_provider_init_kwargs(agent, platform)):
-                    _ra().logger.info("Memory provider '%s' activated", _mem_provider_name)
-                else:
-                    _ra().logger.debug("Memory provider '%s' not found or not available", _mem_provider_name)
-                    agent._memory_manager = None
-        except Exception as _mpe:
-            _ra().logger.warning("Memory provider plugin init failed: %s", _mpe)
-            agent._memory_manager = None
+        agent._memory_manager = initialize_memory_providers(agent, mem_config, platform)
 
     from agent.memory_manager_tools import inject_memory_provider_tools
     inject_memory_provider_tools(agent)

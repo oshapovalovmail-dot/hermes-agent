@@ -1,0 +1,649 @@
+--- a/__init__.py
++++ b/__init__.py
+@@ -21,0 +22,2 @@
++from agent.recall_query import is_continuation_prompt
++from .recall_contracts import bounded_complete_text, HUMAN_DERIVATION_INSTRUCTIONS, is_runtime_notification
+@@ -136,0 +139,3 @@
++        self._pending_turns = []
++        self._sync_lock = threading.Lock()
++        self._sync_active = False
+@@ -405,0 +411 @@
++        self._drain_pending_turns()
+@@ -443,2 +449 @@
+-        """Render the prefetch context, keeping only the ``injection.sessionStart`` components when pinned.
+-        The summary passes usable_honcho_summary here, so a contaminated one never reaches _base_context_cache."""
++        """Complete cards first; headers, separators and omissions share the cap."""
+@@ -446,3 +451,19 @@
+-        allowed = self._session_start_components
+-        parts, suppressed = [], []
+-        for name, key, header in _CONTEXT_SECTIONS:
++        if self._session_start_components is not None:
++            allowed = {key for name, key, _ in _CONTEXT_SECTIONS if name in self._session_start_components}
++            ctx = {key: value for key, value in ctx.items() if key in allowed}
++
++        budget = (self._config.context_tokens * 4
++                  if self._config and self._config.context_tokens else 7200)
++        parts: list[str] = []
++        used = 0
++        # Cards have equal ceilings, not a tiny AI fraction that can cut off
++        # a corrective negation. Unused card allowance goes to observations.
++        history_budget = None
++        sections = (
++            ("card", "User Peer Card", None),
++            ("ai_card", "AI Identity Card", None),
++            ("summary", "Session Summary", 0.25),
++            ("representation", "User Representation", 0.60),
++            ("ai_representation", "AI Self-Representation", 0.15),
++        )
++        for key, title, fraction in sections:
+@@ -452,8 +473,11 @@
+-            if allowed is not None and name not in allowed:
+-                suppressed.append(f"{name} ({len(value)}B)")
+-                continue
+-            parts.append(f"## {header}\n{value}")
+-        if suppressed:
+-            logger.debug("Honcho session-start injection filtered by config: kept %s, suppressed %s",
+-                         [n for n, k, _ in _CONTEXT_SECTIONS if ctx.get(k) and (allowed is None or n in allowed)],
+-                         suppressed)
++            if fraction is not None and history_budget is None:
++                history_budget = budget - used
++            ceiling = budget // 2 if fraction is None else int(history_budget * fraction)
++            header = f"## {title}\n"
++            separator = 2 if parts else 0
++            available = min(ceiling, budget - used - separator) - len(header)
++            body = bounded_complete_text(value, max(0, available), card=fraction is None)
++            if body and body.strip() != "…":
++                part = header + body
++                parts.append(part)
++                used += len(part) + separator
+@@ -572,0 +597,2 @@
++        if is_continuation_prompt(query):
++            return ""
+@@ -722,9 +748,2 @@
+-        """Truncate text to the context_tokens budget (≈4 chars/token) at a word boundary."""
+-        if not self._config or not self._config.context_tokens:
+-            return text
+-        budget_chars = self._config.context_tokens * 4
+-        if len(text) <= budget_chars:
+-            return text
+-        truncated = text[:budget_chars]
+-        last_space = truncated.rfind(" ")
+-        return (truncated[:last_space] if last_space > budget_chars * 0.8 else truncated) + " …"
++        cap = self._config.context_tokens * 4 if self._config and self._config.context_tokens else 7200
++        return bounded_complete_text(text, cap)
+@@ -859,25 +878,17 @@
+-    def sync_turn(
+-        self, user_content: str, assistant_content: str, *, session_id: str = "",
+-        turn_author: Optional[Dict[str, Any]] = None,
+-    ) -> None:
+-        """Record the conversation turn in Honcho (non-blocking), chunking messages that
+-        exceed the Honcho API limit. Honors saveMessages: false. ``turn_author`` names who wrote
+-        the user side. The ``on_turn_start`` stash is the fallback for callers that never pass it.
+-        A bot author's turn is written into that bot's own a2a session, never the human's."""
+-        if not self._writes_enabled():
+-            return
+-        if _is_internal_gateway_turn(user_content):
+-            logger.debug("Honcho sync skipped machine-generated gateway turn")
+-            return
+-        if not self._ready_or_kick_init():
+-            return
+-
+-        msg_limit = self._config.message_max_chars if self._config else 25000
+-        clean_user_content = sanitize_context(user_content or "").strip()
+-        clean_assistant_content = sanitize_context(assistant_content or "").strip()
+-        # Skip only when the whole turn is empty: an interrupted or tool-only turn can have
+-        # an empty assistant side, and the user's message must still be persisted.
+-        if not clean_user_content and not clean_assistant_content:
+-            return
+-
+-        author = turn_author if isinstance(turn_author, dict) else self._turn_author
++    def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "",
++                  turn_author: Optional[Dict[str, Any]] = None) -> None:
++        """Queue immutable turns; no backend call or writer join blocks the next input."""
++        if not self._writes_enabled() or not (self._config or self._manager):
++            return
++        user = sanitize_context(user_content or "").strip()
++        assistant = sanitize_context(assistant_content or "").strip()
++        if not user and not assistant:
++            return
++        author = dict(turn_author if isinstance(turn_author, dict) else self._turn_author)
++        with self._sync_lock:
++            self._pending_turns.append((user, assistant, author, self._session_key))
++        if self._ready_or_kick_init():
++            self._drain_pending_turns()
++
++    def _write_pending_turn(self, manager, turn) -> None:
++        user, assistant, author, owner_session_key = turn
+@@ -894,3 +905,3 @@
+-            bot_peer_id = self._manager.resolve_author_peer_id(
+-                self._session_key, author_id, author.get("name"), is_bot=True)
+-            if not bot_peer_id or bot_peer_id == self._manager.assistant_peer_id():
++            bot_peer_id = manager.resolve_author_peer_id(
++                owner_session_key, author_id, author.get("name"), is_bot=True)
++            if not bot_peer_id or bot_peer_id == manager.assistant_peer_id():
+@@ -904 +915 @@
+-            session_key = self._session_key
++            session_key = owner_session_key
+@@ -906 +917,23 @@
+-            author_peer_id = self._manager.resolve_author_peer_id(session_key, author.get("id"), author.get("name"))
++            author_peer_id = manager.resolve_author_peer_id(session_key, author.get("id"), author.get("name"))
++
++        session = manager.get_or_create(session_key, **session_kwargs)
++        limit = self._config.message_max_chars if self._config else 25000
++        machine = is_runtime_notification(user)
++        for role, content in (("user", user), ("assistant", assistant)):
++            human = role == "user" and not machine and not author.get("is_bot")
++            metadata = {"source": "runtime_notification" if machine else f"{role}_turn",
++                        "original_role": role, "source_kind": "human" if human else "machine" if machine else "assistant",
++                        "scope": "human_statement" if human else "session"}
++            configuration = {"reasoning": {"custom_instructions": HUMAN_DERIVATION_INSTRUCTIONS}} if human else {"reasoning": {"enabled": False}}
++            for chunk in self._chunk_message(content, limit) if content else ():
++                session.add_message("assistant" if machine else role, chunk,
++                                    author_peer_id=author_peer_id if human else None,
++                                    metadata=dict(metadata), configuration=configuration)
++        # Appended rows now belong to the manager's retry queue. Never re-enqueue
++        # after an uncertain send: that would duplicate already-accepted messages.
++        return session
++
++    def _drain_pending_turns(self) -> None:
++        if not self._session_ready():
++            return
++        manager = self._manager
+@@ -909,11 +942,22 @@
+-            session = self._manager.get_or_create(session_key, **session_kwargs)
+-            for chunk in self._chunk_message(clean_user_content, msg_limit) if clean_user_content else ():
+-                session.add_message("user", chunk, author_peer_id=author_peer_id)
+-            for chunk in self._chunk_message(clean_assistant_content, msg_limit) if clean_assistant_content else ():
+-                session.add_message("assistant", chunk)
+-            # save() (not _flush_session) so writeFrequency batching is honored.
+-            self._manager.save(session)
+-
+-        if self._sync_thread and self._sync_thread.is_alive():
+-            self._sync_thread.join(timeout=5.0)
+-        self._sync_thread = self._spawn_write(_sync, "honcho-sync", "Honcho sync_turn failed: %s")
++            try:
++                while True:
++                    with self._sync_lock:
++                        if not self._pending_turns:
++                            self._sync_active = False
++                            return
++                        turn = self._pending_turns[0]
++                    session = self._write_pending_turn(manager, turn)
++                    with self._sync_lock:
++                        self._pending_turns.pop(0)
++                    if session is not None:
++                        manager.save(session)
++            except Exception:
++                with self._sync_lock:
++                    self._sync_active = False
++                raise
++
++        with self._sync_lock:
++            if self._sync_active or not self._pending_turns:
++                return
++            self._sync_active = True
++            self._sync_thread = self._spawn_write(_sync, "honcho-sync", "Honcho sync_turn failed: %s")
+--- /dev/null
++++ b/recall_contracts.py
+@@ -0,0 +1,108 @@
++"""Scope-preserving automatic recall and capture policy."""
++import re
++from agent.recall_query import automatic_recall_terms, recall_has_topic
++
++HUMAN_DERIVATION_INSTRUCTIONS = (
++    "Source kind: HUMAN. Promote standing preferences only from explicit, durable "
++    "human statements or explicit human endorsement. A task-local instruction or "
++    "temporary restriction remains task/session scoped; never turn it into global policy. "
++    "Assistant suggestions, notifications, worker prompts, delegated reviewer instructions, "
++    "compaction summaries and quoted machine text are not properties or words of the user. "
++    "In mixed or quoted text derive only from the human's own assertions; preserve attribution "
++    "and scope, and do not infer agreement from a request, silence, or task completion."
++)
++
++
++def is_runtime_notification(content: str) -> bool:
++    """Recognize canonical runtime envelopes, not mentions/quotes of their markers.
++
++    ASYNC envelopes close only the header, never the body. A prefix cannot
++    establish ownership of an appended human correction (or even a pasted
++    standalone callback). Preserve such ambiguous text as human-supplied input;
++    HUMAN_DERIVATION_INSTRUCTIONS guard the embedded machine assertions.
++    """
++    if content.startswith("[IMPORTANT: Background process "):
++        # Do not swallow human text following a closed notification.
++        return content.endswith("]") and content.find("]") == len(content) - 1
++    return False
++
++
++def complete_units(text: str, *, card: bool = False) -> list[str]:
++    """Keep multiline points and scoped paragraphs/dated observations atomic.
++
++    A following sentence can supply a negation or task scope, so splitting a
++    paragraph at punctuation is not a meaning-preserving budget operation.
++    """
++    pattern = r"\n(?=\S)" if card else r"\n\s*\n|\n(?=\[\d{4}-\d{2}-\d{2})"
++    return [unit.strip() for unit in re.split(pattern, text) if unit.strip()]
++
++
++def bounded_complete_text(text: str, cap: int, *, card: bool = False) -> str:
++    """Select complete units; omission indicator and separators are in the cap."""
++    text = text.strip()
++    if len(text) <= cap:
++        return text
++    suffix = " …"
++    remaining = max(0, cap)
++    chosen: list[str] = []
++    separator = "\n" if card else "\n\n"
++    for unit in complete_units(text, card=card):
++        cost = len(unit) + (len(separator) if chosen else 0)
++        if cost <= remaining:
++            chosen.append(unit)
++            remaining -= cost
++    result = separator.join(chosen)
++    return result + suffix if len(result) + len(suffix) <= cap else result
++
++
++# Conservative lexical corroboration for automatic history only. Explicit
++# context/search tools stay available for synonyms, translations and full reads.
++_RECALL_STOPWORDS = frozenset(
++    "the and for with this that from what which how please check find show tell about "
++    "user assistant project task request current only use used wants want need should "
++    "это как что где для при или мне мой мои его она они про пожалуйста проверь найди "
++    "покажи расскажи нужно надо хочу запрос задача проект текущий только использовать "
++    # Request operators and generic selection criteria are not topic evidence.
++    # No topic/brand allowlist: a single actual identifier/topic still qualifies.
++    "recommend suggest advise pick shortlist give offer make "
++    "recommendation recommendations suggestion selection prioritize prioritise "
++    "порекомендуй рекомендуй посоветуй предложи выбрать выбирать подобрать сравнить "
++    "выбор рекомендации "
++    # Pronouns, auxiliaries and polite request framing are not topic anchors.
++    "you your yours yourself yourselves our ours ourselves they their theirs them "
++    "he him his himself her hers herself its itself was were are been being "
++    "has have had does did doing will shall might must can may not nor but "
++    "these those than then when where why who whom whose whether both either "
++    "neither each all more most less many much just even very really "
++    "like kindly appreciate looking ask asking help "
++    "вам вас ваши ваш вами нас нам наши наш нами меня мной твой твои тебе тобой "
++    "себя себе помоги подскажи хотелось хотел хотела хотим можете можно "
++    # Keep generic framing aligned with the other automatic memory selector.
++    "capabilities context explain inspect install memory recall "
++    "другой почему работает разберись тебя установи "
++    # Continuation commands do not supply a topic or renew old permissions.
++    "continue proceed resume finish complete carry done next "
++    "делай доделай доделывай доделать продолжай продолжить продолжи "
++    "заверши закончи закончить "
++    "choose compare select best top priority quality reliable reliability possible "
++    "possibility preferably standard if would could can may also any some such "
++    "подбери придумай выбери сравни учти топ приоритет желательно если такое "
++    "возможно возможности качество надежность стандартных также любой некоторые".split()
++)
++
++
++def relevant_representation(text: str, query: str | None) -> str:
++    """Exclude uncorroborated historical facts, including generic-verb matches."""
++    terms = automatic_recall_terms(query or "", _RECALL_STOPWORDS)
++    if not terms:
++        return ""
++    # Split dated conclusions before sentence selection; don't borrow relevance
++    # from another observation in the same History section or from timestamps.
++    observations = re.split(r"(?m)(?=^\[\d{4}-\d{2}-\d{2})|(?m:^## .*$)", text)
++    selected = []
++    for observation in observations:
++        for unit in complete_units(observation):
++            body = re.sub(r"^\[\d{4}-\d{2}-\d{2}[^\]]*\]\s*", "", unit)
++            if recall_has_topic(body, terms):
++                selected.append(unit)
++    return "\n".join(selected)
+--- a/session.py
++++ b/session.py
+@@ -451 +451 @@
+-                    honcho_messages.append(assistant_peer.message(m["content"]))
++                    honcho_messages.append(assistant_peer.message(m["content"], **{k: m[k] for k in ("metadata", "configuration") if k in m}))
+@@ -456 +456 @@
+-                honcho_messages.append(peer.message(m["content"]))
++                honcho_messages.append(peer.message(m["content"], **{k: m[k] for k in ("metadata", "configuration") if k in m}))
+--- a/session_context.py
++++ b/session_context.py
+@@ -6,0 +7,2 @@
++import json
++from .recall_contracts import bounded_complete_text, relevant_representation
+@@ -95 +97 @@
+-        context_kwargs: dict[str, Any] = self._target_kwargs(target)
++        context_kwargs: dict[str, Any] = {**self._target_kwargs(target), "include_most_frequent": False, "max_conclusions": 12}
+@@ -97 +99 @@
+-            context_kwargs["search_query"] = search_query
++            context_kwargs.update(search_query=search_query[:4000], search_top_k=8)
+@@ -108 +110 @@
+-                "peer representation fetch", lambda: peer().representation(**self._target_kwargs(target)),
++                "peer representation fetch", lambda: peer().representation(**context_kwargs),
+@@ -116 +118,11 @@
+-        return {"representation": representation, "card": card}
++        if not card and target:
++            card = self._fetch_peer_card(target)
++        identified = self._retired_conclusion_context(peer_id, target or peer_id, search_query)
++        if identified is not None:
++            representation = identified
++        chunks = re.split(r"(?m)(?=^## )", representation)
++        for index, chunk in enumerate(chunks):
++            observations = re.split(r"(?m)(?=^\[\d{4}-\d{2}-\d{2}(?: |\]))", chunk)
++            if len(observations) > 1:
++                chunks[index] = observations[0] + "\n".join(sorted((item.strip() for item in observations[1:]), reverse=True)) + "\n"
++        return {"representation": "".join(chunks), "card": card}
+@@ -146,9 +157,0 @@
+-            if current_query_only:
+-                # The legacy fallback getters do not accept search_query. An empty
+-                # or failed current-query lookup must not silently become generic recall.
+-                ctx = self._authed_call("peer context fetch", lambda: self._get_or_create_peer(observer_peer_id).context(
+-                    search_query=user_message, target=target_peer_id or session.user_peer_id,
+-                ))
+-                result["representation"] = getattr(ctx, "representation", None) or getattr(ctx, "peer_representation", None) or ""
+-                result["card"] = "\n".join(self._normalize_card(getattr(ctx, "peer_card", None)))
+-                return
+@@ -161 +164 @@
+-                session.assistant_peer_id, target=session.assistant_peer_id,
++                session.assistant_peer_id, search_query=user_message or None, target=session.assistant_peer_id,
+@@ -177,0 +181,2 @@
++        for key in ("representation", "ai_representation", "summary"):
++            result[key] = relevant_representation(result.get(key, ""), user_message)
+@@ -224,7 +229,25 @@
+-    def search_context(self, session_key: str, query: str, max_tokens: int = 800, peer: str = "user") -> str:
+-        """Hybrid search over raw messages visible from ``peer``'s perspective, all sessions. Snippets
+-        accumulate until ``max_tokens`` (~4 chars/token) is exhausted. Returns "" when nothing matches;
+-        raises HonchoAuthError on rejected credentials."""
+-        session = self._cached_session(session_key)
+-        q = (query or "").strip()[:4000]  # Honcho caps query length for the embedding model.
+-        if not session or not q:
++    def search_context(
++        self,
++        session_key: str,
++        query: str,
++        max_tokens: int = 800,
++        peer: str = "user",
++    ) -> str:
++        """
++        Search raw messages across every session visible from the target
++        peer's perspective. Results include all authors and require no LLM
++        synthesis.
++
++        Args:
++            session_key: Session whose workspace/peer scope to search within.
++            query: Search query (hybrid semantic + full-text).
++            max_tokens: Approximate budget for returned content. Snippets are
++                accumulated until this budget (≈4 chars/token) is exhausted.
++            peer: Peer alias or explicit peer ID whose sessions to search.
++
++        Returns:
++            Ranked message excerpts as a formatted string, or empty string
++            if none found.
++        """
++        session = self._cached_session(session_key)
++        if not session:
+@@ -231,0 +255,2 @@
++
++        # peer_perspective spans the target peer's sessions across all authors.
+@@ -232,0 +258,9 @@
++
++        # Honcho caps query length for the embedding model; keep well under it.
++        q = (query or "").strip()
++        if not q:
++            return ""
++        if len(q) > 4000:
++            q = q[:4000]
++
++        # Approximate four characters per token and a few hundred per result.
+@@ -235,13 +269,75 @@
+-        messages = self._guarded_authed(
+-            "message search", lambda: self.honcho.search(q, filters={"peer_perspective": peer_id}, limit=limit),
+-            _FAILED, logging.DEBUG, "Honcho message search failed (peer_perspective=%s): %s", peer_id,
+-        )
+-        if messages is _FAILED or not messages:
+-            # Older Honcho versions lack the perspective filter (raise), and servers before v3.1.0
+-            # moved joined_at on every peer re-add, so the filter returns [] for history the peer was
+-            # present for; upgrading doesn't restore those windows. A peer's own messages are always
+-            # in its perspective, so peer-authored search is a safe fallback for both.
+-            messages = self._guarded_authed(
+-                "peer search", lambda: self._peer_ref(peer_id).search(q, limit=limit),
+-                None, logging.DEBUG, "Honcho peer search fallback also failed: %s",
+-            )
++
++        # Long prose defeats AND/full-string keyword matching on the server.
++        # Retrieve a bounded union of short anchors, always with the same peer
++        # scope; no phrase-, vendor-, or model-specific exceptions.
++        terms = list(dict.fromkeys(re.findall(r"[^\W_]+(?:[_-][^\W_]+)*", q, re.UNICODE)))
++
++        def weight(term: str) -> int:
++            if term.isdigit() and len(term) >= 3:
++                return 6
++            if re.search(r"[A-Za-z]", term) and re.search(r"\d", term):
++                return 6
++            if re.search(r"[A-Za-z]", term) and len(term) >= 3:
++                return 3
++            return 1 if len(term) >= 3 else 0
++
++        anchors = sorted((t for t in terms if weight(t)), key=lambda t: (-weight(t), -len(t)))
++        queries = [q]
++        if len(terms) >= 4:
++            # In mixed-script requests, vendor names must not consume every
++            # fallback slot and crowd out the user's actual topic.
++            selected = []
++            scripts = set()
++            for term in anchors:
++                script = "cyrillic" if re.search(r"[а-яё]", term, re.IGNORECASE) else "other"
++                if script not in scripts:
++                    scripts.add(script)
++                    selected.append(term)
++            selected.extend(term for term in anchors if term not in selected)
++            queries += [term for term in selected if term != q][:4]
++        candidates: dict[tuple, Any] = {}
++        for search_query in queries:
++            try:
++                found = self._authed_call(
++                    "scoped search", lambda: self.honcho.search(
++                        search_query, filters={"peer_perspective": peer_id}, limit=limit,
++                    ),
++                )
++            except HonchoAuthError:
++                raise
++            except Exception as e:
++                logger.debug("Honcho scoped search failed: %s", e)
++                try:
++                    found = self._authed_call(
++                        "peer search", lambda: self._peer_ref(peer_id).search(search_query, limit=limit),
++                    )
++                except HonchoAuthError:
++                    raise
++                except Exception:
++                    continue
++            for m in found or []:
++                content = (getattr(m, "content", "") or "").strip()
++                if content:
++                    identity = (getattr(m, "peer_id", ""), content)
++                    candidates.setdefault(identity, m)
++
++        # Common project names should not outweigh rare requested facts in
++        # either result ranking or excerpt selection. No new backend/index.
++        frequencies = {
++            term: sum(term.lower() in (getattr(m, "content", "") or "").lower()
++                      for m in candidates.values())
++            for term in terms
++        }
++
++        def score(content: str) -> float:
++            lower = content.lower()
++            return sum(weight(t) / (1 + frequencies[t]) for t in terms if t.lower() in lower)
++
++        def rank(m: Any) -> tuple:
++            content = (getattr(m, "content", "") or "").strip()
++            metadata = getattr(m, "metadata", None)
++            source = metadata.get("source", "") if isinstance(metadata, dict) else ""
++            machine = source in {"runtime_notification", "local_memory", "ai_identity_seed"} or content.startswith(("[IMPORTANT: Background process ", "<prior_memory_file>"))
++            return (score(content), not machine)
++
++        messages = sorted(candidates.values(), key=rank, reverse=True)
+@@ -249,0 +346 @@
++
+@@ -250,0 +348 @@
++        assistant_id = session.assistant_peer_id
+@@ -251,0 +350 @@
++        used = 0
+@@ -257 +356 @@
+-            who = "assistant" if author == session.assistant_peer_id else author
++            who = "assistant" if author == assistant_id else author
+@@ -259,3 +358,14 @@
+-            entry = f"[{who}{f' · {sess}' if sess else ''}] {content[:1200]}"
+-            # Budget left after the joined snippets so far plus the separator this entry would need.
+-            remaining = char_budget - len("\n\n".join(lines)) - (2 if lines else 0)
++            # Choose the best matching window, not the first 1200 characters
++            # of a long raw message. Preserve literal source text and author.
++            starts = [max(0, match.start() - 150)
++                      for term in terms for match in re.finditer(re.escape(term), content, re.IGNORECASE)]
++            start = max([0] + starts, key=lambda pos: score(content[pos:pos + 1200]))
++            snippet = ("… " if start else "") + content[start:start + 1200]
++            metadata = getattr(m, "metadata", None)
++            source = metadata.get("source", "") if isinstance(metadata, dict) else ""
++            if source or content.startswith(("[IMPORTANT: Background process ", "<prior_memory_file>")):
++                source = source or ("runtime_notification" if content.startswith("[IMPORTANT:") else "local_memory")
++                who += f" · source={source}"
++            entry = f"[{who}{f' · {sess}' if sess else ''}] {snippet}"
++            separator = "\n\n" if lines else ""
++            remaining = char_budget - used - len(separator)
+@@ -264,3 +374,6 @@
+-            truncated = len(entry) > remaining
+-            entry = entry[:remaining].rstrip()
+-            if not entry:
++            if len(entry) > remaining:
++                entry = entry[:remaining].rstrip()
++                if not entry:
++                    break
++                lines.append(entry)
++                used += len(separator) + len(entry)
+@@ -269,2 +382,2 @@
+-            if truncated:
+-                break
++            used += len(separator) + len(entry)
++
+@@ -358,3 +471,3 @@
+-            self._sdk_session(session.honcho_session_id).add_messages([assistant_peer.message(wrapped)])
+-            logger.info("Seeded AI identity from '%s' into %s", source, session_key)
+-            return True
++            return self._seed_once(assistant_peer, f"ai_identity_seed:{source}", content.strip(),
++                lambda digest: self._sdk_session(session.honcho_session_id).add_messages([assistant_peer.message(
++                    wrapped, metadata={"source": "ai_identity_seed", "origin": source, "author": "agent", "sha256": digest})]))
+@@ -413 +526 @@
+-            return result[:cap].rsplit(" ", 1)[0] + " …" if result and cap and len(result) > cap else result
++            return bounded_complete_text(result, cap) if result and cap and len(result) > cap else result
+@@ -420,0 +534,41 @@
++
++    def _retired_conclusion_context(
++        self, observer: str, observed: str, query: str | None,
++    ) -> str | None:
++        """Exclude verified superseded IDs without deleting source history.
++
++        The registry belongs to this Hermes profile and exact Honcho perspective.
++        Cached representations lack IDs: once a perspective has retirements, only
++        an ID-bearing native query may supply its automatic observations. Cards
++        and explicit history access remain available even if that query fails.
++        """
++        from hermes_constants import get_hermes_home
++
++        path = get_hermes_home() / "honcho-corrections.json"
++        if not path.exists():
++            return None
++        try:
++            data = json.loads(path.read_text(encoding="utf-8"))
++            if data.get("schema_version") != 1 or not isinstance(data.get("retired"), list):
++                raise ValueError("invalid correction registry schema")
++            if data.get("workspace_id") != self.honcho.workspace_id:
++                return None
++            retired = {
++                str(item["id"]) for item in data["retired"]
++                if item.get("observer_id") == observer and item.get("observed_id") == observed
++            }
++            if not retired:
++                return None
++            if not query:
++                return ""
++            scope = self._get_or_create_peer(observer).conclusions_of(observed)
++            rows = scope.query(query[:4000], top_k=12)
++            return "\n\n".join(
++                str(row.content) for row in rows
++                if getattr(row, "id", None) is not None and str(row.id) not in retired
++                and getattr(row, "content", None)
++            )
++        except Exception:
++            # Do not let a cached summary resurrect known-invalid assertions.
++            logger.warning("ID-bearing corrected Honcho recall unavailable")
++            return ""
+--- a/session_migration.py
++++ b/session_migration.py
+@@ -5,0 +6,7 @@
++import hashlib
++import threading
++import re
++from typing import Any
++
++_SEED_LOCK = threading.RLock()
++_SEED_METADATA_KEY = "hermes_seed_sha256"
+@@ -58 +65,3 @@
+-            def _upload() -> None:
++            peer = self._get_or_create_peer(target_peer_id)
++
++            def _upload(digest: str) -> None:
+@@ -62 +71,2 @@
+-                    metadata={"source": "local_memory", "original_file": filename, "target_peer": target_kind},
++                    metadata={"source": "local_memory", "original_file": filename, "target_peer": target_kind,
++                              "origin": "agent_memory_import", "author": "agent", "sha256": digest},
+@@ -66 +76,2 @@
+-                self._authed_call("memory migration upload", _upload)
++                did_upload = self._seed_once(peer, f"local_memory:{filename}", content,
++                    lambda digest: self._authed_call("memory migration upload", lambda: _upload(digest)), legacy_file=filename)
+@@ -68 +79 @@
+-                uploaded = True
++                uploaded = did_upload or uploaded
+@@ -75,0 +87,46 @@
++
++    def _seed_once(self, peer: Any, source_key: str, content: str, write: Any,
++                   *, legacy_file: str | None = None) -> bool:
++        """Deduplicate unchanged imports, preserving unrelated peer metadata.
++
++        A write is marked only after success. Old local-memory uploads can be
++        recognized by exact wrapped body; this is a bounded compatibility read,
++        not a backfill or deletion. Metadata failure fails open for real facts.
++        """
++        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
++        with _SEED_LOCK:
++            metadata: dict = {}
++            try:
++                existing = peer.get_metadata()
++                if isinstance(existing, dict):
++                    metadata = dict(existing)
++            except Exception:
++                logger.debug("Honcho seed metadata unavailable")
++            seeds = dict(metadata.get(_SEED_METADATA_KEY) or {})
++            if seeds.get(source_key) == digest:
++                return False
++            legacy_match = False
++            if legacy_file and source_key not in seeds:
++                try:
++                    previous = self.honcho.search(
++                        content[:300], filters={"peer_id": peer.id, "metadata": {
++                            "source": "local_memory", "original_file": legacy_file,
++                        }}, limit=20,
++                    )
++                    for msg in previous:
++                        body = getattr(msg, "content", "") or ""
++                        match = re.search(r"<prior_memory_file>.*?</context>\s*(.*?)\s*</prior_memory_file>", body, re.DOTALL)
++                        if match and match.group(1).strip() == content:
++                            legacy_match = True
++                            break
++                except Exception:
++                    logger.debug("Honcho legacy seed lookup unavailable")
++            if not legacy_match:
++                write(digest)
++            seeds[source_key] = digest
++            metadata[_SEED_METADATA_KEY] = seeds
++            try:
++                peer.set_metadata(metadata)
++            except Exception:
++                logger.warning("Honcho seed saved but dedup metadata could not be persisted")
++            return not legacy_match
