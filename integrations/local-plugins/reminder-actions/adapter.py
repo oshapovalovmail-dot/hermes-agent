@@ -95,7 +95,7 @@ class ReminderAdapter(native.TelegramAdapter):
                 return SendResult(success=True, message_id=receipts[0],
                                   raw_response={'message_ids': receipts, 'reminder_controls': True,
                                                 'delivery_id': delivery['id']})
-            except Exception as exc:
+            except Exception as exc:  # health: allow BLE001 -- delivery boundary preserves error result without logging private exception data
                 logger.warning('Reminder controls delivery failed: %s', type(exc).__name__)
                 return SendResult(success=False, error='reminder_controls_' + type(exc).__name__)
 
@@ -140,12 +140,12 @@ class ReminderAdapter(native.TelegramAdapter):
                            if int(mid) != message.message_id] + [message.message_id]
                     try:
                         await self._delete_notifications(context.bot, message.chat.id, ids)
-                    except Exception as exc:
+                    except Exception as exc:  # health: allow BLE001 -- deletion failure stays retryable without logging private exception data
                         logger.warning('Reminder notification deletion failed: %s', type(exc).__name__)
                         warning = 'Вопрос закрыт, но удалить уведомление не удалось. Нажми «Закрыть» ещё раз.'
                         try:
                             await query.answer(warning, show_alert=True)
-                        except Exception as ack_exc:
+                        except Exception as ack_exc:  # health: allow BLE001 -- preserve fallback delivery without logging private acknowledgement data
                             logger.warning('Reminder deletion warning acknowledgement failed: %s', type(ack_exc).__name__)
                             await self.send(str(message.chat.id), warning,
                                             metadata={'thread_id': str(message.message_thread_id)})
@@ -180,7 +180,7 @@ class ReminderAdapter(native.TelegramAdapter):
                                     metadata={'thread_id': str(message.message_thread_id)})
         except ValueError:
             await query.answer('Эта кнопка недоступна в данном чате или для данного пользователя.', show_alert=True)
-        except Exception as exc:
+        except Exception as exc:  # health: allow BLE001 -- callback boundary preserves safe user feedback without logging private exception data
             logger.warning('Reminder callback failed: %s', type(exc).__name__)
             with suppress(Exception):
                 await query.answer('Не удалось обработать кнопку. Статус черновика не подтверждён.', show_alert=True)

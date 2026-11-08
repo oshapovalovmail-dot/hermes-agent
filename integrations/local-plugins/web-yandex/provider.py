@@ -111,6 +111,6 @@ class YandexSearchProvider(WebSearchProvider):
             if len(response.content) > 2_000_000:
                 return {"success": False, "error": "Search response exceeds 2 MB"}
             return normalize(response.json(), limit, self.name)
-        except Exception as exc:
+        except Exception as exc:  # health: allow BLE001 -- preserve the public error payload but keep private transport details out of logs
             logger.warning("Yandex search failed: %s", type(exc).__name__)
             return {"success": False, "provider": self.name, "error": f"{type(exc).__name__}: {exc}"}
