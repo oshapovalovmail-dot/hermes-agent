@@ -269,6 +269,11 @@ _LAUNCHCTL_LIFECYCLE_VERBS_RE = re.compile(
 )
 _HERMES_GATEWAY_LABEL_RE = re.compile(r"(?i)\bhermes[.\-]?gateway\b")
 
+def is_direct_gateway_restart_command(text: str) -> bool:
+    """Only the drain-aware child CLI, never shell expansions or service-manager commands."""
+    return bool(re.fullmatch(r"(?:hermes|/[A-Za-z0-9_./-]+/hermes)\s+gateway\s+restart", text.strip()))
+
+
 _SHELL_EXECUTABLES = frozenset({"sh", "bash", "dash", "ksh", "zsh"})
 _SHELL_OPTIONS_WITH_VALUES = frozenset({"-O", "+O", "-o", "+o"})
 _SHELL_COMMAND_FLAGS = {"-c", "--command"}

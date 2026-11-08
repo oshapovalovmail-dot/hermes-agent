@@ -781,6 +781,9 @@ def _snapshot_review_usage(review_agent: Any) -> dict[str, Any]:
         **{key: getattr(review_agent, key, None) for key in ("model", "provider", "base_url")},
         **{key: int(getattr(review_agent, f"session_{key}", 0) or 0) for key in _USAGE_COUNTERS},
         "estimated_cost_usd": getattr(review_agent, "session_estimated_cost_usd", None),
+        "actual_cost_usd": getattr(review_agent, "session_actual_cost_usd", None),
+        "cost_status": getattr(review_agent, "session_cost_status", None),
+        "cost_source": getattr(review_agent, "session_cost_source", None),
     }
 
 
@@ -803,6 +806,8 @@ def _record_review_usage_to_parent(
             session_id, task=task, model=usage.get("model"),
             billing_provider=usage.get("provider"), billing_base_url=usage.get("base_url"),
             estimated_cost_usd=usage.get("estimated_cost_usd"),
+            actual_cost_usd=usage.get("actual_cost_usd"),
+            cost_status=usage.get("cost_status"), cost_source=usage.get("cost_source"),
             api_call_count=counts.pop("api_calls"), **counts,
         )
     except Exception as e:
@@ -990,7 +995,9 @@ def build_cache_parity_fork(
     from run_agent import AIAgent  # local: avoids a circular import at load
     # Inherit the parent's live runtime: AIAgent.__init__'s env auto-resolution fails for
     # OAuth-only providers, session-scoped creds and credential pools.
-    _rt = _resolve_review_runtime(agent, task_cfg)
+    _rt = getattr(agent, "_background_review_runtime", None)
+    if _rt is None:
+        _rt = _resolve_review_runtime(agent, task_cfg)
     _routed = bool(_rt.get("routed"))
     # A configured effort is dropped on the same-model path (cache parity) — say so once, visible,
     # instead of leaving the set-but-ignored key invisible (#104116). Routed forks honor it
@@ -1032,6 +1039,10 @@ def build_cache_parity_fork(
     if not _routed:
         review_agent._cached_system_prompt = agent._cached_system_prompt
         review_agent.session_start = agent.session_start
+        for name in ("_cached_system_prompt_static", "_cached_system_prompt_static_tiered",
+                     "_cached_system_prompt_static_version", "_static_rebuild_failed_for"):
+            if hasattr(agent, name):
+                setattr(review_agent, name, copy.deepcopy(getattr(agent, name)))
         # Cache-scope parity (#109964): the fork shares the parent's physical session_id and
         # byte-identical prefix, but is _persist_disabled (declared scope fails closed) and
         # _session_db=None (lineage walk skipped) — so BOTH cache-identity resolvers keyed it
@@ -1041,7 +1052,9 @@ def build_cache_parity_fork(
         # affinity header via set_affinity_scope and the body prompt_cache_key via
         # cache_scope_id) resolve the parent's bucket together. Routed (different-model)
         # forks do NOT inherit: their prefix is cache-cold anyway.
-        inherited_scope = resolve_prompt_cache_scope_safe(agent)
+        inherited_scope = (agent._background_review_cache_scope
+                           if hasattr(agent, "_background_review_cache_scope")
+                           else resolve_prompt_cache_scope_safe(agent))
         if inherited_scope:
             review_agent._inherited_cache_scope = inherited_scope
         # Slot-keyed caches (xAI): once the review's OWN compaction rewrites its transcript, its
@@ -1189,15 +1202,16 @@ def release_cache_parity_fork(
 def _run_review_fork(
     agent: Any, messages_snapshot: list[dict], prompt: str, task_cfg: Optional[dict[str, Any]],
     review_run: Optional[_BackgroundReviewRun], st: _ReviewForkState, review_memory: bool = False,
-    explicit: bool = False,
+    explicit: bool = False, snapshot=None,
 ) -> None:
     """Fork phase (inside thread-scoped silence): build the fork, run the prompt under the tool
     whitelist, snapshot its messages/usage, release its clients. Partial progress lands on ``st``
     so the caller's error path still sees usage and the fork to clean up. ``explicit`` (/refine)
     keeps the ``background_review`` origin (curator/skill guards still apply) but marks the fork
     attended, so the unattended-only memory delete gate leaves the full operation set available."""
+    fork_parent = snapshot.materialize() if snapshot is not None else agent
     st.review_agent, _rt, _routed = build_cache_parity_fork(
-        agent, task_cfg, max_iterations=_REVIEW_MAX_ITERATIONS)
+        fork_parent, task_cfg, max_iterations=_REVIEW_MAX_ITERATIONS)
     st.review_agent._review_attended = explicit
     _track_review_fork(agent, st.review_agent, register=True)
     from hermes_cli.plugins import set_thread_tool_whitelist, clear_thread_tool_whitelist
@@ -1240,7 +1254,7 @@ def _run_review_fork(
         # still attributed. The recorder never raises.
         if st.review_agent is not None:
             st.review_usage.update(_snapshot_review_usage(st.review_agent))
-            _record_review_usage_to_parent(agent, st.review_usage)
+            _record_review_usage_to_parent(fork_parent, st.review_usage)
         # Publish completion as soon as the provider-capable phase has returned or startup
         # cancellation has fenced it out (unregister + finish are identity-scoped and idempotent).
         _track_review_fork(agent, st.review_agent, register=False)
@@ -1261,7 +1275,7 @@ def _publish_review_summary(agent: Any, actions: list[str]) -> None:
 def _run_review_in_thread(
     agent: Any, messages_snapshot: list[dict], prompt: str,
     task_cfg: Optional[dict[str, Any]] = None, review_run: Optional[_BackgroundReviewRun] = None,
-    review_memory: bool = False, explicit: bool = False,
+    review_memory: bool = False, explicit: bool = False, snapshot=None,
 ) -> None:
     """Daemon-thread worker: build the fork, run the prompt, surface the action summary via
     ``agent._safe_print`` / ``background_review_callback``. ``review_run`` (from
@@ -1297,7 +1311,7 @@ def _run_review_in_thread(
         # to devnull and leaves all other threads on the real streams.
         from tools.skills_tool import bind_turn_secret_capture
         with thread_scoped_silence(), bind_turn_secret_capture(_bg_review_skip_secret):
-            _run_review_fork(agent, messages_snapshot, prompt, task_cfg, review_run, st, review_memory, explicit)
+            _run_review_fork(agent, messages_snapshot, prompt, task_cfg, review_run, st, review_memory, explicit, snapshot)
         # A buggy/legacy tool response shape must NOT take down the whole review (the outer
         # except would discard every action the fork DID complete), so coerce to an empty list.
         try:
@@ -1373,10 +1387,13 @@ def spawn_background_review_thread(
             f"focus — prioritize it over the general instructions above:\n{focus}"
         )
 
+    from agent.background_review_snapshot import capture_background_review_snapshot, _thaw
+    snapshot = capture_background_review_snapshot(agent, messages_snapshot, task_cfg)
+
     def _target() -> None:  # resolves _run_review_in_thread at call time (tests patch it)
         _run_review_in_thread(
-            agent, messages_snapshot, prompt, task_cfg=task_cfg, review_run=review_run,
-            review_memory=review_memory, explicit=explicit)
+            agent, _thaw(snapshot.messages), prompt, task_cfg=_thaw(snapshot.task_config), review_run=review_run,
+            review_memory=review_memory, explicit=explicit, snapshot=snapshot)
 
     return _target, prompt
 

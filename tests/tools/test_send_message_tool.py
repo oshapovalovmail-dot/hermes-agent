@@ -508,6 +508,39 @@ class TestSendTelegramMediaDelivery:
 
 
 class TestSendToPlatformChunking:
+    def test_telegram_chunk_suffix_is_markdownv2_escaped(self, monkeypatch):
+        """Chunk labels added after formatting must not invalidate MarkdownV2."""
+        sent_texts = []
+
+        async def fake_send_message(**kwargs):
+            sent_texts.append(kwargs["text"])
+            return SimpleNamespace(message_id=len(sent_texts))
+
+        bot = MagicMock()
+        bot.send_message = AsyncMock(side_effect=fake_send_message)
+        bot.send_photo = AsyncMock()
+        bot.send_video = AsyncMock()
+        bot.send_voice = AsyncMock()
+        bot.send_audio = AsyncMock()
+        bot.send_document = AsyncMock()
+        _install_telegram_mock(monkeypatch, bot)
+
+        line = "🔴 [12345](https://example.org/review/12345) — blocker\n"
+        result = asyncio.run(
+            _send_to_platform(
+                Platform.TELEGRAM,
+                SimpleNamespace(enabled=True, token="tok", extra={}),
+                "123",
+                line * 150,
+            )
+        )
+
+        assert result["success"] is True
+        assert len(sent_texts) >= 2
+        assert all("\\(" in text and "\\)" in text for text in sent_texts)
+        assert all("[12345](https://example.org/review/12345)" in text for text in sent_texts)
+
+
     def test_long_message_is_chunked(self):
         """Messages exceeding the platform limit are split into multiple sends."""
         send = AsyncMock(return_value={"success": True, "message_id": "1"})

@@ -719,6 +719,87 @@ def test_comment_rejects_caller_supplied_author(worker_env):
         conn.close()
 
 
+def test_create_reasoning_effort_normalizes_and_surfaces(worker_env, monkeypatch):
+    from hermes_cli import kanban_db as kb
+    from hermes_cli import kanban_db_connect as kbc
+    from tools import kanban_tools as kt
+
+    created = json.loads(kt._handle_create({
+        "title": "reasoning child",
+        "assignee": "peer",
+        "parents": [worker_env],
+        "reasoning_effort": "  LoW ",
+    }))
+    assert created.get("ok") is True, created
+    assert created["reasoning_effort"] == "low"
+
+    child_id = created["task_id"]
+    with kbc.connect() as conn:
+        child = kb.get_task(conn, child_id)
+        assert child.reasoning_effort == "low"
+
+    shown = json.loads(kt._handle_show({"task_id": child_id}))
+    assert shown["task"]["reasoning_effort"] == "low"
+
+    monkeypatch.delenv("HERMES_KANBAN_TASK", raising=False)
+    listed = json.loads(kt._handle_list({"assignee": "peer", "status": "todo"}))
+    row = next(task for task in listed["tasks"] if task["id"] == child_id)
+    assert row["reasoning_effort"] == "low"
+
+def test_create_reasoning_effort_omitted_is_null(worker_env):
+    from tools import kanban_tools as kt
+
+    created = json.loads(kt._handle_create({
+        "title": "inherited reasoning",
+        "assignee": "peer",
+        "parents": [worker_env],
+    }))
+    assert created["ok"] is True
+    assert created["reasoning_effort"] is None
+
+    shown = json.loads(kt._handle_show({"task_id": created["task_id"]}))
+    assert shown["task"]["reasoning_effort"] is None
+
+def test_create_reasoning_effort_invalid_does_not_create(worker_env):
+    from hermes_cli import kanban_db_connect as kbc
+    from tools import kanban_tools as kt
+
+    with kbc.connect() as conn:
+        before = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+
+    rejected = json.loads(kt._handle_create({
+        "title": "invalid reasoning",
+        "assignee": "peer",
+        "reasoning_effort": "extremely-hard",
+    }))
+    assert "error" in rejected
+    assert "reasoning_effort" in rejected["error"]
+
+    with kbc.connect() as conn:
+        after = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+    assert after == before
+
+def test_create_reasoning_effort_survives_model_clear(worker_env):
+    from hermes_cli import kanban_db as kb
+    from hermes_cli import kanban_db_connect as kbc
+
+    with kbc.connect() as conn:
+        task_id = kb.create_task(
+            conn,
+            title="independent controls",
+            assignee="peer",
+            model_override="gpt-test",
+            provider_override="openrouter",
+            reasoning_effort="high",
+        )
+        assert kb.set_model_override(conn, task_id, None)
+        task = kb.get_task(conn, task_id)
+
+    assert task.model_override is None
+    assert task.provider_override is None
+    assert task.reasoning_effort == "high"
+
+
 def test_create_happy_path(worker_env):
     from tools import kanban_tools as kt
     out = kt._handle_create({

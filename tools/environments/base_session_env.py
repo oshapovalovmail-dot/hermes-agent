@@ -150,7 +150,8 @@ def _passthrough_save_restore(names: Iterable[str]) -> tuple[list[str], list[str
     profile's value. Values stay in environment memory and never enter the command string."""
     save: list[str] = []
     restore: list[str] = []
-    for name in names:
+    # Invocation identity must also override snapshots produced by older versions.
+    for name in dict.fromkeys((*names, "HERMES_DELEGATED_CHILD_CONTEXT")):
         marker = f"_HERMES_RUNTIME_PASSTHROUGH_{name}"
         present, value = f"{marker}_PRESENT", f"{marker}_VALUE"
         save += [f"{present}=${{{name}+x}}", f"{value}=${{{name}-}}"]

@@ -44,12 +44,16 @@ def _fake_runner(thread_meta):
     return SimpleNamespace(
         _thread_metadata_for_source=lambda source, anchor=None: thread_meta,
         _reply_anchor_for_event=lambda event: None,
+        _deliver_media_from_response=lambda *a, **kw: GatewayRunner._deliver_media_from_response(_fake_runner({}), *a, **kw),
+        _send_queued_final_text=lambda adapter, source, text, *args: adapter.send(source.chat_id, text),
     )
 
 
 def _adapter():
     return SimpleNamespace(
         name="test",
+        send=AsyncMock(return_value=SendResult(success=True)),
+        _notify_media_delivery_failure=AsyncMock(),
         extract_media=BasePlatformAdapter.extract_media,
         extract_images=BasePlatformAdapter.extract_images,
         extract_local_files=BasePlatformAdapter.extract_local_files,
@@ -113,3 +117,105 @@ async def test_explicit_media_tag_still_delivers_post_stream(tmp_path, monkeypat
     assert str(media_file) in unquote(images_kwargs["images"][0][0])
 
 
+@pytest.mark.asyncio
+async def test_queued_first_response_delivers_document_and_hides_local_path(
+    tmp_path, monkeypatch
+):
+    """Queued delivery must upload MEDIA instead of leaking its host path."""
+    media_file = _allowed_media_path(tmp_path, monkeypatch, "report.docx")
+    adapter = _adapter()
+    runner = _fake_runner({"thread_id": "topic-1"})
+
+    await GatewayRunner._deliver_queued_first_response(
+        runner,
+        f"Готово.\nMEDIA:{media_file}",
+        _event().source,
+        adapter,
+        metadata={"thread_id": "topic-1"},
+        event_message_id="171.000001",
+        text_already_delivered=False,
+    )
+
+    adapter.send.assert_awaited_once()
+    sent_text = adapter.send.await_args.args[1]
+    assert sent_text == "Готово."
+    assert "MEDIA:" not in sent_text
+    assert str(media_file) not in sent_text
+    adapter.send_document.assert_awaited_once()
+    assert adapter.send_document.await_args.kwargs["file_path"] == str(media_file)
+
+
+@pytest.mark.asyncio
+async def test_queued_streamed_response_still_flushes_document(tmp_path, monkeypatch):
+    media_file = _allowed_media_path(tmp_path, monkeypatch, "report.docx")
+    adapter = _adapter()
+    runner = _fake_runner({"thread_id": "topic-1"})
+
+    await GatewayRunner._deliver_queued_first_response(
+        runner,
+        f"Готово.\nMEDIA:{media_file}",
+        _event().source,
+        adapter,
+        metadata={"thread_id": "topic-1"},
+        event_message_id="171.000001",
+        text_already_delivered=True,
+    )
+
+    adapter.send.assert_not_awaited()
+    adapter.send_document.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_rejected_explicit_attachment_is_user_visible(tmp_path, monkeypatch):
+    monkeypatch.setattr("gateway.media_policy.media_delivery_strict", lambda: True)
+    monkeypatch.setattr("gateway.platforms.base._media_delivery_recency_seconds", lambda: 0)
+    rejected = tmp_path / "outside" / "report.docx"
+    rejected.parent.mkdir()
+    rejected.write_text("fixture")
+    monkeypatch.setattr("gateway.platforms.base.MEDIA_DELIVERY_SAFE_ROOTS", (tmp_path / "allowed",))
+    adapter = _adapter()
+    await GatewayRunner._deliver_media_from_response(_fake_runner({}), f"MEDIA:{rejected}", _event(), adapter)
+    adapter.send_document.assert_not_awaited()
+    adapter._notify_media_delivery_failure.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_post_stream_image_failure_is_user_visible(tmp_path, monkeypatch):
+    image = _allowed_media_path(tmp_path, monkeypatch, "chart.png")
+    adapter = _adapter()
+    adapter.send_multiple_images.return_value = SendResult(success=False, error="rejected")
+    await GatewayRunner._deliver_media_from_response(_fake_runner({}), f"MEDIA:{image}", _event(), adapter)
+    adapter._notify_media_delivery_failure.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_post_stream_document_failure_is_user_visible(tmp_path, monkeypatch):
+    media_file = _allowed_media_path(tmp_path, monkeypatch, "report.docx")
+    adapter = _adapter()
+    adapter.send_document.return_value = SendResult(
+        success=False,
+        error="telegram rejected upload",
+    )
+
+    await GatewayRunner._deliver_media_from_response(
+        _fake_runner({"thread_id": "topic-1"}),
+        f"MEDIA:{media_file}",
+        _event(),
+        adapter,
+    )
+
+    adapter._notify_media_delivery_failure.assert_awaited_once()
+
+
+
+@pytest.mark.asyncio
+async def test_normalized_attachment_is_not_reported_as_rejected(tmp_path, monkeypatch):
+    target = _allowed_media_path(tmp_path, monkeypatch, "report.docx")
+    alias = target.parent / "alias.docx"
+    alias.symlink_to(target)
+    adapter = _adapter()
+    await GatewayRunner._deliver_media_from_response(
+        _fake_runner({}), f"MEDIA:{alias}", _event(), adapter)
+    adapter.send_document.assert_awaited_once()
+    assert adapter.send_document.await_args.kwargs["file_path"] == str(target)
+    adapter._notify_media_delivery_failure.assert_not_awaited()
