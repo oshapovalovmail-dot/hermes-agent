@@ -4833,6 +4833,11 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         event.raw_message = query
         event.timestamp = datetime.now(UTC)
         await query.answer(text=text)
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:  # health: allow BLE001 -- fail closed without exposing private Telegram transport details
+            await query.answer(text="Не удалось обработать нажатие.")
+            return
         await self.handle_message(event)
 
     async def _claim_callback_state(self, query, cb: dict[str, Any], state: dict, key, denial: str, resolved: str, *, pop: bool = True):

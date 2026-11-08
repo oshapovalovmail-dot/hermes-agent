@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from telegram import CallbackQuery, Chat, Message, Update, User
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TimedOut
 
 from gateway.config import PlatformConfig
 from gateway.platforms.base import MessageType
@@ -43,6 +43,7 @@ def adapter():
         do_api_request=AsyncMock(return_value={"message_id": 900}),
         send_chat_action=AsyncMock(),
         answer_callback_query=AsyncMock(return_value=True),
+        edit_message_reply_markup=AsyncMock(return_value=True),
     )
     return result
 
@@ -205,6 +206,8 @@ def callback_update(adapter, data="qa:status", *, user_id=501, chat_id=int(CHAT)
     msg = Message(800, datetime(2026, 1, 1, tzinfo=UTC), chat,
                   from_user=bot_user, text="Assistant answer", message_thread_id=71,
                   is_topic_message=True) if message else None
+    if msg is not None:
+        msg.set_bot(adapter._bot)
     query = CallbackQuery("fixture-query", human, "fixture-instance", message=msg, data=data)
     query.set_bot(adapter._bot)
     return Update(901, callback_query=query)
@@ -273,5 +276,85 @@ async def test_rejected_or_stale_callback_never_reaches_ingress(adapter, case):
                              message=case != "no_message")
     await adapter._handle_callback_query(update, None)
     adapter._bot.answer_callback_query.assert_awaited_once()
+    handler.assert_not_awaited()
+    assert not adapter._session_tasks
+    adapter._bot.edit_message_reply_markup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("data,text", [("qa:status", "статус?"), ("qa:continue", "доделывай"), ("qa:approve", "разрешаю")])
+async def test_click_dismisses_only_clicked_row_before_ordinary_ingress(adapter, monkeypatch, data, text):
+    resolver = Mock(side_effect=AssertionError("shortcut must not resolve approvals"))
+    monkeypatch.setattr("tools.approval.resolve_gateway_approval_card", resolver)
+    adapter.set_authorization_check(lambda *args, **kwargs: True)
+    order = []
+
+    async def ack(**kwargs):
+        order.append(("ack", kwargs["text"]))
+
+    async def dismiss(**kwargs):
+        assert order == [("ack", text)]
+        order.append(("dismiss", kwargs))
+
+    async def handler(event):
+        assert [step[0] for step in order] == ["ack", "dismiss"]
+        adapter._bot.send_message.assert_not_awaited()
+        assert event.text == text
+        assert event.source.user_id == "501"
+        assert event.source.is_bot is False
+        assert event.source.thread_id == "71"
+        assert event.internal is False and event.prompt_response is None
+        order.append(("ingress", event.text))
+        assert (await adapter.send(CHAT, "Next answer", metadata=META)).success
+
+    adapter._bot.answer_callback_query.side_effect = ack
+    adapter._bot.edit_message_reply_markup.side_effect = dismiss
+    adapter.set_message_handler(handler)
+    await adapter._handle_callback_query(callback_update(adapter, data), None)
+    await asyncio.gather(*list(adapter._session_tasks.values()))
+    assert [step[0] for step in order] == ["ack", "dismiss", "ingress"]
+    adapter._bot.edit_message_reply_markup.assert_awaited_once()
+    edit = adapter._bot.edit_message_reply_markup.await_args.kwargs
+    assert edit["chat_id"] == int(CHAT)
+    assert edit["message_id"] == 800
+    assert edit["reply_markup"] is None
+    assert edit.get("inline_message_id") is None
+    assert "message_thread_id" not in edit
+    adapter._bot.edit_message_text.assert_not_awaited()
+    adapter._bot.do_api_request.assert_not_awaited()
+    adapter._bot.send_message.assert_awaited_once()
+    assert adapter._bot.send_message.await_args.kwargs["reply_markup"] == INLINE
+    resolver.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [BadRequest("Message is not modified"), TimedOut(), RuntimeError("private transport details")])
+async def test_dismiss_failure_is_generic_feedback_without_event_or_approval(adapter, monkeypatch, error):
+    resolver = Mock(side_effect=AssertionError("shortcut must not resolve approvals"))
+    monkeypatch.setattr("tools.approval.resolve_gateway_approval_card", resolver)
+    adapter.set_authorization_check(lambda *args, **kwargs: True)
+    handler = AsyncMock()
+    adapter.set_message_handler(handler)
+    adapter._bot.edit_message_reply_markup.side_effect = error
+    await adapter._handle_callback_query(callback_update(adapter, "qa:approve"), None)
+    adapter._bot.edit_message_reply_markup.assert_awaited_once()
+    assert [c.kwargs["text"] for c in adapter._bot.answer_callback_query.await_args_list] == [
+        "разрешаю", "Не удалось обработать нажатие."]
+    handler.assert_not_awaited()
+    assert not adapter._session_tasks
+    adapter._bot.send_message.assert_not_awaited()
+    resolver.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [BadRequest("Query is too old"), TimedOut()])
+async def test_failed_ack_does_not_dismiss_or_dispatch(adapter, error):
+    adapter.set_authorization_check(lambda *args, **kwargs: True)
+    handler = AsyncMock()
+    adapter.set_message_handler(handler)
+    adapter._bot.answer_callback_query.side_effect = error
+    with pytest.raises(type(error)):
+        await adapter._handle_callback_query(callback_update(adapter), None)
+    adapter._bot.edit_message_reply_markup.assert_not_awaited()
     handler.assert_not_awaited()
     assert not adapter._session_tasks
