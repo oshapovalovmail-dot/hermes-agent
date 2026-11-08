@@ -256,8 +256,10 @@ class GatewayNotificationsMixin(GatewayUpdateNotificationsMixin, GatewayNotifica
             # Capture [[as_document]] before extract_media strips it: images then go via send_document.
             force_document_attachments = "[[as_document]]" in response
             from gateway.platforms.base import BasePlatformAdapter, should_send_media_as_audio
-            media_files, cleaned = adapter.extract_media(response)
-            media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
+            extracted_media_files, cleaned = adapter.extract_media(response)
+            dropped_media = []
+            media_files = BasePlatformAdapter.filter_media_delivery_paths(
+                extracted_media_files, dropped=dropped_media)
             # Strip image URLs (parity with the non-streaming chain); no extract_local_files here.
             # Do NOT deduplicate explicit MEDIA tags against prior turns here (#73771). This rescan is
             # already EXPLICIT-ONLY (see docstring): a MEDIA: directive in the final streamed reply is the
@@ -277,6 +279,11 @@ class GatewayNotificationsMixin(GatewayUpdateNotificationsMixin, GatewayNotifica
                 else self._thread_metadata_for_source(event.source, self._reply_anchor_for_event(event))
             )
             chat_id = event.source.chat_id
+            voice_by_path = dict(extracted_media_files)
+            for dropped in dropped_media:
+                media_path = dropped["path"]
+                await adapter._notify_media_delivery_failure(
+                    chat_id, media_path, is_voice=voice_by_path.get(media_path, False), metadata=_thread_meta)
             # Images go out as one batch (e.g. Signal's multi-attachment RPC) unless [[as_document]].
             def _is_photo(media_path: str, is_voice: bool) -> bool:
                 ext = Path(media_path).suffix.lower()
@@ -291,20 +298,28 @@ class GatewayNotificationsMixin(GatewayUpdateNotificationsMixin, GatewayNotifica
                 try:
                     images = [(f"file://{_quote(p)}", "") for p in image_paths]
                     images.extend(url_images)
-                    await adapter.send_multiple_images(chat_id=chat_id, images=images, metadata=_thread_meta)
+                    image_result = await adapter.send_multiple_images(chat_id=chat_id, images=images, metadata=_thread_meta)
+                    if not image_result.success:
+                        for media_path in image_paths:
+                            await adapter._notify_media_delivery_failure(
+                                chat_id, media_path, metadata=_thread_meta)
                 except Exception as e:
                     logger.warning("[%s] Post-stream image batch delivery failed: %s", adapter.name, e)
             for media_path, is_voice in non_image_media:
                 try:
                     ext = Path(media_path).suffix.lower()
                     if should_send_media_as_audio(event.source.platform, ext, is_voice=is_voice):
-                        await adapter.send_voice(
+                        media_result = await adapter.send_voice(
                             chat_id=chat_id, audio_path=media_path, metadata=_thread_meta, is_voice=is_voice,
                         )
                     elif ext in _VIDEO_EXTS:
-                        await adapter.send_video(chat_id=chat_id, video_path=media_path, metadata=_thread_meta)
+                        media_result = await adapter.send_video(chat_id=chat_id, video_path=media_path, metadata=_thread_meta)
                     else:
-                        await adapter.send_document(chat_id=chat_id, file_path=media_path, metadata=_thread_meta)
+                        media_result = await adapter.send_document(chat_id=chat_id, file_path=media_path, metadata=_thread_meta)
+                    if not media_result.success:
+                        logger.warning("[%s] Post-stream media delivery failed: %s", adapter.name, media_result.error)
+                        await adapter._notify_media_delivery_failure(
+                            chat_id, media_path, is_voice=is_voice, metadata=_thread_meta)
                 except Exception as e:
                     logger.warning("[%s] Post-stream media delivery failed: %s", adapter.name, e)
 

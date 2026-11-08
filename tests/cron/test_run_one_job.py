@@ -420,3 +420,30 @@ def test_run_one_job_installs_secret_scope_under_multiplex(monkeypatch, tmp_path
     # And it was torn down after the full lifecycle returned (no leak).
     assert ss.current_secret_scope() is None
 
+
+def test_crash_failure_can_suppress_chat_without_losing_incident(monkeypatch):
+    monkeypatch.setattr(s, "load_config", lambda: {"cron": {"deliver_errors": False}})
+    monkeypatch.setattr(s, "_upsert_incident_for_failure", lambda *a: (False, "incident"))
+    deliveries = []
+    monkeypatch.setattr(s, "_deliver_result", lambda *a, **kw: deliveries.append(a))
+    result = s._deliver_crash_failure({"id": "crashed", "deliver": "telegram"}, "boom", adapters=None, loop=None)
+    assert deliveries == []
+    assert result == (None, "suppressed_config")
+
+
+def test_run_one_job_failed_job_can_suppress_error_delivery(monkeypatch):
+    """cron.deliver_errors=false keeps failures in state/artifacts, not chat."""
+    calls = _patch_pipeline(monkeypatch, success=False, final="", error="boom")
+    monkeypatch.setattr(s, "load_config", lambda: {"cron": {"deliver_errors": False}})
+
+    ok = s.run_one_job({"id": "j5-silent-error", "name": "t", "deliver": "telegram"})
+
+    kinds = [call[0] for call in calls]
+    # The helper reports that the due run was processed; the job status itself
+    # remains failed in the persisted mark below.
+    assert ok is True
+    assert "save" in kinds
+    assert "enqueue" not in kinds
+    mark = next(call for call in calls if call[0] == "mark")
+    assert mark == ("mark", "j5-silent-error", False)
+

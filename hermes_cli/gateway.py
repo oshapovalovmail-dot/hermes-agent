@@ -2854,23 +2854,6 @@ def get_systemd_linger_status(username: str | None = None) -> tuple[bool | None,
     return None, f"unexpected loginctl output: {value or '<empty>'}"
 
 
-def get_launchd_plist_path() -> Path:
-    """``~/Library/LaunchAgents/ai.hermes.gateway[-<profile>].plist`` under the real account home."""
-    import pwd
-    suffix = _profile_suffix()
-    name = f"ai.hermes.gateway-{suffix}" if suffix else "ai.hermes.gateway"
-    # Real account home: profile mode may point HOME at a profile dir. Sandboxed/app-hosted
-    # shells can expose a UID that pwd cannot resolve (#57292); fall back to the shared
-    # real-home resolver (HERMES_REAL_HOME → HOME → pwd → ~, profile home skipped) instead
-    # of crashing launchd commands.
-    try:
-        home = Path(pwd.getpwuid(os.getuid()).pw_dir)  # windows-footgun: ok — POSIX launchd (macOS) helper, never invoked on Windows
-    except (KeyError, ImportError, OSError):
-        from hermes_constants import get_real_home
-
-        home = Path(get_real_home())
-    return home / "Library" / "LaunchAgents" / f"{name}.plist"
-
 
 def launchd_gateway_labels_for_install() -> list[str]:
     """Launchd labels for every profile of THIS install (root first, then profiles by name). Derived from
@@ -3919,6 +3902,7 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
 
 
 from hermes_cli.gateway_launchd import (
+    get_launchd_plist_path,
     get_launchd_label,
     _probe_launchd_domain_for_label,
     _launchd_domain,
@@ -5444,6 +5428,17 @@ def _restart_all_as_host(owner, system: bool, detach: bool = False, owe_online_n
 
 
 def _cmd_restart(args):
+    from tools.process_registry import _is_supervised_gateway_process
+    if _is_supervised_gateway_process() and not any(
+        getattr(args, flag, False) for flag in ("all", "system", "force")
+    ):
+        from gateway.status import get_running_pid
+        running_pid = get_running_pid()
+        if running_pid is not None and _request_gateway_self_restart(running_pid):
+            print("✓ Gateway restart requested; draining active work")
+            return
+        print_error("Could not request a safe in-band gateway restart.")
+        sys.exit(1)
     _refuse_from_inside_gateway("restart", "restart loops")
     from hermes_cli.gateway_profile_lifecycle import profile_lifecycle
     if profile_lifecycle("restart", args):

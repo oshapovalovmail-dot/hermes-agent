@@ -3089,7 +3089,9 @@ def _save_compose_deliver(
         job, success=d.success, error=d.error, final_response=final_response,
         output_file=output_file, agent_declared=d.agent_declared)
     # Whitespace-only == empty: skip delivery; the guard below marks it a soft failure.
-    d.should_deliver = bool(deliver_content.strip()) and not _silent_alert
+    from cron.delivery_policy import deliver_errors
+    d.should_deliver = (bool(deliver_content.strip()) and not _silent_alert
+                        and (d.success or deliver_errors()))
     if d.should_deliver and not d.success and job.get("_model_unreachable"):
         # The model was never reached and a bounded automatic re-run will be scheduled
         # (cron/unreachable_retry.py): hold the failure notice — the re-run either
@@ -3169,6 +3171,9 @@ def _deliver_crash_failure(
     incident_acked, failure_incident_id = _upsert_incident_for_failure(job, err_text)
     if incident_acked:
         return None, "suppressed_acked"
+    from cron.delivery_policy import deliver_errors
+    if not deliver_errors():
+        return None, "suppressed_config"
     delivery_error = None
     try:
         delivery_error = _deliver_result(

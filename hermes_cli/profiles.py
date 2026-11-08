@@ -1881,7 +1881,7 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> bool:
             # restarts the removed profile at boot exactly like the user unit at login.
             removed = remove_system_systemd_unit(profile_dir) or removed
         elif system == "Darwin":
-            plist_path = get_launchd_plist_path()
+            plist_path = get_launchd_plist_path(use_label_override=False)
             if plist_path.exists() and owned_by_profile(plist_path, profile_dir):
                 _run("launchctl", "unload", str(plist_path))
                 plist_path.unlink(missing_ok=True)

@@ -5,6 +5,7 @@ their token usage into session_model_usage with a ``task`` dimension via
 the ambient accounting context (agent/aux_accounting.py), making aux model
 spend visible in analytics.
 """
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -40,6 +41,66 @@ def _usage_rows(db, session_id):
 
 
 class TestRecordAuxiliaryUsage:
+    def test_main_and_background_rows_survive_concurrent_writes(self, db):
+        db.create_session("s1", source="cli")
+
+        def write_main(_):
+            db.update_token_counts(
+                "s1",
+                input_tokens=10,
+                output_tokens=2,
+                model="main-model",
+                billing_provider="openai",
+                api_call_count=1,
+            )
+
+        def write_review(_):
+            db.record_auxiliary_usage(
+                "s1",
+                "background_review",
+                model="main-model",
+                billing_provider="openai",
+                input_tokens=4,
+                output_tokens=1,
+                api_call_count=1,
+            )
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            list(pool.map(write_main, range(8)))
+            list(pool.map(write_review, range(8)))
+
+        rows = _usage_rows(db, "s1")
+        by_task = {row["task"]: row for row in rows}
+        assert by_task[""]["api_call_count"] == 8
+        assert by_task["background_review"]["api_call_count"] == 8
+        assert by_task["background_review"]["input_tokens"] == 32
+
+
+    def test_accepts_aggregate_call_count_and_cost_fields(self, db):
+        db.create_session("s1", source="cli")
+        db.record_auxiliary_usage(
+            "s1",
+            "background_review",
+            model="main-model",
+            billing_provider="openai",
+            billing_base_url="https://api.openai.com/v1",
+            input_tokens=100,
+            output_tokens=20,
+            estimated_cost_usd=0.25,
+            actual_cost_usd=0.24,
+            cost_status="reported",
+            cost_source="provider",
+            api_call_count=2,
+        )
+        row = _usage_rows(db, "s1")[0]
+        assert row["task"] == "background_review"
+        assert row["api_call_count"] == 2
+        assert row["estimated_cost_usd"] == pytest.approx(0.25)
+        assert row["actual_cost_usd"] == pytest.approx(0.24)
+        assert row["cost_status"] == "reported"
+        assert row["cost_source"] == "provider"
+
+
     def test_records_task_row(self, db):
         db.create_session("s1", source="cli")
         db.record_auxiliary_usage(

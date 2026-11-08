@@ -279,6 +279,9 @@ def gateway_lifecycle_block(
 
     if not _is_supervised_gateway_process():
         return None
+    from cron.lifecycle_guard import is_direct_gateway_restart_command
+    if is_direct_gateway_restart_command(command):
+        return None
     from cron.lifecycle_guard import (
         _MAX_REFERENCED_SCRIPT_BYTES,
         HOST_INTERPRETER_KILL_REJECTION,

@@ -141,6 +141,21 @@ class TestHasCommand:
 # ── read_file ────────────────────────────────────────────────────────────
 
 class TestReadFile:
+    def test_utf8_codepoint_split_at_binary_sample_boundary_is_text(self, ops, tmp_path):
+        f = tmp_path / "multibyte.kt"
+        # The first byte of this Cyrillic character lands at offset 999, so
+        # ``head -c 1000`` cuts its two-byte UTF-8 encoding in half.
+        f.write_text("a" * 999 + "я" + "\nval answer = 42\n", encoding="utf-8")
+
+        result = ops.read_file(str(f))
+        raw_result = ops.read_file_raw(str(f))
+
+        assert result.error is None
+        assert result.is_binary is False
+        assert raw_result.error is None
+        assert raw_result.content.endswith("я\nval answer = 42\n")
+
+
     def test_exact_content(self, ops, tmp_path):
         f = tmp_path / "exact.txt"
         f.write_text(SIMPLE_CONTENT)

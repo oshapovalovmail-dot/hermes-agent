@@ -636,16 +636,9 @@ def _content_dual_emits_structured(result, structured) -> bool:
     copy in *a* block and a server may add a status line next to it. Deterministic equality, not a
     richness heuristic: a prose summary or a reorganised rendering fails it and keeps its
     ``structuredContent`` (#115430)."""
-    for block in (result.content or []):
-        text = getattr(block, "text", None)
-        if not text:
-            continue
-        try:
-            if json.loads(text) == structured:
-                return True
-        except (TypeError, ValueError):
-            continue
-    return False
+    from tools.mcp_result import content_duplicates_structured
+
+    return content_duplicates_structured(result.content, structured)
 
 
 def _render_call_tool_result(result, server_name: str, image_paths: Optional[list[str]] = None) -> str:

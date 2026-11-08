@@ -27,8 +27,34 @@ def _gw():
     return gateway
 
 
+def get_launchd_plist_path(*, use_label_override: bool = True) -> Path:
+    """``~/Library/LaunchAgents/ai.hermes.gateway[-<profile>].plist`` under the real account home."""
+    import pwd
+    if use_label_override:
+        name = _gw().get_launchd_label()
+    else:
+        suffix = _gw()._profile_suffix()
+        name = f"ai.hermes.gateway-{suffix}" if suffix else "ai.hermes.gateway"
+    # Real account home: profile mode may point HOME at a profile dir. Sandboxed/app-hosted
+    # shells can expose a UID that pwd cannot resolve (#57292); fall back to the shared
+    # real-home resolver (HERMES_REAL_HOME → HOME → pwd → ~, profile home skipped) instead
+    # of crashing launchd commands.
+    try:
+        home = Path(pwd.getpwuid(os.getuid()).pw_dir)  # windows-footgun: ok — POSIX launchd (macOS) helper, never invoked on Windows
+    except (KeyError, ImportError, OSError):
+        from hermes_constants import get_real_home
+
+        home = Path(get_real_home())
+    return home / "Library" / "LaunchAgents" / f"{name}.plist"
+
 def get_launchd_label() -> str:
     """Return the launchd service label, scoped per profile."""
+    override = os.environ.get("HERMES_GATEWAY_LAUNCHD_LABEL", "").strip()  # health: allow HX002 -- supervisor-assigned service identity for isolated canaries, not user behavior config
+    if override:
+        import re
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", override):
+            raise ValueError("HERMES_GATEWAY_LAUNCHD_LABEL contains invalid characters")
+        return override
     suffix = _gw()._profile_suffix()
     return f"ai.hermes.gateway-{suffix}" if suffix else "ai.hermes.gateway"
 
@@ -367,6 +393,9 @@ def generate_launchd_plist() -> str:
     log_dir = _gw().get_hermes_home() / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     label = _gw().get_launchd_label()
+    label_override_xml = ""
+    if os.environ.get("HERMES_GATEWAY_LAUNCHD_LABEL", "").strip():  # health: allow HX002 -- preserve supervisor service identity across launchd respawn
+        label_override_xml = f"<key>HERMES_GATEWAY_LAUNCHD_LABEL</key><string>{label}</string>"
 
     # launchd's default PATH misses Homebrew, nvm, cargo…; prepend venv/bin + node dirs (as in the
     # systemd unit) so node stays resolvable even if the shell PATH changes, then the shell PATH.
@@ -420,7 +449,7 @@ def generate_launchd_plist() -> str:
         <string>{sane_path}</string>
 
         <key>HERMES_HOME</key>
-        <string>{hermes_home}</string>
+        <string>{hermes_home}</string>{label_override_xml}
         <key>HERMES_SUPERVISED_CHILD</key>
         <string>1</string>
     </dict>

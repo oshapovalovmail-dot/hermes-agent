@@ -516,6 +516,15 @@ KANBAN_CREATE_SCHEMA = _schema(
                 "the profile's provider and will fail if it belongs "
                 "to a different one. Requires 'model'."
         )),
+        "reasoning_effort": _prop("string", (
+                "Optional per-task reasoning effort: none, minimal, low, "
+                "medium, high, xhigh, max, or ultra. Values are trimmed "
+                "and normalized case-insensitively; 'none' disables "
+                "thinking, while an omitted or empty value remains null "
+                "so the worker inherits the assignee profile's setting. "
+                "Independent of model/provider overrides. Invalid values "
+                "fail without creating a task."
+        )),
     },
     ["title", "assignee"],
 )
