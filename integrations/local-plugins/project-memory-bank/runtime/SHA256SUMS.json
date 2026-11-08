@@ -1,0 +1,9 @@
+{
+  "LICENSE": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d",
+  "scripts/mb-handoff.sh": "ec4b891c9758010417f1c73e145c3e180deb2069bb6aab9280f3444c24018b81",
+  "scripts/mb-agree.sh": "557fc0f466b3d0d62faf0a748bb2ab044b58889ac49266eaa9e983ca1e3f1229",
+  "scripts/_lib.sh": "8121a204e5fb926e2c68ac0aba7e751f050be12703e0a2af70a0536c415459dc",
+  "memory_bank_skill/__init__.py": "0682debd5137a28fa1ac8eb10f57d512feb945d8f8e96c0670c66726f413d662",
+  "memory_bank_skill/handoff_capsule.py": "a2719fc986123491a6419cac253b0f442f9fef4fbf9187503412a74a82dac473",
+  "memory_bank_skill/private.py": "d4d5cf62783baa6336275d8d1bec224133b7819948216a86e7331105b08aea49"
+}

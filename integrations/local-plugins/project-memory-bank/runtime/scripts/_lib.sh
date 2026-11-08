@@ -1,0 +1,1183 @@
+#!/usr/bin/env bash
+# _lib.sh — shared utilities for Memory Bank scripts.
+# Source from other scripts: source "$(dirname "$0")/_lib.sh"
+#
+# All functions print their output to stdout and return 0 on success.
+# They avoid `exit` so sourcing scripts stay in control.
+#
+# Strict mode is propagated to the sourcing shell so consumers that forgot
+# `set -euo pipefail` still inherit fail-fast behaviour. Library functions
+# remain non-fatal — they return non-zero, never `exit`.
+
+# shellcheck shell=bash
+
+set -euo pipefail
+
+# Resolve MB path from explicit arg or .claude-workspace file in cwd.
+# Falls back to ".memory-bank" (relative path) when nothing else is known.
+# A19 (CDX-I6): honor MB_PYTHON (exported by the packaged `memory-bank` CLI as
+# sys.executable) instead of a bare `python3` — on pipx/venv installs where
+# `python3` isn't on PATH (or resolves to the wrong interpreter), a bare
+# invocation silently breaks path resolution. Falls back to `python3` for a
+# direct `bash install.sh` run from a git checkout (unchanged default).
+mb_normalize_path() {
+  local path="${1:-}"
+  if command -v "${MB_PYTHON:-python3}" >/dev/null 2>&1; then
+    "${MB_PYTHON:-python3}" - "$path" <<'PY'
+import os
+import sys
+
+print(os.path.abspath(os.path.normpath(sys.argv[1])))
+PY
+    return 0
+  fi
+  if command -v realpath >/dev/null 2>&1; then
+    realpath -m "$path" 2>/dev/null && return 0
+  fi
+  printf '%s\n' "$path"
+}
+
+mb_resolve_real_path() {
+  local path="${1:-}"
+  if command -v "${MB_PYTHON:-python3}" >/dev/null 2>&1; then
+    "${MB_PYTHON:-python3}" - "$path" <<'PY'
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+PY
+    return 0
+  fi
+  if command -v readlink >/dev/null 2>&1; then
+    readlink -f "$path" 2>/dev/null && return 0
+  fi
+  mb_normalize_path "$path"
+}
+
+mb_path_is_within() {
+  local candidate root normalized_candidate normalized_root
+  candidate="${1:-}"
+  shift || true
+  normalized_candidate=$(mb_normalize_path "$candidate")
+  for root in "$@"; do
+    normalized_root=$(mb_normalize_path "$root")
+    case "$normalized_candidate" in
+      "$normalized_root"|"$normalized_root"/*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+mb_mtime() {
+  local path="${1:-}" m=""
+  [ -e "$path" ] || {
+    printf '%s\n' 0
+    return 0
+  }
+  m="$(stat -c %Y "$path" 2>/dev/null || true)"
+  if printf '%s' "$m" | grep -qE '^[0-9]+$'; then
+    printf '%s\n' "$m"
+    return 0
+  fi
+  m="$(stat -f %m "$path" 2>/dev/null || true)"
+  if printf '%s' "$m" | grep -qE '^[0-9]+$'; then
+    printf '%s\n' "$m"
+    return 0
+  fi
+  printf '%s\n' 0
+}
+
+# mb_pid_alive <pid> — is this PID a LIVE process? (0 = alive, 1 = gone)
+#
+# `kill -0` alone is not a liveness test, it is a "can I signal it" test. For a
+# process owned by ANOTHER OS user the kernel answers EPERM, which the shell
+# reports exactly like ESRCH. In a group-writable bank that read another user's
+# live holder as dead, reclaimed its lock and let two writers into backlog.md at
+# once (R4-001). EPERM means the PID EXISTS, so it must count as alive; `ps -p`
+# answers existence without needing signal permission.
+mb_pid_alive() {
+  local pid="${1:-}"
+  if ! printf '%s' "$pid" | grep -qE '^[0-9]+$'; then
+    return 1
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+  # kill -0 failed: ESRCH (really gone) or EPERM (alive, just not ours).
+  if ps -p "$pid" -o pid= >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+mb_valid_workspace_project_id() {
+  local project_id="${1:-}"
+  [[ "$project_id" =~ ^[A-Za-z0-9_-]+$ ]]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent-agnostic storage resolver (Sprint 1 / global-storage-core)
+# ─────────────────────────────────────────────────────────────────────────────
+# Canonical config directory per supported code agent. Returns non-zero for
+# unknown agents so callers can fail closed.
+mb_agent_config_dir() {
+  local agent="${1:-}"
+  case "$agent" in
+    claude-code) printf '%s\n' "$HOME/.claude" ;;
+    cursor)      printf '%s\n' "$HOME/.cursor" ;;
+    codex)       printf '%s\n' "${CODEX_HOME:-$HOME/.codex}" ;;
+    opencode)    printf '%s\n' "$HOME/.config/opencode" ;;
+    pi)          printf '%s\n' "$HOME/.pi/agent" ;;
+    windsurf)    printf '%s\n' "$HOME/.windsurf" ;;
+    cline)       printf '%s\n' "$HOME/.cline" ;;
+    kilo)        printf '%s\n' "$HOME/.kilocode" ;;
+    *)           return 1 ;;
+  esac
+}
+
+# Path to the global Memory Bank registry JSON for an agent.
+mb_registry_path() {
+  local agent="${1:-}" base
+  base=$(mb_agent_config_dir "$agent") || return 1
+  printf '%s\n' "$base/memory-bank/registry.json"
+}
+
+# Deterministic key for a project — realpath plus optional git remote URL.
+# Used as the SHA256 input for `mb_project_id` and as the registry lookup key
+# basis. Stable across reruns; ignores the working tree state.
+mb_project_key() {
+  local project_root="${1:-$PWD}" real remote
+  real=$(mb_resolve_real_path "$project_root")
+  remote=""
+  if command -v git >/dev/null 2>&1 && [ -d "$project_root/.git" ]; then
+    remote=$(git -C "$project_root" config --get remote.origin.url 2>/dev/null || true)
+  fi
+  if [ -n "$remote" ]; then
+    printf '%s|%s\n' "$real" "$remote"
+  else
+    printf '%s\n' "$real"
+  fi
+}
+
+# Stable slug-hash id matching ^[A-Za-z0-9_-]+$. Slug = sanitized basename;
+# suffix = first 12 hex chars of sha256(mb_project_key).
+mb_project_id() {
+  local project_root="${1:-$PWD}" key slug hash
+  key=$(mb_project_key "$project_root")
+  slug=$(basename "$(mb_resolve_real_path "$project_root")")
+  slug=$(mb_sanitize_topic "$slug")
+  [ -z "$slug" ] && slug="project"
+  hash=$(printf '%s' "$key" | "${MB_PYTHON:-python3}" -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.read().encode()).hexdigest()[:12])')
+  printf '%s-%s\n' "$slug" "$hash"
+}
+
+
+# Load project-local .mbenv with a strict KEY=value allow-list (no source/eval).
+mb_load_mbenv() {
+  local mb_path="${1:-}"
+  local env_file key value line
+  [ -n "$mb_path" ] || return 0
+  env_file="$mb_path/.mbenv"
+  [ -f "$env_file" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+    esac
+    case "$line" in
+      *=*) ;;
+      *) continue ;;
+    esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    case "$key" in
+      MB_TEST_ROOTS) ;;
+      *) continue ;;
+    esac
+    case "$key" in
+      [A-Z][A-Z0-9_]*) ;;
+      *) continue ;;
+    esac
+    if printf '%s' "$value" | grep -q '[;$`|&]'; then
+      continue
+    fi
+    if [ "${value#\"}" != "$value" ] && [ "${value%\"}" != "$value" ]; then
+      value="${value#\"}"
+      value="${value%\"}"
+    elif [ "${value#\'}" != "$value" ] && [ "${value%\'}" != "$value" ]; then
+      value="${value#\'}"
+      value="${value%\'}"
+    fi
+    export "$key=$value"
+  done < "$env_file"
+  return 0
+}
+
+# Return canonical path of candidate when it lies under base (prefix after realpath).
+# Prints the canonical path on success; returns 1 when outside base or invalid.
+mb_canonical_under() {
+  local base="${1:-}" candidate="${2:-}"
+  local base_real cand_real
+  [ -n "$base" ] && [ -n "$candidate" ] || return 1
+  case "$candidate" in
+    *"/.."*|*"../"*) return 1 ;;
+  esac
+  base_real=$(mb_resolve_real_path "$base")
+  cand_real=$(mb_resolve_real_path "$candidate")
+  [ -n "$base_real" ] && [ -n "$cand_real" ] || return 1
+  if [ "$cand_real" = "$base_real" ]; then
+    printf '%s\n' "$cand_real"
+    return 0
+  fi
+  case "$cand_real" in
+    "$base_real"/*)
+      printf '%s\n' "$cand_real"
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+# Allowed work-resolve targets: <bank>/plans/*.md or <bank>/specs/<topic>/tasks.md
+mb_is_allowed_plan_path() {
+  local bank="$1" path="$2"
+  local plans_dir specs_dir
+  bank=$(mb_resolve_real_path "$bank")
+  path=$(mb_resolve_real_path "$path")
+  plans_dir="$bank/plans"
+  specs_dir="$bank/specs"
+  if [ "${path#"$plans_dir"/}" != "$path" ] && [ "$(dirname "$path")" = "$plans_dir" ]; then
+    case "$path" in
+      *.md) return 0 ;;
+    esac
+  fi
+  if [ "${path#"$specs_dir"/}" != "$path" ] && [ "$(basename "$path")" = "tasks.md" ]; then
+    local spec_root
+    spec_root=$(dirname "$(dirname "$path")")
+    [ "$spec_root" = "$specs_dir" ] && return 0
+  fi
+  return 1
+}
+
+# Look up the registered bank path for project_root in agent's registry.
+# Fails closed: missing file, malformed JSON or absent entry all return 1
+# with no stdout.
+mb_registry_lookup() {
+  local agent="${1:-}" project_root="${2:-$PWD}" registry real
+  registry=$(mb_registry_path "$agent") || return 1
+  [ -f "$registry" ] || return 1
+  real=$(mb_resolve_real_path "$project_root")
+  "${MB_PYTHON:-python3}" - "$registry" "$real" <<'PY' || return 1
+import json
+import sys
+
+path, project = sys.argv[1], sys.argv[2]
+try:
+    with open(path) as fh:
+        data = json.load(fh)
+except Exception:
+    sys.exit(1)
+projects = data.get("projects") or {}
+entry = projects.get(project)
+if entry is None:
+    sys.exit(1)
+bank = entry.get("bank_path") if isinstance(entry, dict) else entry
+if not bank:
+    sys.exit(1)
+print(bank)
+PY
+}
+
+# Resolve effective Memory Bank path.
+#
+# Precedence (first match wins):
+#   1. explicit positional argument
+#   2. MB_PATH env override
+#   3. cwd inside a bank: the nearest ancestor-or-self dir named .memory-bank
+#      that holds a core file (status.md, progress.md, ...), so a run from
+#      inside the bank never creates a nested .memory-bank
+#   4. local <cwd>/.memory-bank/ directory
+#   5. global registry hit for MB_AGENT (only if MB_AGENT is set)
+#   6. legacy .claude-workspace `storage: external` pointer (backward compat)
+#   7. relative ".memory-bank" fallback
+mb_resolve_path() {
+  if [ -n "${1:-}" ]; then
+    printf '%s\n' "$1"
+    return 0
+  fi
+
+  if [ -n "${MB_PATH:-}" ]; then
+    printf '%s\n' "$MB_PATH"
+    return 0
+  fi
+
+  # Inside a bank (cwd is it or a subdir): return that bank, never a nested
+  # relative ".memory-bank" below it.
+  local _d="$PWD" _f
+  while [ "$_d" != "/" ] && [ -n "$_d" ]; do
+    if [ "${_d##*/}" = ".memory-bank" ]; then
+      for _f in status.md progress.md checklist.md roadmap.md COORDINATION.md; do
+        if [ -f "$_d/$_f" ]; then
+          printf '%s\n' "$_d"
+          return 0
+        fi
+      done
+    fi
+    _d="${_d%/*}"
+  done
+
+  if [ -d ".memory-bank" ]; then
+    printf '%s\n' ".memory-bank"
+    return 0
+  fi
+
+  if [ -n "${MB_AGENT:-}" ]; then
+    local hit
+    if hit=$(mb_registry_lookup "$MB_AGENT" "$PWD" 2>/dev/null) && [ -n "$hit" ]; then
+      printf '%s\n' "$hit"
+      return 0
+    fi
+  fi
+
+  if [ -f ".claude-workspace" ]; then
+    local storage project_id
+    storage=$(grep '^storage:' .claude-workspace 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+    if [ "$storage" = "external" ]; then
+      project_id=$(grep '^project_id:' .claude-workspace 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+      if [ -n "$project_id" ] && mb_valid_workspace_project_id "$project_id"; then
+        printf '%s\n' "$HOME/.claude/workspaces/$project_id/.memory-bank"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s\n' ".memory-bank"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Named pipelines — selection + host binding (project pipeline isolation)
+# ─────────────────────────────────────────────────────────────────────────────
+# Detect the current code-agent host id, used to auto-select the pipeline whose
+# `agents:` list binds it. Always exits 0; prints the id or an empty line.
+# Precedence (first match wins):
+#   1. MB_PIPELINE_HOST env  (explicit per-run override)
+#   2. MB_AGENT env          (canonical agent var, also used for global storage)
+#   3. host environment signatures (claude-code / opencode / codex / cursor / windsurf / pi)
+#   4. empty string          (unknown host — callers fall back to the declared default)
+mb_detect_host() {
+  if [ -n "${MB_PIPELINE_HOST:-}" ]; then
+    printf '%s\n' "$MB_PIPELINE_HOST"
+    return 0
+  fi
+  if [ -n "${MB_AGENT:-}" ]; then
+    printf '%s\n' "$MB_AGENT"
+    return 0
+  fi
+  if [ -n "${CLAUDECODE:-}" ] || [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ]; then
+    printf '%s\n' "claude-code"
+    return 0
+  fi
+  if [ -n "${OPENCODE:-}" ] || [ -n "${OPENCODE_BIN:-}" ]; then
+    printf '%s\n' "opencode"
+    return 0
+  fi
+  if [ -n "${CODEX_SANDBOX:-}" ] || [ -n "${CODEX_HOME:-}" ]; then
+    printf '%s\n' "codex"
+    return 0
+  fi
+  if [ -n "${CURSOR_TRACE_ID:-}" ] || [ -n "${CURSOR_AGENT:-}" ]; then
+    printf '%s\n' "cursor"
+    return 0
+  fi
+  if [ -n "${WINDSURF_AGENT:-}" ]; then
+    printf '%s\n' "windsurf"
+    return 0
+  fi
+  if [ -n "${PI_AGENT:-}" ]; then
+    printf '%s\n' "pi"
+    return 0
+  fi
+  printf '%s\n' ""
+}
+
+# Path to the named-pipelines directory of a bank: <bank>/pipelines.
+# Resolves the bank via mb_resolve_path when no explicit arg is given.
+mb_pipeline_dir() {
+  local mb
+  mb=$(mb_resolve_path "${1:-}")
+  printf '%s/pipelines\n' "$mb"
+}
+
+# Read a top-level metadata field from a pipeline file.
+#   pipeline_name → string (empty if absent)
+#   default       → "true" / "false" (false if absent)
+#   agents        → space-separated client ids (empty if absent)
+# Uses PyYAML when present; degrades to a minimal parser for just these three
+# keys when PyYAML is unavailable.
+mb_pipeline_meta() {
+  local file="${1:-}" field="${2:-}"
+  if [ ! -f "$file" ]; then
+    [ "$field" = "default" ] && printf 'false\n'
+    return 0
+  fi
+  local _repo_root
+  _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  MB_PIPE_FILE="$file" MB_PIPE_FIELD="$field" PYTHONPATH="$_repo_root${PYTHONPATH:+:$PYTHONPATH}" "$(mb_resolve_python "$_repo_root")" - <<'PY'
+import os
+
+path = os.environ["MB_PIPE_FILE"]
+field = os.environ["MB_PIPE_FIELD"]
+
+# data is None  -> "cannot load strictly" -> the minimal fallback parser below runs.
+# data is {}     -> "loaded, but the file is unusable" -> report empty, do NOT guess.
+#
+# Probe PyYAML FIRST. pipeline_yaml imports yaml lazily *inside* its functions, so
+# `from ... import` succeeds without PyYAML and load_file() then raises
+# PipelineYamlError("PyYAML required ..."). Mapping that to {} made a missing PyYAML
+# read every pipeline as EMPTY — silently disabling the very fallback it exists for.
+# A missing PyYAML is a capability gap (-> fallback); PipelineYamlError from a file
+# that WAS parsed is a real config error (-> {}).
+data = None
+try:
+    import yaml  # noqa: F401
+    have_yaml = True
+except ModuleNotFoundError:
+    have_yaml = False
+
+if have_yaml:
+    try:
+        from memory_bank_skill.pipeline_yaml import PipelineYamlError, load_file as _pipeline_load_file
+        data = _pipeline_load_file(path)
+    except ModuleNotFoundError:
+        data = None          # the package itself is not importable -> fallback
+    except PipelineYamlError:
+        data = {}            # duplicate keys / not a mapping / parse error -> real config error
+    except Exception:
+        data = {}
+
+if data is None:
+    # Minimal fallback: parse only pipeline_name / default / agents.
+    data = {}
+    agents = []
+    in_agents = False
+    with open(path, encoding="utf-8") as fh:
+        for raw in fh:
+            line = raw.rstrip("\n")
+            stripped = line.strip()
+            if in_agents:
+                if stripped.startswith("- "):
+                    agents.append(stripped[2:].strip().strip('"').strip("'"))
+                    continue
+                if line[:1] not in (" ", "\t") and stripped:
+                    in_agents = False
+                else:
+                    continue
+            if stripped.startswith("pipeline_name:"):
+                data["pipeline_name"] = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+            elif stripped.startswith("default:"):
+                data["default"] = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+            elif stripped.startswith("agents:"):
+                rest = stripped.split(":", 1)[1].strip()
+                if rest.startswith("[") and rest.endswith("]"):
+                    inner = rest[1:-1].strip()
+                    agents = [a.strip().strip('"').strip("'") for a in inner.split(",") if a.strip()]
+                elif rest:
+                    agents = [a.strip().strip('"').strip("'") for a in rest.split(",") if a.strip()]
+                else:
+                    in_agents = True
+    if agents:
+        data["agents"] = agents
+
+if field == "default":
+    val = data.get("default", False)
+    if isinstance(val, bool):
+        print("true" if val else "false")
+    else:
+        print("true" if str(val).strip().lower() in ("true", "yes", "1", "on") else "false")
+elif field == "agents":
+    val = data.get("agents") or []
+    if isinstance(val, str):
+        val = [val]
+    print(" ".join(str(x) for x in val))
+else:
+    val = data.get(field)
+    print("" if val is None else str(val))
+PY
+}
+
+# Detect project stack by scanning manifest files in a directory.
+# Outputs one of: python, go, rust, node, java, kotlin, swift, cpp, multi, unknown.
+#
+# Java vs Kotlin resolution:
+#   - build.gradle.kts OR apply plugin: 'kotlin' in build.gradle → kotlin
+#   - pom.xml OR build.gradle (without the Kotlin marker) → java
+mb_detect_stack() {
+  local dir="${1:-$PWD}"
+
+  if [ ! -d "$dir" ]; then
+    printf '%s\n' "unknown"
+    return 0
+  fi
+
+  local count=0 stack=""
+
+  if [ -f "$dir/pyproject.toml" ] || [ -f "$dir/requirements.txt" ] || [ -f "$dir/setup.py" ]; then
+    count=$((count + 1))
+    stack="python"
+  fi
+  if [ -f "$dir/go.mod" ]; then
+    count=$((count + 1))
+    stack="go"
+  fi
+  if [ -f "$dir/Cargo.toml" ]; then
+    count=$((count + 1))
+    stack="rust"
+  fi
+  if [ -f "$dir/package.json" ]; then
+    count=$((count + 1))
+    stack="node"
+  fi
+
+  # Kotlin takes priority over Java (overlapping Gradle manifests)
+  if [ -f "$dir/build.gradle.kts" ] || \
+     { [ -f "$dir/build.gradle" ] && grep -qE "plugin.*kotlin|kotlin\(" "$dir/build.gradle" 2>/dev/null; }; then
+    count=$((count + 1))
+    stack="kotlin"
+  elif [ -f "$dir/pom.xml" ] || [ -f "$dir/build.gradle" ]; then
+    count=$((count + 1))
+    stack="java"
+  fi
+
+  if [ -f "$dir/Package.swift" ]; then
+    count=$((count + 1))
+    stack="swift"
+  fi
+
+  if [ -f "$dir/CMakeLists.txt" ] || [ -f "$dir/meson.build" ]; then
+    count=$((count + 1))
+    stack="cpp"
+  fi
+
+  if [ -f "$dir/Gemfile" ] || [ -f "$dir/Rakefile" ] || [ -f "$dir/Gemfile.lock" ]; then
+    count=$((count + 1))
+    stack="ruby"
+  fi
+
+  if [ -f "$dir/composer.json" ]; then
+    count=$((count + 1))
+    stack="php"
+  fi
+
+  # C# / .NET: .csproj/.fsproj/.sln — glob-matched, `compgen` for portability
+  if compgen -G "$dir/*.csproj" >/dev/null 2>&1 \
+     || compgen -G "$dir/*.sln" >/dev/null 2>&1 \
+     || compgen -G "$dir/*.fsproj" >/dev/null 2>&1 \
+     || [ -f "$dir/global.json" ]; then
+    count=$((count + 1))
+    stack="csharp"
+  fi
+
+  if [ -f "$dir/mix.exs" ]; then
+    count=$((count + 1))
+    stack="elixir"
+  fi
+
+  if [ "$count" -eq 0 ]; then
+    printf '%s\n' "unknown"
+  elif [ "$count" -ge 2 ]; then
+    printf '%s\n' "multi"
+  else
+    printf '%s\n' "$stack"
+  fi
+}
+
+# Return a recommended test command for a detected stack.
+# Empty output for unknown stacks — caller decides how to handle.
+# Defaults are conventional; projects with unusual setup should override via
+# .memory-bank/metrics.sh.
+mb_detect_test_cmd() {
+  case "${1:-}" in
+    python) printf '%s\n' "pytest -q" ;;
+    go)     printf '%s\n' "go test ./..." ;;
+    rust)   printf '%s\n' "cargo test" ;;
+    node)   printf '%s\n' "npm test" ;;
+    java)   printf '%s\n' "mvn test" ;;
+    kotlin) printf '%s\n' "gradle test" ;;
+    swift)  printf '%s\n' "swift test" ;;
+    cpp)    printf '%s\n' "ctest --output-on-failure" ;;
+    ruby)   printf '%s\n' "bundle exec rspec" ;;
+    php)    printf '%s\n' "vendor/bin/phpunit" ;;
+    csharp) printf '%s\n' "dotnet test" ;;
+    elixir) printf '%s\n' "mix test" ;;
+    multi)  printf '%s\n' "pytest -q" ;;
+    *)      : ;;
+  esac
+}
+
+# Return a recommended lint command for a detected stack.
+mb_detect_lint_cmd() {
+  case "${1:-}" in
+    python) printf '%s\n' "ruff check ." ;;
+    go)     printf '%s\n' "go vet ./..." ;;
+    rust)   printf '%s\n' "cargo clippy -- -D warnings" ;;
+    node)   printf '%s\n' "eslint ." ;;
+    java)   printf '%s\n' "mvn checkstyle:check" ;;
+    kotlin) printf '%s\n' "detekt" ;;
+    swift)  printf '%s\n' "swiftlint" ;;
+    cpp)    printf '%s\n' "cppcheck --enable=all --quiet ." ;;
+    ruby)   printf '%s\n' "rubocop" ;;
+    php)    printf '%s\n' "vendor/bin/phpstan analyse" ;;
+    csharp) printf '%s\n' "dotnet format --verify-no-changes" ;;
+    elixir) printf '%s\n' "mix credo --strict" ;;
+    multi)  printf '%s\n' "ruff check ." ;;
+    *)      : ;;
+  esac
+}
+
+# Return a source-file glob pattern for the detected stack.
+mb_detect_src_glob() {
+  case "${1:-}" in
+    python) printf '%s\n' "**/*.py" ;;
+    go)     printf '%s\n' "**/*.go" ;;
+    rust)   printf '%s\n' "**/*.rs" ;;
+    node)   printf '%s\n' "**/*.ts **/*.tsx **/*.js **/*.jsx" ;;
+    java)   printf '%s\n' "**/*.java" ;;
+    kotlin) printf '%s\n' "**/*.kt **/*.kts" ;;
+    swift)  printf '%s\n' "**/*.swift" ;;
+    cpp)    printf '%s\n' "**/*.cpp **/*.cc **/*.cxx **/*.hpp **/*.h" ;;
+    ruby)   printf '%s\n' "**/*.rb" ;;
+    php)    printf '%s\n' "**/*.php" ;;
+    csharp) printf '%s\n' "**/*.cs" ;;
+    elixir) printf '%s\n' "**/*.ex **/*.exs" ;;
+    multi)  printf '%s\n' "**/*.py" ;;
+    *)      : ;;
+  esac
+}
+
+# Sanitize a free-form topic into a filename-safe slug.
+# Lowercase, spaces → dashes, keep only [a-z0-9.-], squeeze repeated dashes.
+# Internal dots are preserved (dotted spec names like `reviewer-2.0`, version
+# strings like `v1.2.3`). Leading/trailing dots are stripped so a pure-dot
+# input (`.`, `..`) collapses to empty and `../x` → `x` — no path traversal:
+# slashes are already removed by the charset filter, and `.`/`..` as a whole
+# component is the only filesystem-special case, which the strip neutralizes.
+mb_sanitize_topic() {
+  local input="${1:-}"
+  printf '%s' "$input" \
+    | tr '[:upper:]' '[:lower:]' \
+    | tr ' ' '-' \
+    | tr -cd 'a-z0-9.-' \
+    | tr -s '-' \
+    | sed 's/^\.*//; s/\.*$//'
+}
+
+# Return a collision-free filename by appending _2, _3, ... before the extension.
+# Preserves the original extension when one is present.
+mb_collision_safe_filename() {
+  local path="${1:?path required}"
+
+  if [ ! -e "$path" ]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+
+  local dir base stem ext
+  dir=$(dirname "$path")
+  base=$(basename "$path")
+
+  if [[ "$base" == *.* ]]; then
+    ext=".${base##*.}"
+    stem="${base%.*}"
+  else
+    ext=""
+    stem="$base"
+  fi
+
+  local i=2 candidate
+  while :; do
+    candidate="$dir/${stem}_${i}${ext}"
+    if [ ! -e "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Install flavor detection — shared by mb-upgrade.sh and mb-version-check.sh
+# ─────────────────────────────────────────────────────────────────────────────
+# Resolve a possibly-symlinked install directory to its real location.
+# Mirrors `readlink -f` with a single-hop BSD `readlink` fallback (macOS ships
+# bash 3.2 and a `readlink` without `-f`). Non-symlink or unresolvable input
+# is returned unchanged. Always succeeds — this never fails the caller.
+mb_resolve_install_alias() {
+  local dir="${1:-}"
+  local resolved="$dir"
+  if [ -n "$dir" ] && [ -L "$dir" ] && command -v readlink >/dev/null 2>&1; then
+    resolved="$(readlink -f "$dir" 2>/dev/null || readlink "$dir" 2>/dev/null || printf '%s' "$dir")"
+  fi
+  printf '%s\n' "$resolved"
+}
+
+# mb_install_flavor <dir> — classify how the skill got onto this machine.
+#
+# The skill ships through four channels:
+#   1. git clone  — <dir> has .git, mb-upgrade.sh drives it directly.
+#   2. pipx       — <dir> resolves into .../pipx/venvs/memory-bank-skill/...
+#   3. pip        — <dir> resolves into a site-packages/dist-packages share dir.
+#   4. brew       — <dir> resolves under a Homebrew Cellar, or under
+#                   `brew --prefix` when the `brew` binary is on PATH.
+#
+# Prints exactly one of: git | pipx | pip | brew | unknown. Always exits 0 —
+# this answers a question, it never fails the caller.
+mb_install_flavor() {
+  local dir="${1:-}" resolved brew_prefix
+
+  if [ -n "$dir" ] && [ -d "$dir/.git" ]; then
+    printf '%s\n' "git"
+    return 0
+  fi
+
+  resolved="$(mb_resolve_install_alias "$dir")"
+
+  # Patterns are anchored to real path SEGMENTS (bounded by `/` on both
+  # sides, or by start/end of string) — a bare substring match would
+  # misclassify e.g. `~/dev/site-packages-playground/mb` as a pip install.
+  # Order matters: pipx venvs contain a `site-packages/` segment of their
+  # own, so the pipx check must run before the pip check.
+  case "$resolved" in
+    */pipx/venvs/memory-bank-skill/*|*/pipx/venvs/memory-bank-skill)
+      printf '%s\n' "pipx"
+      return 0
+      ;;
+    */site-packages/*|*/site-packages|*/dist-packages/*|*/dist-packages)
+      printf '%s\n' "pip"
+      return 0
+      ;;
+    */Cellar/*)
+      printf '%s\n' "brew"
+      return 0
+      ;;
+  esac
+
+  if command -v brew >/dev/null 2>&1; then
+    brew_prefix="$(brew --prefix 2>/dev/null || true)"
+    if [ -n "$brew_prefix" ]; then
+      case "$resolved" in
+        "$brew_prefix"|"$brew_prefix"/*)
+          printf '%s\n' "brew"
+          return 0
+          ;;
+      esac
+    fi
+  fi
+
+  printf '%s\n' "unknown"
+  return 0
+}
+
+# Resolve the interpreter that owns `memory_bank_skill` (Python >= 3.11).
+# Precedence: $MB_PYTHON (exported by the packaged `memory-bank` CLI) → the
+# interpreter of the environment the wheel was installed into → `python3`.
+#
+# In a wheel install (pipx, `uv tool`, pip into a venv) the skill bundle is
+# shared-data at <prefix>/share/memory-bank-skill while the package lives in
+# <prefix>'s site-packages, so a bare `python3` — and the `$REPO_ROOT`
+# PYTHONPATH fallback, which points at share/ — cannot import it whenever
+# a script is run directly (agents invoke them that way) instead of through
+# the CLI. <prefix> is derived from the bundle's physical path, so no install
+# location is hard-coded. scripts/_mb_skill_python.py mirrors this rule for
+# Python entry points run as `python3 scripts/mb-*.py`, which cannot source this file.
+mb_resolve_python() {
+  local skill_dir="${1:-}" physical wheel_py
+  if [ -z "${MB_PYTHON:-}" ] && [ -n "$skill_dir" ] \
+    && physical="$(cd "$skill_dir" 2>/dev/null && pwd -P)"; then
+    case "$physical" in
+      */share/memory-bank-skill)
+        wheel_py="${physical%/share/memory-bank-skill}/bin/python3"  # a path, used only when MB_PYTHON is unset
+        if [ -x "$wheel_py" ]; then
+          printf '%s\n' "$wheel_py"
+          return 0
+        fi
+        ;;
+    esac
+  fi
+  printf '%s\n' "${MB_PYTHON:-python3}"
+}
+
+# mb_upgrade_command <flavor> [install_dir] — the native "how do I update"
+# command for a flavor, as printed to the user (informational only —
+# callers never invoke a package manager on the user's behalf). Never
+# empty, even for `unknown`: a silent empty string is worse than a loud
+# reinstall hint. Always exits 0. Package flavors chain `memory-bank install`:
+# the package manager only swaps the bundle, the re-install refreshes the
+# global files and restores the saved options (mb_saved_install_options).
+#
+# `install_dir` (optional) is the resolved skill bundle root. It only
+# affects the `git` flavor: without it, a cwd-relative command is printed
+# (correct only when the caller happens to run from the bundle root — the
+# historical behaviour, kept as a deliberate fallback for callers that
+# don't know their bundle location). With it, an absolute, copy-pasteable
+# command is printed instead, so a SessionStart hook running from an
+# arbitrary project directory still hands the user something runnable.
+mb_upgrade_command() {
+  local flavor="${1:-unknown}" install_dir="${2:-}"
+  case "$flavor" in
+    git)
+      if [ -n "$install_dir" ]; then
+        printf '%s\n' "bash ${install_dir%/}/scripts/mb-upgrade.sh --force"
+      else
+        printf '%s\n' "scripts/mb-upgrade.sh --force"
+      fi
+      ;;
+    pipx)
+      printf '%s\n' "pipx upgrade memory-bank-skill && memory-bank install"
+      ;;
+    pip)
+      printf '%s\n' "pip install --upgrade memory-bank-skill && memory-bank install"
+      ;;
+    brew)
+      printf '%s\n' "brew upgrade memory-bank && memory-bank install"
+      ;;
+    *)
+      printf '%s\n' "No known upgrade path — reinstall: git clone https://github.com/fockus/skill-memory-bank.git <dir>, or pipx install memory-bank-skill, or pip install memory-bank-skill"
+      ;;
+  esac
+  return 0
+}
+
+# mb_resolve_manifest_path <skill_dir> — shared by install.sh/uninstall.sh (A12).
+#
+# Precedence:
+#   1. $MB_MANIFEST_PATH — explicit override (tests / advanced users).
+#   2. <skill_dir>/.installed-manifest.json, when skill_dir is user-writable
+#      (the common case: git checkout, editable installs, a Homebrew cellar
+#      you own).
+#   3. ${XDG_DATA_HOME:-$HOME/.local/share}/memory-bank/.installed-manifest.json
+#      — pip/sudo installs frequently place the skill under a root-owned
+#      prefix (site-packages/share/...) a normal user cannot write to; silently
+#      losing the manifest there means uninstall has nothing to roll back.
+#
+# Self-heals: if the writable co-located path has no manifest yet but the user
+# fallback dir already does (e.g. an earlier unwritable install ran first),
+# reuse the fallback so uninstall.sh finds what install.sh actually wrote.
+mb_resolve_manifest_path() {
+  local skill_dir="${1:?skill_dir required}"
+
+  if [ -n "${MB_MANIFEST_PATH:-}" ]; then
+    printf '%s\n' "$MB_MANIFEST_PATH"
+    return 0
+  fi
+
+  local user_dir="${XDG_DATA_HOME:-$HOME/.local/share}/memory-bank"
+  local user_manifest="$user_dir/.installed-manifest.json"
+  local local_manifest="$skill_dir/.installed-manifest.json"
+
+  # A Homebrew keg is versioned (Cellar/<formula>/<version>/): `brew upgrade`
+  # moves to a new keg and cleans the old one, taking a co-located manifest —
+  # and the saved install options — with it. Use the user dir there, except
+  # for an install that already wrote into this keg (uninstall must find it).
+  case "$skill_dir" in
+    */Cellar/*)
+      [ -f "$local_manifest" ] || { printf '%s\n' "$user_manifest"; return 0; } ;;
+  esac
+
+  if [ -w "$skill_dir" ]; then
+    if [ ! -f "$local_manifest" ] && [ -f "$user_manifest" ]; then
+      printf '%s\n' "$user_manifest"
+      return 0
+    fi
+    printf '%s\n' "$local_manifest"
+    return 0
+  fi
+
+  printf '%s\n' "$user_manifest"
+}
+
+# mb_previous_manifest <skill_dir> <manifest> — the manifest of the previous
+# install: <manifest> when it exists; for a Homebrew keg without one, the newest
+# manifest at the same path in a sibling keg (<Cellar>/<formula>/*/…) — brew
+# installs before the user-dir manifest kept it inside their versioned keg.
+# Prints nothing when there is none.
+mb_previous_manifest() {
+  local skill_dir="${1:?skill_dir required}" manifest="${2:?manifest required}"
+  if [ -f "$manifest" ]; then
+    printf '%s\n' "$manifest"
+    return 0
+  fi
+  case "$skill_dir" in */Cellar/*/*) ;; *) return 0 ;; esac
+  local cellar="${skill_dir%/Cellar/*}/Cellar" rest="${skill_dir##*/Cellar/}"
+  local formula="${rest%%/*}" rel="${rest#*/}" m best=""
+  case "$rel" in */*) rel="${rel#*/}" ;; *) rel="" ;; esac
+  for m in "$cellar/$formula"/*/"$rel"/.installed-manifest.json; do
+    [ -f "$m" ] || continue
+    if [ -z "$best" ] || [ "$m" -nt "$best" ]; then best="$m"; fi
+  done
+  [ -n "$best" ] && printf '%s\n' "$best"
+  return 0
+}
+
+# Install options install.sh accepts. mb-upgrade.sh and the saved-options
+# reader below share them, so a retired client never fails a re-install.
+# shellcheck disable=SC2034  # read by install.sh / mb-upgrade.sh
+MB_VALID_CLIENTS=(claude-code cursor windsurf cline kilo opencode pi codex)
+# shellcheck disable=SC2034
+MB_VALID_LANGUAGES=(en ru es pt zh)
+
+# mb_saved_install_options <manifest> — the options the previous install saved
+# (A21). Sets MB_SAVED_LANGUAGE, MB_SAVED_COMMENTS_LANGUAGE, MB_SAVED_CLIENTS,
+# MB_SAVED_PROJECT_ROOT, sanitized for this version (unknown clients dropped,
+# an unknown language becomes en — each with a warning on stderr).
+# Returns 1 when there is nothing usable: no/unreadable manifest, a manifest
+# without "language" (pre-A21), or one written for another HOME (its "home",
+# or — older manifests — none of its files under $HOME), or none of whose
+# files exist any more.
+mb_saved_install_options() {
+  local manifest="${1:-}" raw
+  [ -f "$manifest" ] || return 1
+  raw="$(MANIFEST_PATH="$manifest" MB_HOME_DIR="$HOME" \
+    MB_CLIENTS_OK="${MB_VALID_CLIENTS[*]}" MB_LANGS_OK="${MB_VALID_LANGUAGES[*]}" \
+    "${MB_PYTHON:-python3}" - <<'PY'
+import json, os, sys
+try:
+    with open(os.environ["MANIFEST_PATH"]) as fh:
+        data = json.load(fh)
+    language = data.get("language") or ""
+except Exception:
+    raise SystemExit(1)
+home = os.environ["MB_HOME_DIR"].rstrip("/") + "/"
+files = [f for f in data.get("files") or [] if isinstance(f, str)]
+if data.get("home"):
+    foreign = data["home"].rstrip("/") + "/" != home
+else:  # manifests before the "home" key
+    foreign = bool(files) and not any(f.startswith(home) for f in files)
+# Nothing of that install left (HOME wiped) → a first install, not a re-install.
+if not language or foreign or (files and not any(os.path.lexists(f) for f in files)):
+    raise SystemExit(1)
+langs = os.environ["MB_LANGS_OK"].split()
+if language not in langs:
+    print(f"[warning] saved language '{language}' is no longer supported — using en", file=sys.stderr)
+    language = "en"
+comments = data.get("comments_language") or ""
+if comments and comments not in langs:
+    print(f"[warning] saved comments language '{comments}' is not supported — using the response language", file=sys.stderr)
+    comments = ""
+ok = os.environ["MB_CLIENTS_OK"].split()
+asked = [c.strip() for c in (data.get("clients_requested") or "").split(",") if c.strip()]
+dropped = [c for c in asked if c not in ok]
+if dropped:
+    print(f"[warning] dropping clients no longer supported by this version: {','.join(dropped)}", file=sys.stderr)
+clients = ",".join(c for c in asked if c in ok) or ("claude-code" if asked else "")
+print(language, clients, data.get("project_root") or "", comments, sep="\n")
+PY
+  )" || return 1
+  # shellcheck disable=SC2034  # read by the caller
+  MB_SAVED_LANGUAGE="$(printf '%s\n' "$raw" | sed -n '1p')"
+  # shellcheck disable=SC2034
+  MB_SAVED_CLIENTS="$(printf '%s\n' "$raw" | sed -n '2p')"
+  # shellcheck disable=SC2034
+  MB_SAVED_PROJECT_ROOT="$(printf '%s\n' "$raw" | sed -n '3p')"
+  # shellcheck disable=SC2034
+  MB_SAVED_COMMENTS_LANGUAGE="$(printf '%s\n' "$raw" | sed -n '4p')"
+  return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backlog primitives (S4 svp-roadmap-backlog-db, design.md C6/C3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# mb_json_string <value> — compact JSON string literal (ensure_ascii=False),
+# unambiguously encoding spaces, quotes, unicode and newlines (NFR-004).
+mb_json_string() {
+  MB_JSON_IN="${1:-}" "${MB_PYTHON:-python3}" - <<'PY'
+import json, os
+print(json.dumps(os.environ.get("MB_JSON_IN", ""), ensure_ascii=False, separators=(",", ":")))
+PY
+}
+
+# mb_lock_acquire <lock_dir> <timeout> <ttl> — owner-marker mkdir lock (C6, R3-001).
+#
+# On acquire: prints EXACTLY `<PID>-<RANDOM>` + \n, exit 0. Timeout: empty
+# stdout, stderr `code=lock_timeout lock=<JSON>`, exit 1. Bad args: empty
+# stdout, stderr `code=lock_usage`, exit 2.
+#
+# Reclaim is keyed on OWNER LIVENESS (`kill -0`), NEVER on mtime/TTL, and NEVER
+# uses `mv`/`rm -rf` — a proven-dead owner marker is removed with a targeted
+# `rmdir "<lock>/owner.<D>"` followed by `rmdir "<lock>"` (only on an empty
+# dir). TTL applies solely to the owner-less window (lock present, no owner.*).
+# The recorded PID is the CALLER shell's `$$` — the holder must stay alive for
+# the whole critical section (X6-01: non-shell writers hold via a bash wrapper).
+mb_lock_acquire() {
+  local lock_dir="${1:-}" timeout="${2:-}" ttl="${3:-}"
+  if [ -z "$lock_dir" ] \
+     || ! printf '%s' "$timeout" | grep -qE '^[0-9]+$' \
+     || ! printf '%s' "$ttl" | grep -qE '^[0-9]+$'; then
+    printf 'code=lock_usage\n' >&2
+    return 2
+  fi
+  local token waited=0 ownerless_since="" now gen_started marker base tok pid other
+  token="$$-${RANDOM:-0}"
+  while true; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      # Won the atomic gate. Record the liveness marker in the SAME breath. If
+      # the marker cannot be created, a lagging reclaimer pulled our lock dir
+      # out from under us in the mkdir→owner window — we do NOT hold the lock,
+      # so NEVER return success (R3-001: the old `|| true` reported a phantom
+      # holder with no marker, which a later reclaim then evicted mid-section).
+      # Fall through to retry / timeout instead.
+      if mkdir "$lock_dir/owner.$token" 2>/dev/null; then
+        # Generation confirmation (R3-001 ABA guard): winning `mkdir lock` is not
+        # enough — an owner-less TTL reclaimer could have removed our dir, made a
+        # NEW generation and published its own owner.<B> in the window before our
+        # owner mkdir, so our marker just landed in B's generation. Success is
+        # granted ONLY when our marker is the SOLE owner.* in the dir. On a
+        # sibling marker we remove ONLY our own and retry — never a sibling's.
+        other=0
+        for marker in "$lock_dir"/owner.*; do
+          [ -d "$marker" ] || continue
+          [ "$marker" = "$lock_dir/owner.$token" ] || other=1
+        done
+        if [ "$other" -eq 0 ]; then
+          printf '%s\n' "$token"
+          return 0
+        fi
+        rmdir "$lock_dir/owner.$token" 2>/dev/null || true
+      fi
+    else
+      # `mkdir` failed, so SOMETHING is at this path. Before globbing into it or
+      # reclaiming anything, prove it is a real directory and not a symlink
+      # (R4-004): a lock path pointing at an external directory made the reclaim
+      # glob + rmdir delete an owner marker OUTSIDE the intended lock. Fail
+      # closed — we never traverse a link to decide what to destroy.
+      if [ -L "$lock_dir" ] || [ ! -d "$lock_dir" ]; then
+        printf 'code=lock_corrupt lock=%s detail=lock path is not a real directory\n' \
+          "$(mb_json_string "$lock_dir")" >&2
+        return 2
+      fi
+      # Lock exists — inspect the owner marker (invariant: 0 or 1 owner.*).
+      set -- "$lock_dir"/owner.*
+      if [ -d "$1" ]; then
+        ownerless_since=""
+        marker="$1"
+        base="${marker##*/}"
+        tok="${base#owner.}"
+        pid="${tok%%-*}"
+        if printf '%s' "$pid" | grep -qE '^[0-9]+$'; then
+          # Liveness, not signal-permission (R4-001): an EPERM owner is ALIVE.
+          if ! mb_pid_alive "$pid"; then
+            # Proven-dead owner → reclaim EXACTLY this marker. ONLY the process
+            # that WINS `rmdir owner.<D>` may remove the (now empty) lock dir.
+            # A racer that lost the marker (ENOENT — another reclaimer already
+            # took it, OR a fresh live owner replaced it in a brand-new lock)
+            # must NOT `rmdir` the lock dir: doing so unconditionally deletes a
+            # sibling winner's fresh, still-owner-less lock (R3-001, the C6
+            # double-owner race). It backs off to the owner-less/TTL path.
+            if rmdir "$marker" 2>/dev/null; then
+              rmdir "$lock_dir" 2>/dev/null || true  # ENOTEMPTY (fresh owner) ⇒ back off
+            fi
+          fi
+          # Alive or PID-reused ⇒ conservative non-reclaim (availability, not safety).
+        fi
+      else
+        # Owner-less window: reclaim only after ttl sustained seconds.
+        #
+        # The generation's age comes from the lock dir's OWN mtime, not from an
+        # in-process observation (R3-009). `ownerless_since` lived only inside a
+        # single acquire call, so with the shipped defaults (timeout=10,
+        # ttl=120) every call gave up long before ttl and forgot what it had
+        # seen -- an hour-old EMPTY lock was therefore never reclaimable, by
+        # anyone, no matter how many times it was retried. A directory's mtime
+        # changes whenever an entry is created or removed, so it marks exactly
+        # when the last owner marker went away, and unlike a shell variable it
+        # survives across processes.
+        now="$(date +%s)"
+        gen_started="$(mb_mtime "$lock_dir")"
+        if [ -z "$ownerless_since" ] || [ "$now" -lt "$ownerless_since" ]; then
+          ownerless_since="$now"
+        fi
+        if printf '%s' "$gen_started" | grep -qE '^[1-9][0-9]*$' \
+           && [ "$gen_started" -lt "$ownerless_since" ]; then
+          ownerless_since="$gen_started"
+        fi
+        if [ "$((now - ownerless_since))" -ge "$ttl" ]; then
+          # `rmdir` IS the re-check: it fails with ENOTEMPTY the instant a fresh
+          # owner published its marker, so an acquirer inside its mkdir->owner
+          # window is never evicted, and a dir just created by that acquirer has
+          # a fresh mtime and cannot look stale in the first place.
+          rmdir "$lock_dir" 2>/dev/null || true
+        fi
+      fi
+    fi
+    if [ "$waited" -ge "$timeout" ]; then
+      printf 'code=lock_timeout lock=%s\n' "$(mb_json_string "$lock_dir")" >&2
+      return 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+}
+
+# mb_lock_release <lock_dir> <token> — remove only <lock_dir>/owner.<token>,
+# then the (now empty) <lock_dir>. stdout always empty. Returns 0 ONLY when it
+# actually removed its own owner marker, or when the lock path is genuinely
+# absent. Returns 1 for a foreign token (deleting nothing), for its own marker
+# failing to be removed, and for a corrupt lock object.
+#
+# Three failure modes are deliberately NOT swallowed, because each one reports a
+# lock as free while something is still on disk:
+#   * own-marker rmdir failure — the double-writer window the owner-marker
+#     scheme exists to prevent;
+#   * lock path present but NOT a directory (regular file, dangling symlink) —
+#     `-d` is false there, so the old `[ -d ] || return 0` called it "already
+#     gone" while the object stayed and every later mkdir-based acquire burned
+#     its full timeout.
+# The PARENT rmdir stays best-effort: a non-empty lock dir is a legitimate
+# concurrent state (a foreign marker, or a newer generation already re-created
+# it), and the contract is keyed on the owner marker, not on the directory.
+mb_lock_release() {
+  local lock_dir="${1:-}" token="${2:-}"
+  [ -n "$lock_dir" ] || return 0
+  # The token is pasted straight into a path, so it must be proven to BE a token
+  # before any filesystem call (R4-003). `123-4/../../victim` used to escape the
+  # lock dir entirely and rmdir an unrelated sibling directory while returning 0
+  # and leaving the real owner marker in place — the exact opposite of the
+  # "a foreign token deletes nothing" contract. Grammar first, mutations never
+  # before it.
+  if [ -n "$token" ] && ! printf '%s' "$token" | grep -qE '^[0-9]+-[0-9]+$'; then
+    printf 'code=lock_usage lock=%s detail=malformed token\n' \
+      "$(mb_json_string "$lock_dir")" >&2
+    return 1
+  fi
+  # Genuinely absent (and not a dangling symlink) → nothing to release.
+  if [ ! -e "$lock_dir" ] && [ ! -L "$lock_dir" ]; then
+    return 0
+  fi
+  # A symlink is never a lock we own (R4-004) — refuse without traversing it.
+  if [ -L "$lock_dir" ] || [ ! -d "$lock_dir" ]; then
+    printf 'code=lock_corrupt lock=%s detail=lock path exists but is not a directory\n' \
+      "$(mb_json_string "$lock_dir")" >&2
+    return 1
+  fi
+  if [ -n "$token" ] && [ -d "$lock_dir/owner.$token" ]; then
+    rmdir "$lock_dir/owner.$token" 2>/dev/null || return 1
+    rmdir "$lock_dir" 2>/dev/null || true
+    return 0
+  fi
+  return 1
+}
+
+# mb_backlog_transition_locked <backlog> <I-NNN> <NEW_STATE> [--reason T] [--plan R]
+#
+# PRECONDITION: the CALLER already holds <bank>/.locks/backlog.lock — this
+# function NEVER acquires or releases the lock. Thin wrapper over the shared,
+# stdlib-only state engine (scripts/mb_backlog_state_engine.py) which owns the
+# ONE authoritative C3 machine + entry grammar (SRP: _lib.sh keeps only the
+# lock/transition API, not the parser). Validates the C3 edge + READY/WONTFIX
+# gates and rewrites ONLY the state token (extra detail preserved) plus any
+# --reason/--plan meta into ONE atomic write. stdout empty; exit 0 success,
+# 1 domain reject, 2 malformed/not-found. The public success line is the
+# caller's responsibility. Reused verbatim by mb-idea-promote.sh (Task 9).
+mb_backlog_transition_locked() {
+  "${MB_PYTHON:-python3}" \
+    "$(dirname "${BASH_SOURCE[0]}")/mb_backlog_state_engine.py" transition-locked "$@"
+}

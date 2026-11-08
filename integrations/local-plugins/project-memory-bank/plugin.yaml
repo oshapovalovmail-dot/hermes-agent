@@ -1,0 +1,4 @@
+name: project-memory-bank
+version: "0.1.0"
+description: "Private project state, confirmed decisions and resumable handoff; no transcript duplication."
+author: Local contributors

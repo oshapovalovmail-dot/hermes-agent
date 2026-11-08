@@ -1,0 +1,8 @@
+name: reminder-actions
+label: Reminder actions
+kind: platform
+version: 1.0.0
+description: Owner-bound Close and Prepare reply controls for the configured correspondence reminders.
+author: Local
+python_dependencies:
+  - python-telegram-bot[webhooks]==22.8

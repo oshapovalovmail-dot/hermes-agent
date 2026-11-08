@@ -1,0 +1,8 @@
+name: qyp-delegate
+version: 1.0.0
+description: "Delegate bounded agent tasks to the configured worker over SSH. Supports local-inference/QYP-execution now and full remote Hermes after model egress is available."
+author: Local contributors
+kind: standalone
+provides_tools:
+  - delegate_qyp
+  - qyp_terminal

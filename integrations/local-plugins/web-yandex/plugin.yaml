@@ -1,0 +1,10 @@
+name: web-yandex
+version: 1.0.0
+description: "Direct Yandex SearchAPI; optional NeuroExpert source contexts. Preserves generated-summary provenance and source citations."
+author: local
+kind: backend
+provides_web_providers:
+  - yandex
+  - yandex-context
+python_dependencies:
+  - httpx>=0.28.1,<1
