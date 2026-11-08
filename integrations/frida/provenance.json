@@ -15,13 +15,14 @@
     },
     "requirements-runtime.lock": {
       "original_sha256": "159222e66306bbd48fc5f3ab12b90509fe70feb2b6a569bf6dbe03b4cb65b860",
-      "published_sha256": "159222e66306bbd48fc5f3ab12b90509fe70feb2b6a569bf6dbe03b4cb65b860"
+      "published_sha256": "ee86d91e86cbd85834f1d21c5894328e87a9a18175f787db2eb1eae33a818fc4"
     }
   },
   "adaptations": [
     "Formatting, explicit float32 array conversion and equivalent list typing",
     "Resolve the unchanged FRIDA_MODEL_PATH/FRIDA_TOKENIZER_PATH settings at the first model load, not at module import",
-    "Reviewed readiness/503 error-type boundary keeps private paths out of HTTP responses"
+    "Reviewed readiness/503 error-type boundary keeps private paths out of HTTP responses",
+    "Remove one trailing blank line from the runtime lock; dependency pins unchanged"
   ],
   "excluded": [
     "Weights and tokenizers (separate model publication)",

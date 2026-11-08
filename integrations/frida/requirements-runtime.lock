@@ -86,4 +86,3 @@ typing-inspection==0.4.2
     #   pydantic
 uvicorn==0.47.0
     # direct
-
