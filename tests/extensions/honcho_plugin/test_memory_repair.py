@@ -134,9 +134,9 @@ def test_notifications_kept_without_user_authorship_or_derivation(monkeypatch):
     p.sync_turn("[IMPORTANT: Background process proc_123 completed normally (exit code 0).\nOutput:\ndone]", "Tests finished")
     wait_sync(p)
     assert len(c.remote.messages) == 2
+    assert [msg.metadata["source"] for msg in c.remote.messages] == ["runtime_notification", "assistant_turn"]
     for msg in c.remote.messages:
         assert msg.peer_id == s.assistant_peer_id
-        assert msg.metadata["source"] == "runtime_notification"
         assert msg.configuration["reasoning"]["enabled"] is False
 
 def test_real_user_text_containing_notification_is_not_filtered(monkeypatch):

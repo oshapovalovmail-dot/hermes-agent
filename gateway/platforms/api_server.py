@@ -7,6 +7,7 @@ OpenAI-compatible frontend connects at http://localhost:8642/v1 with API_SERVER_
 """
 
 import asyncio
+from gateway.platforms.api_server_capture import capture_runtime_turn, _prefix_names_served_profile
 import errno
 import hashlib
 import hmac
@@ -31,14 +32,6 @@ from typing import Any, Dict, List, Optional, Tuple
 _PROFILE_REJECTED = object()
 
 
-def _prefix_names_served_profile(profile: str) -> bool:
-    """True when a /p/<profile>/ prefix names the profile this gateway serves. Fail closed: a
-    single-profile gateway answering /p/<x>/ served the owner's toolsets under another URL."""
-    try:
-        from hermes_cli.profiles import profile_matches_home
-        return profile_matches_home(profile)
-    except Exception:
-        return False
 
 
 # Per-request /p/<profile>/ selection: set by the profile-prefix middleware, read by handlers.
@@ -3653,6 +3646,7 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
             usage["runtime"] = runtime
         return result, usage
 
+    @capture_runtime_turn
     async def _run_agent(
         self, user_message: str, conversation_history: list[dict[str, str]],
         ephemeral_system_prompt: Optional[str] = None, session_id: Optional[str] = None,

@@ -469,6 +469,8 @@ class MemoryManager:
         clean_user_content = self._strip_skill_scaffolding(user_content) if providers else None
         if not clean_user_content or not self._owner_allows("sync_turn"):
             return
+        from agent.capture_origin import capture_messages
+        messages = capture_messages(clean_user_content, assistant_content, messages, original_user=user_content)
         clean_user_content, assistant_content, redacted_messages = _redact_for_provider(
             clean_user_content, assistant_content, messages)
         optional_kwargs = {"messages": redacted_messages, "turn_author": turn_author}

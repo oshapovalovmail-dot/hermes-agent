@@ -89,7 +89,9 @@ class _FakeHttpSession:
     async def __aexit__(self, *exc):
         return False
 
-    def post(self, url, json=None, headers=None):
+    def post(self, url, json=None, headers=None, *, allow_redirects=False):
+        assert allow_redirects is False
+        assert headers["X-Hermes-Runtime-Wake"]
         type(self).calls.append({"url": url, "json": json, "headers": headers})
         return _FakePostCtx(_FakeResponse())
 

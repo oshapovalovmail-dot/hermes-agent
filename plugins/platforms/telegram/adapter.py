@@ -1501,6 +1501,9 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         # Only non-None routing keys: direct_messages_topic_id is paired with message_thread_id=None.
         payload.update({k: v for k, v in thread_kwargs.items() if v is not None})
         payload.update(self._notification_kwargs(metadata))
+        keyboard = self._reply_keyboard_markup(chat_id)
+        if keyboard is not None:
+            payload["reply_markup"] = keyboard
         if reply_to_id is not None:
             # sendRichMessage takes reply_parameters, NOT reply_to_message_id (silently ignored → anchor dropped).
             payload["reply_parameters"] = {"message_id": reply_to_id}
@@ -3450,6 +3453,28 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             await self._await_disconnect_step(asyncio.shield(flush), _DISCONNECT_STEP_TIMEOUT, "update-receipt flush")
         logger.info("[%s] Disconnected from Telegram", self.name)
 
+    def _reply_keyboard_markup(self, chat_id: str) -> Optional[dict[str, Any]]:
+        """Return a persistent composer keyboard only for explicitly scoped chats."""
+        settings = self.config.extra.get("reply_keyboard")
+        if not isinstance(settings, dict):
+            return None
+        chat_ids = settings.get("chat_ids", [])
+        rows = settings.get("rows")
+        if not isinstance(chat_ids, list) or str(chat_id) not in {str(value) for value in chat_ids}:
+            return None
+        if not isinstance(rows, list) or not rows or not all(
+            isinstance(row, list) and row and all(isinstance(label, str) and label.strip() for label in row)
+            for row in rows
+        ):
+            return None
+        return {
+            "keyboard": rows,
+            "is_persistent": True,
+            "resize_keyboard": True,
+            "one_time_keyboard": False,
+        }
+
+
     def _should_thread_reply(self, reply_to: Optional[str], chunk_index: int) -> bool:
         """Whether this chunk (0 = first) should reply-thread to ``reply_to``, per reply_to_mode."""
         if not reply_to:
@@ -3515,7 +3540,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             try:
                 send_kwargs = {
                     "chat_id": normalize_telegram_chat_id(chat_id), "reply_to_message_id": reply_to_id, **thread_kwargs,
-                    **self._link_preview_kwargs(), **self._notification_kwargs(metadata)}
+                    **self._link_preview_kwargs(), **self._notification_kwargs(metadata),
+                    "reply_markup": self._reply_keyboard_markup(chat_id)}
                 return await self._send_chunk_markdown_or_plain(chunk, send_kwargs), used_thread_fallback
             except _NetErr as send_err:
                 # BadRequest subclasses NetworkError in PTB but is permanent; handle specific cases.

@@ -249,8 +249,10 @@ async def _self_post_chat_completion(adapter: Any, *, text: str, session_id: str
             raise RuntimeError(
                 f"wake self-post for served profile {profile!r} requires in-process session "
                 "delivery; refusing to self-post as the default profile")
-        await in_process(session_id=session_id, text=text, profile=str(profile),
-                         notification_category=notification_category)
+        from agent.capture_origin import runtime_capture_origin
+        with runtime_capture_origin(text):
+            await in_process(session_id=session_id, text=text, profile=str(profile),
+                             notification_category=notification_category)
         return
     import aiohttp
     host = str(getattr(adapter, "_host", "") or "127.0.0.1")
@@ -275,10 +277,14 @@ async def _self_post_chat_completion(adapter: Any, *, text: str, session_id: str
     for attempt in range(attempts):
         if attempt:
             await asyncio.sleep(_RETRY_DELAYS_SECONDS[attempt - 1])
+        import secrets
+        ticket = secrets.token_urlsafe(32)
+        pending = adapter.__dict__.setdefault("_runtime_wake_tickets", {})
+        pending[ticket] = (session_id, text)
         try:
             timeout = aiohttp.ClientTimeout(total=WAKE_TURN_TIMEOUT_SECONDS)
             async with aiohttp.ClientSession(timeout=timeout) as http:
-                async with http.post(url, json=payload, headers=headers) as resp:
+                async with http.post(url, json=payload, headers={**headers, "X-Hermes-Runtime-Wake": ticket}, allow_redirects=False) as resp:
                     if resp.status == 429:  # concurrency cap — transient; back off and retry
                         last_err = RuntimeError(
                             f"wake self-post got HTTP 429 (concurrency cap) for session {session_id}"
@@ -297,6 +303,8 @@ async def _self_post_chat_completion(adapter: Any, *, text: str, session_id: str
             last_err = exc
             logger.warning("wake self-post transient failure for session %s (attempt %d/%d): %s",
                            session_id, attempt + 1, attempts, exc)
+        finally:
+            pending.pop(ticket, None)
     raise RuntimeError(
         f"wake self-post gave up for session {session_id} after {attempts} attempts: {last_err}"
     ) from last_err

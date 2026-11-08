@@ -70,3 +70,28 @@ HERMES_PYTHON=/absolute/test-environment/bin/python \
 ```
 
 The default offline fixture cache is `.provider-sources/`; override it with `--memory-source-cache /absolute/disposable-source-cache`. Acceptance reconstructs the same hash-validated provider bytes into temporary homes and loads through native discovery/manifest gates without relaxing private-import policy. Fixtures exercise SDK DTOs, OpenViking extraction, loopback HTTP capture/readback, scoped recall, queue/shutdown and auth failures. Optional native server tests explicitly skip if the dependency is absent; use the SDK-equipped interpreter for full acceptance. No live memory service or private conversation is used.
+
+
+## Current-query recall and capture origin
+
+Automatic Honcho retrieval binds the exact query and runtime thread to a generation.
+A query/thread pivot invalidates pending base and dialectic results, including an
+A-to-B-to-A pivot; at most one real worker per layer remains in flight. Generic
+startup synthesis cannot stand in for the next request. Historical paragraphs need
+lexical corroboration, remain complete under budgets, and never renew permission.
+
+Capture snapshots trusted machine spans before provider redaction/background
+dispatch. The native gateway's admitted internal envelope owns its payload; public
+text prefixes do not. API self-posts additionally use exact, one-use in-process
+capabilities after ordinary authentication/session admission, with no redirects.
+Human neighboring text and canonical history are retained; provider capture DTOs
+carry separate origin/scope and machine derivation is disabled. Multi-author routing,
+a2a session isolation, transport retries and native automation validation stay intact.
+
+OpenViking reads return per-document completeness, offsets and source hashes.
+Follow each single-document continuation and assemble matching-hash ranges through
+`total_chars` before claiming a full read. A partial range can omit scope/negation.
+
+The explicit tools remain available for uncorroborated discovery. Persistent
+Telegram composer keyboards require explicit chat IDs and rows; topic/retry routing
+is unchanged. This is configuration, not a personal keyboard preset.

@@ -239,35 +239,35 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
                 return
             _run_start_session_id = session_entry.session_id
             _turn_started_monotonic = time.monotonic()
-            # Admission/typing is not execution. All routing, authorization and
-            # turn preparation gates have passed when the agent runner is entered.
+            # Routing, authorization and turn preparation passed: execution begins.
             event._heartbeat_execution_started = True
             _turn_channel_prompt, _turn_source = self._pinned_channel_inputs(  # internal/synthetic reuse pins
                 session_key, event.channel_prompt, source,
                 internal=event.internal or getattr(event, "inherit_channel_pin", False))
             if not event.internal:
-                # Persist the coherent context+channel pair before execution: a crash during the
-                # human turn may be followed by an internal startup-resume on the next process.
+                # Persist prompt pins before execution for internal restart resumes.
                 await self._persist_prompt_pins(session_key, _run_start_session_id)
-            agent_result = await self._run_agent(
-                message=message_text, context_prompt=prepared.context_prompt, history=history, source=_turn_source,
-                session_id=_run_start_session_id, session_key=session_key,
-                run_generation=run_generation, event_message_id=self._reply_anchor_for_event(event),
-                inbound_message_id=str(event.message_id) if event.message_id else None,
-                channel_prompt=_turn_channel_prompt, moa_config=getattr(event, "_moa_config", None),
-                title_user_message=prepared.title_user_message,
-                persist_user_message=prepared.persist_user_message,
-                persist_user_timestamp=prepared.persist_user_timestamp,
-                persist_user_display_kind=prepared.persist_user_display_kind,
-                reply_expected=event.reply_expected,
-                persist_user_display_metadata={
-                    "gateway_input_owner": prepared.persistence_owner, **persisted_user_metadata_for_event(event),
-                    **reply_expected_metadata(event.reply_expected), **diagnostic_metadata(event)},
-                message_type=event.message_type,
-                scheduled_heartbeat=bool(getattr(event, "_heartbeat_session_id", None)),
-            )
+            from agent.capture_origin import runtime_capture_origin
+            payload = (event.metadata or {}).get("memory_runtime_payload", event.text) if event.internal else ""
+            with runtime_capture_origin(payload):
+                agent_result = await self._run_agent(
+                    message=message_text, context_prompt=prepared.context_prompt, history=history, source=_turn_source,
+                    session_id=_run_start_session_id, session_key=session_key,
+                    run_generation=run_generation, event_message_id=self._reply_anchor_for_event(event),
+                    inbound_message_id=str(event.message_id) if event.message_id else None,
+                    channel_prompt=_turn_channel_prompt, moa_config=getattr(event, "_moa_config", None),
+                    title_user_message=prepared.title_user_message,
+                    persist_user_message=prepared.persist_user_message,
+                    persist_user_timestamp=prepared.persist_user_timestamp,
+                    persist_user_display_kind=prepared.persist_user_display_kind,
+                    reply_expected=event.reply_expected,
+                    persist_user_display_metadata={
+                        "gateway_input_owner": prepared.persistence_owner, **persisted_user_metadata_for_event(event),
+                        **reply_expected_metadata(event.reply_expected), **diagnostic_metadata(event)},
+                    message_type=event.message_type,
+                    scheduled_heartbeat=bool(getattr(event, "_heartbeat_session_id", None)),
+                )
             _turn_seconds = time.monotonic() - _turn_started_monotonic
-
             # A queued (/queue) chain answered the LAST message of the chain, so the outer final
             # send (bracketed by the adapter against this event) must be ledgered under that
             # message's id or it collides with an earlier turn's row carrying the same text. Reply

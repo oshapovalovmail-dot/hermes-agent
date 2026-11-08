@@ -1,15 +1,97 @@
 --- a/__init__.py
 +++ b/__init__.py
-@@ -22,0 +23 @@
+@@ -20,6 +20,7 @@
+ import re
+ import shutil
+ import socket
 +import sqlite3
-@@ -40,0 +42 @@
+ import stat
+ import subprocess
+ import tempfile
+@@ -38,6 +39,7 @@
+ 
+ from agent.message_content import flatten_message_text
+ from agent.memory_provider import MemoryProvider, spawn_context_thread
 +from agent.recall_query import automatic_recall_terms, recall_has_topic, is_continuation_prompt
-@@ -159,0 +162 @@
+ from agent.secret_scope import get_secret
+ from agent.skill_commands import extract_user_instruction_from_skill_message
+ from hermes_cli import __version__ as _HERMES_VERSION
+@@ -157,6 +159,7 @@
+     _cfg_field("recall_limit", "Maximum memories injected by automatic recall", type="integer", minimum=1, maximum=100, default=6),
+     _cfg_field("recall_score_threshold", "Minimum relevance score for automatic recall", type="number", minimum=0.0, maximum=1.0, step=0.01, default=0.15),
+     _cfg_field("recall_max_injected_chars", "Maximum total characters injected by recall", type="integer", minimum=100, maximum=50000, default=4000),
 +    {"key": "startup_catalog", "description": "Opt in to startup filename catalog", "type": "boolean", "default": False},
-@@ -1417 +1420 @@
+     _cfg_field("profile_token_budget", "Maximum session-start memory tokens injected", type="integer", minimum=500, maximum=50000, default=6000),
+     _cfg_field("recall_timeout_seconds", "Total timeout for recall (seconds)", **_NUM, default=4.0),
+     _cfg_field("recall_request_timeout_seconds", "Per-request timeout for recall (seconds)", **_NUM, default=_DEFAULT_RECALL_REQUEST_TIMEOUT_SECONDS),
+@@ -502,18 +505,46 @@
+     ["query"],
+ )
+ 
+-READ_SCHEMA = _tool_schema(
+-    "viking_read",
+-    "Read one or a few specific viking:// URIs returned by viking_search or viking_browse. Three detail levels:\n"
+-    "  abstract — ~100 token summary (L0)\n  overview — ~2k token key points (L1)\n  full — complete content (L2)\n"
+-    "Start with abstract/overview, only use full when you need details. For multiple strong candidates, pass uris with up to three URIs.",
+-    {
+-        "uri": _str("Single viking:// URI to read."),
+-        "uris": {"type": "array", "items": {"type": "string"}, "description": "Optional batch of up to three viking:// URIs to read."},
+-        "level": _str("Detail level (default: overview).", enum=["abstract", "overview", "full"]),
++READ_SCHEMA = {
++    "name": "viking_read",
++    "description": (
++        "Read one or a few specific viking:// URIs returned by viking_search or "
++        "viking_browse. Three detail levels:\n"
++        "  abstract — ~100 token summary (L0)\n"
++        "  overview — ~2k token key points (L1)\n"
++        "  full — source text (L2), bounded per response\n"
++        "Start with abstract/overview, only use full when you need details. "
++        "For multiple strong candidates, pass uris with up to three URIs. "
++        "Check each document's complete/truncated metadata, not just the URI list. "
++        "For incomplete text, follow its continuation arguments until absent and "
++        "assemble all ranges with the same source_sha256 before claiming a full read. "
++        "A partial range can omit scope or negation; it is not a standalone conclusion."
++    ),
++    "parameters": {
++        "type": "object",
++        "properties": {
++            "uri": {"type": "string", "description": "Single viking:// URI to read."},
++            "uris": {
++                "type": "array",
++                "items": {"type": "string"},
++                "description": "Optional batch of up to three viking:// URIs to read.",
++            },
++            "level": {
++                "type": "string", "enum": ["abstract", "overview", "full"],
++                "description": "Detail level (default: overview).",
++            },
++            "offset": {
++                "type": "integer", "minimum": 0,
++                "description": "Character offset for a single-URI continuation (default: 0).",
++            },
++            "source_sha256": {
++                "type": "string",
++                "description": "Source hash from continuation; rejects changed text between ranges.",
++            },
++        },
++        "required": [],
+     },
+-    [],
+-)
++}
+ 
+ BROWSE_SCHEMA = _tool_schema(
+     "viking_browse",
+@@ -1414,20 +1445,15 @@
+             except Exception as batch_error:
+                 if self.next_index:
+                     raise
 -                logger.warning("OpenViking structured sync failed; falling back to text sync: %s", batch_error)
 +                logger.warning("OpenViking structured sync failed; falling back to individual DTOs: %s", batch_error)
-@@ -1422,9 +1425,4 @@
+                 break
+             self.next_index = batch_end
+         if self.batch_messages and self.next_index == len(self.batch_messages):
+             return
 -        # Plain-text fallback: one user + one assistant message.
 -        user_message: Dict[str, Any] = {"role": "user", "parts": [{"type": "text", "text": self.user_content[:4000]}]}
 -        if self.user_peer_id:
@@ -23,15 +105,81 @@
 +        for payload in self.batch_messages[self.next_index:]:
 +            client.post(f"/api/v1/sessions/{self.sid}/messages", payload)
 +            self.next_index += 1
-@@ -1521,0 +1520 @@
+ 
+     def run(self) -> Optional[_VikingClient]:
+         try:
+@@ -1519,6 +1545,7 @@
+         self._upload_tails: Dict[str, threading.Event] = {}  # guarded by _inflight_lock
+         self._deferred_commit_threads: Set[threading.Thread] = set()
+         self._commit_scope: Optional[_CommitScope] = None
 +        self._profile_prefetch_scope = ""
-@@ -2004,0 +2004,2 @@
+         self._profile_prefetched_sessions: Set[str] = set()
+         self._conn_snapshot: Optional[tuple] = None
+         self._extra_headers: dict = {}
+@@ -2002,6 +2029,8 @@
+     def prefetch(self, query: str, *, session_id: str = "") -> str:
+         """Session-start memory block (once per session) + query recall."""
+         query_text = _derive_openviking_user_text(query).strip()
 +        if is_continuation_prompt(query_text):
 +            return ""
-@@ -2150 +2151 @@
+         if not self._ensure_client():
+             return ""
+         effective_session_id = str(session_id or self._session_id or "").strip()
+@@ -2147,7 +2176,7 @@
+             selected = self._select_recall_candidates(candidates, query_text, limit=cfg["limit"], score_threshold=cfg["score_threshold"])
+             return "\n".join(self._build_prefetch_entries(
+                 client, selected, prefer_abstract=cfg["prefer_abstract"], max_injected_chars=cfg["max_injected_chars"],
 -                deadline=deadline, request_timeout=cfg["request_timeout_seconds"], full_read_limit=cfg["full_read_limit"],
 +                deadline=deadline, request_timeout=cfg["request_timeout_seconds"], full_read_limit=cfg["full_read_limit"], query=query_text,
-@@ -2399 +2400,6 @@
+             ))
+         except Exception as e:
+             # A timeout leaves query recall empty. Report only local, bounded
+@@ -2286,24 +2315,27 @@
+ 
+     @classmethod
+     def _truncate_profile_content(cls, content: str, max_units: int) -> str:
+-        """Keep head + tail (first 8 lines, then the end) within max_units; head-only for short profiles."""
+         content = content.strip()
+         if cls._token_units(content) <= max_units:
+             return content
+ 
+-        def _head_only() -> str:
+-            marker = "\n... [profile truncated]"
+-            head = cls._take_tokens(content, max_units - cls._token_units(marker)).rstrip()
+-            return f"{head}{marker}" if head else cls._take_tokens(content, max_units)
+-
+-        lines = content.split("\n")
+-        marker = "\n... [profile middle elided] ...\n"
+-        remaining = max_units - cls._token_units(marker)
+-        if len(lines) <= 12 or remaining <= 0:  # fewer than 8 head + 4 tail lines: no middle to elide
+-            return _head_only()
+-        head = cls._take_tokens("\n".join(lines[:8]), remaining // 2).rstrip()
+-        tail = cls._take_tokens("\n".join(lines[8:]), remaining - cls._token_units(head), from_end=True).lstrip()
+-        return f"{head}{marker}{tail}" if tail else _head_only()
++        marker = "... [profile truncated; complete units only]"
++        if cls._token_units(marker) > max_units:
++            return ""
++        selected = []
++        for unit in cls._context_units(content):
++            candidate = "\n\n".join([*selected, unit, marker])
++            if cls._token_units(candidate) <= max_units:
++                selected.append(unit)
++        return "\n\n".join([*selected, marker])
++
++
++    @staticmethod
++    def _context_units(content: str) -> List[str]:
++        """Paragraphs/list points with wrapped scope/negation kept intact."""
++        return [unit.strip() for unit in re.split(
++            r"\n\s*\n|\n(?=[-*+]\s|\d+\.\s|#{1,6}\s)", content
++        ) if unit.strip()]
+ 
+     def _user_space(self, client=None, *, timeout: Optional[float] = None, require_confirmed: bool = False) -> str:
+         """Resolve the user space, caching only a confirmed connection identity.
+@@ -2396,8 +2428,14 @@
+         """Once per session: profile + preferences/entities listings. Skipped (not latched) when
+         the profile read fails for any reason other than absence (404/410) or no client is set."""
+         session_key = session_id or self._session_id or "__openviking_default_session__"
 -        if session_key in self._profile_prefetched_sessions:
 +        home, marker = self._startup_profile_identity()
 +        marker = marker.replace(" -->", f" peer={self._current_sender_peer()} -->")
@@ -39,30 +187,57 @@
 +            self._profile_prefetched_sessions.clear()
 +            self._profile_prefetch_scope = marker
 +        if session_key in self._profile_prefetched_sessions or self._saved_startup_profile(home, session_id or self._session_id, marker):
-@@ -2400,0 +2407 @@
+             return ""
 +        catalog = self._profile_config_and_env()[0].get("startup_catalog") is True
-@@ -2423 +2430 @@
+         try:
+             client = self._client
+             if not client:
+@@ -2420,7 +2458,7 @@
+                     return ""
+                 profile = ""
+             listings = []
 -            for uri in uris[1:]:
 +            for uri in uris[1:] if catalog else () :
-@@ -2430,0 +2438,2 @@
+                 try:
+                     listings.append(self._extract_memory_listing(budgeted_get("/api/v1/fs/ls", {"uri": uri, **_SESSION_START_LIST_PARAMS})))
+                 except Exception:
+@@ -2428,10 +2466,14 @@
+         except Exception as e:
+             logger.debug("OpenViking session-start memory prefetch failed: %s", e)
+             return ""
 +        if len(self._profile_prefetched_sessions) >= 128:
 +            self._profile_prefetched_sessions.pop()
-@@ -2432,2 +2441,3 @@
+         self._profile_prefetched_sessions.add(session_key)
 -        return self._build_session_start_memory_block(
 -            profile=profile, preferences=listings[0], entities=listings[1], token_budget=self._profile_token_budget(), uris=uris,
 +        block = self._build_session_start_memory_block(
 +            profile=profile, preferences=listings[0] if catalog else [], entities=listings[1] if catalog else [],
 +            token_budget=self._profile_token_budget() if catalog else min(self._profile_token_budget(), 800), uris=uris,
-@@ -2434,0 +2445 @@
+         )
 +        return f"{marker}\n{block}" if block else ""
-@@ -2463,0 +2475 @@
+ 
+     # -- recall ranking ------------------------------------------------------
+ 
+@@ -2461,10 +2503,15 @@
+             return cls._clamp_score(item.get("score")) + (0.12 if item.get("level") == 2 else 0.0)
+ 
+         seen_uri, seen_key = set(), set()
 +        tokens = cls._query_tokens(query)
-@@ -2467,0 +2480,4 @@
+         filtered: List[Dict[str, Any]] = []
+         for item in items:
+             uri = str(item.get("uri") or "").strip()
+             if not uri or uri in seen_uri or cls._clamp_score(item.get("score")) < score_threshold:
 +                continue
 +            if item.get("level") in (0, 1) or uri.endswith(("/", "/.abstract.md", "/.overview.md")):
 +                continue
 +            if not cls._recall_has_topic(cls._recall_abstract(item), tokens):
-@@ -2482,4 +2498,12 @@
+                 continue
+             abstract = " ".join(cls._recall_abstract(item).lower().split())
+             if abstract and "/events/" not in uri.lower() and "/cases/" not in uri.lower():
+@@ -2479,32 +2526,62 @@
+         filtered.sort(key=rank, reverse=True)
+         return filtered[:limit]
+ 
 -    def _build_prefetch_entries(self, client: _VikingClient, items: List[Dict[str, Any]], *, prefer_abstract: bool,
 -                                max_injected_chars: int, deadline: float, request_timeout: float, full_read_limit: int) -> List[str]:
 -        """One entry per item: abstract, or a full L2 read (budgeted by ``full_read_limit``) for
@@ -79,10 +254,11 @@
 +        full_read_limit: int,
 +        query: str = "",
 +    ) -> List[str]:
-@@ -2488 +2512 @@
+         entries: List[str] = []
+         total_chars = 0
 -        full_reads = 0
 +        read_state = {"full_reads": 0}
-@@ -2490,10 +2514,27 @@
+         for item in items:
 -            content = self._recall_abstract(item)
 -            has_explicit_summary = any(isinstance(item.get(key), str) and item.get(key).strip() for key in _RECALL_SUMMARY_KEYS)
 -            uri = str(item.get("uri") or "")
@@ -120,7 +296,8 @@
 +                        excerpts.append(unit)
 +                        excerpt_chars += cost
 +                content = "\n\n".join(excerpts)
-@@ -2502,6 +2543,11 @@
+             if not content:
+                 continue
 -            category = str(item.get("category") or "").strip() or "memory"
 -            entry = "\n".join([f"- [{category}]", f"  <uri>{item.get('uri', '')}</uri>", *[f"  {line}" for line in content.splitlines()]])
 -            projected_chars = total_chars + (1 if entries else 0) + len(entry)
@@ -138,7 +315,23 @@
 +                continue
 +            entries.append(entry)
 +            total_chars = projected_chars
-@@ -2572 +2618,14 @@
+         return entries
+ 
+     # -- turn sync -----------------------------------------------------------
+@@ -2516,6 +2593,9 @@
+         else the transcript end) back to the matching (else nearest) user message."""
+         if not messages:
+             return []
++        marked = [i for i, message in enumerate(messages) if message.get("capture_current_turn")]
++        if marked:
++            return [dict(message) for message in messages[marked[0]:]]
+         last = len(messages) - 1
+ 
+         def locate(role: str, start: int, expected: Any) -> Optional[int]:
+@@ -2569,7 +2649,20 @@
+                 continue
+             flush_tool_parts()
+             text = _message_text(message.get("content"))
 -            parts: List[Dict[str, Any]] = [{"type": "text", "text": text}] if text else []
 +            parts: List[Dict[str, Any]] = []
 +            for kind, scope, source_text in OpenVikingMemoryProvider._capture_text_sources(message, text) if text else ():
@@ -154,10 +347,224 @@
 +                         "hermes_source", {"source_kind": kind, "scope": scope, "original_role": role, "human_endorsed": False},
 +                         "completed", tool_output=source_text)])
 +                    payload_messages[-1]["message_kind"] = "tool_transport"
-@@ -2615,0 +2675,2 @@
+             if role == "assistant":
+                 for tool_call in message.get("tool_calls") or []:
+                     if not isinstance(tool_call, dict):
+@@ -2611,8 +2704,11 @@
+         turn_messages = [dict(m) for m in (self._extract_current_turn_messages(messages, user_content, assistant_content) if messages is not None else [])]
+         for message in turn_messages:
+             if message.get("role") == "user":
+-                message["content"] = user_content  # first user message carries the skill-stripped text
++                if not message.get("capture_current_turn"):
++                    message["content"] = user_content
+                 break
 +        if not turn_messages:
 +            turn_messages = [{"role": "user", "content": user_content}, {"role": "assistant", "content": assistant_content}]
-@@ -3407,0 +3469,179 @@
+         batch_messages = self._messages_to_openviking_batch(turn_messages, assistant_peer_id=assistant_peer_id, user_peer_id=user_peer_id)
+         if env_var_enabled(_SYNC_TRACE_ENV):
+             logger.info(
+@@ -3237,54 +3333,178 @@
+         formatted = [entry for _, entry in sorted(scored_entries, key=lambda x: x[0], reverse=True)]
+         return json.dumps({"results": formatted, "total": result.get("total", len(formatted))}, ensure_ascii=False)
+ 
+-    def _read_uri_payload(self, uri: str, level: str, *, limit: Optional[int] = None) -> Dict[str, Any]:
++    def _read_uri_payload(
++        self,
++        uri: str,
++        level: str,
++        *,
++        limit: Optional[int] = None,
++        offset: int = 0,
++        source_sha256: str = "",
++    ) -> Dict[str, Any]:
+         summary_level = level in {"abstract", "overview"}
+-        # Pseudo summary files (viking://x/.overview.md) are read as their directory.
++        # OpenViking expects directory URIs for pseudo summary files
++        # (e.g. viking://user/hermes/.overview.md).
+         resolved_uri = self._normalize_summary_uri(uri) if summary_level else uri
+-        # abstract/overview are directory-only (v0.3.x returns 500/412 for files):
+-        # probe fs/stat for non-pseudo URIs and route files straight to content/read.
+-        used_fallback = summary_level and resolved_uri == uri and self._is_directory_uri(uri) is False
+-        endpoint = "/api/v1/content/read" if used_fallback else _LEVEL_ENDPOINTS[level if summary_level else "full"]
++        used_fallback = False
++
++        # abstract/overview endpoints are directory-only on OpenViking
++        # (v0.3.x returns 500/412 for file URIs). When the caller asks for a
++        # summary level on a non-pseudo URI, probe fs/stat first and route
++        # file URIs straight to /content/read instead of eating a failing
++        # round-trip. The pseudo-URI path already points at a directory, so
++        # skip the probe there.
++        if summary_level and resolved_uri == uri:
++            is_dir = self._is_directory_uri(uri)
++            if is_dir is False:
++                resolved_uri = uri
++                used_fallback = True
++
++        # Map our level names to OpenViking GET endpoints.
++        endpoint = "/api/v1/content/read"
++        if not used_fallback:
++            if level == "abstract":
++                endpoint = "/api/v1/content/abstract"
++            elif level == "overview":
++                endpoint = "/api/v1/content/overview"
++
+         try:
+             resp = self._client.get(endpoint, params={"uri": resolved_uri})
+         except Exception:
+-            # Servers may still 500 on summary reads of plain files; fall back to a full read.
++            # OpenViking may return HTTP 500 for abstract/overview reads on normal
++            # file URIs (mem_*.md). For those, gracefully fallback to full read.
+             if not summary_level or resolved_uri != uri or used_fallback:
+                 raise
+             resp = self._client.get("/api/v1/content/read", params={"uri": uri})
+             used_fallback = True
+ 
+         result = self._unwrap_result(resp)
+-        content = result if isinstance(result, str) else (result.get("content", "") or result.get("text", "")) if isinstance(result, dict) else ""
+-        max_len = _LEVEL_MAX_CHARS.get(level, 8000)
++        # Content endpoints may return either plain strings or objects.
++        if isinstance(result, str):
++            content = result
++        elif isinstance(result, dict):
++            content = result.get("content", "") or result.get("text", "")
++        else:
++            content = ""
++
++        # Truncate long content to avoid flooding context.
++        max_len = 8000
++        if level == "overview":
++            max_len = 4000
++        elif level == "abstract":
++            max_len = 1200
+         if limit is not None:
+             max_len = max(200, min(max_len, limit))
+-        if len(content) > max_len:
+-            content = content[:max_len] + "\n\n[... truncated, use a more specific URI or full level]"
+-        return {"uri": uri, "resolved_uri": resolved_uri, "level": level, "content": content, **({"fallback": "content/read"} if used_fallback else {})}
++
++        total_chars = len(content)
++        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
++        if source_sha256 and source_sha256 != digest:
++            raise ValueError("Source changed during read; restart at offset 0")
++        if offset > total_chars:
++            raise ValueError("offset exceeds source length")
++        end = min(total_chars, offset + max_len)
++        complete = offset == 0 and end == total_chars
++        payload = {
++            "uri": uri,
++            "resolved_uri": resolved_uri,
++            "level": level,
++            "content": content[offset:end],
++            "offset": offset,
++            "end_offset": end,
++            "returned_chars": end - offset,
++            "total_chars": total_chars,
++            "source_sha256": digest,
++            "complete": complete,
++            "truncated": not complete,
++        }
++        if end < total_chars:
++            payload["continuation"] = {
++                "uri": uri, "level": level, "offset": end, "source_sha256": digest,
++            }
++        if not complete:
++            payload["notice"] = (
++                "Partial source range, not a standalone conclusion: scope/negation may be outside it. "
++                "Assemble ranges from offset 0 through total_chars with the same source_sha256; "
++                "follow continuation when present."
++            )
++        if used_fallback:
++            payload["fallback"] = "content/read"
++
++        return payload
+ 
+     def _tool_read(self, args: dict) -> str:
+         level = args.get("level", "overview")
+         uri_arg = args.get("uri", "")
+         uris_arg = args.get("uris", [])
++        offset = args.get("offset", 0)
++        source_sha256 = args.get("source_sha256", "")
++        if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
++            return tool_error("offset must be a nonnegative integer")
++
++        raw_uris: List[Any]
+         batch_requested = bool(uris_arg) or isinstance(uri_arg, list)
+-        raw_uris = uris_arg if isinstance(uris_arg, list) and uris_arg else uri_arg if isinstance(uri_arg, list) else [uri_arg]
+-        uris = list(dict.fromkeys(u.strip() for u in raw_uris if isinstance(u, str) and u.strip()))
++        if isinstance(uris_arg, list) and uris_arg:
++            raw_uris = uris_arg
++        elif isinstance(uri_arg, list):
++            raw_uris = uri_arg
++        elif isinstance(uri_arg, str) and uri_arg:
++            raw_uris = [uri_arg]
++        else:
++            return tool_error("uri or uris is required")
++
++        uris: List[str] = []
++        seen: Set[str] = set()
++        for raw_uri in raw_uris:
++            if not isinstance(raw_uri, str):
++                continue
++            uri = raw_uri.strip()
++            if not uri or uri in seen:
++                continue
++            seen.add(uri)
++            uris.append(uri)
++
+         if not uris:
+             return tool_error("uri or uris is required")
++        if batch_requested and (offset or source_sha256):
++            return tool_error("Continue each document using its single uri, not uris")
+ 
+         selected = uris[:_READ_BATCH_LIMIT]
++        per_item_limit = (
++            _READ_BATCH_FULL_LIMIT
++            if len(selected) > 1 and level == "full"
++            else None
++        )
+         if len(selected) == 1 and not batch_requested:
+-            return json.dumps(self._read_uri_payload(selected[0], level), ensure_ascii=False)
+-        per_item_limit = _READ_BATCH_FULL_LIMIT if len(selected) > 1 and level == "full" else None
++            try:
++                return json.dumps(
++                    self._read_uri_payload(selected[0], level, offset=offset, source_sha256=source_sha256),
++                    ensure_ascii=False,
++                )
++            except ValueError as e:
++                return tool_error(str(e))
++
+         results: List[Dict[str, Any]] = []
+         for uri in selected:
+             try:
+-                results.append(self._read_uri_payload(uri, level, limit=per_item_limit))
++                results.append(
++                    self._read_uri_payload(uri, level, limit=per_item_limit)
++                )
+             except Exception as e:
+                 results.append({"uri": uri, "level": level, "error": str(e)})
+-        return json.dumps({"level": level, "results": results, "requested": len(uris), "returned": len(results),
+-                           "truncated": len(uris) > len(selected)}, ensure_ascii=False)
++
++        return json.dumps(
++            {
++                "level": level,
++                "results": results,
++                "requested": len(uris),
++                "returned": len(results),
++                "uris_truncated": len(uris) > len(selected),
++                "content_truncated": any(item.get("truncated", False) for item in results),
++                "truncated": len(uris) > len(selected) or any(item.get("truncated", False) for item in results),
++                "complete": len(uris) == len(selected) and all(item.get("complete", False) for item in results),
++            },
++            ensure_ascii=False,
++        )
+ 
+     def _tool_browse(self, args: dict) -> str:
+         action = args.get("action", "list")
+@@ -3405,6 +3625,185 @@
+         }, ensure_ascii=False)
+ 
+ 
 +    def _startup_profile_identity(self) -> tuple[Path, str]:
 +        from hermes_constants import get_hermes_home
 +
@@ -337,3 +744,6 @@
 +        return sources
 +
 +
+ def register(ctx) -> None:
+     """Register OpenViking as a memory provider plugin."""
+     ctx.register_memory_provider(OpenVikingMemoryProvider())

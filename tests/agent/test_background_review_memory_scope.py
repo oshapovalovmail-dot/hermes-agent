@@ -28,6 +28,12 @@ def _review_agent(memory_enabled=True, user_profile_enabled=False) -> SimpleName
     return SimpleNamespace(_memory_enabled=memory_enabled, _user_profile_enabled=user_profile_enabled)
 
 
+def _review_parent():
+    """Minimal live-parent protocol consumed by the real detached snapshot."""
+    return SimpleNamespace(provider="openai", model="review-test", session_id="review-scope",
+                           _current_main_runtime=lambda: {"api_mode": "chat_completions"})
+
+
 class TestReviewToolWhitelistScope:
     def test_skill_only_review_omits_memory_tool(self):
         whitelist, _extra = bg._review_tool_whitelist(_review_agent(), None, review_memory=False)
@@ -55,10 +61,11 @@ class TestSpawnForwardsScope:
         captured = {}
 
         def fake_worker(agent, messages_snapshot, prompt, task_cfg=None, review_run=None,
-                        review_memory=False, explicit=False):
+                        review_memory=False, explicit=False, snapshot=None):
+            assert snapshot is not None
             captured["review_memory"] = review_memory
 
-        agent = SimpleNamespace()
+        agent = _review_parent()
         with patch.object(bg, "_run_review_in_thread", fake_worker):
             target, _prompt = bg.spawn_background_review_thread(
                 agent, [], review_memory=False, review_skills=True)
@@ -80,12 +87,13 @@ class TestExplicitRefineOrigin:
         captured = {}
 
         def fake_worker(agent, messages_snapshot, prompt, task_cfg=None, review_run=None,
-                        review_memory=False, explicit=False):
+                        review_memory=False, explicit=False, snapshot=None):
+            assert snapshot is not None
             captured["explicit"] = explicit
 
         with patch.object(bg, "_run_review_in_thread", fake_worker):
             target, _prompt = bg.spawn_background_review_thread(
-                SimpleNamespace(), [], review_memory=True, explicit=True)
+                _review_parent(), [], review_memory=True, explicit=True)
             target()
             assert captured["explicit"] is True
 

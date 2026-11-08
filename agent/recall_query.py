@@ -11,11 +11,14 @@ from collections.abc import Set as AbstractSet
 
 _CONTROL_RE = re.compile(
     r"\b(?:(?:i\s+)?hereby\s+|настоящим\s+)?(?:"
+    r"(?:сам\s+)?(?:можешь|можете)\s+[а-яё]+(?:ть|ти|чь)|"
+    r"(?:can|could|would)\s+you\s+[a-z]+|"
     r"you have my permission|(?:i\s+)?give my consent|go ahead|do it|carry on|"
     r"(?:i\s+)?(?:authorize|authorise|approve|consent)(?:\s+(?:it|you))?(?:\s+to)?|approved|"
     r"(?:я\s+)?(?:разрешаю|согласен|согласна|одобряю)|даю согласие|"
     r"(?:можешь\s+)?(?:продолжать|сделать)|"
     r"continue|proceed|resume|finish|делай|доделывай|доделай|продолжайте|продолжай|"
+    r"(?:fix|repair)(?:\s+it)?|чини|почини|исправляй|"
     r"продолжи|заверши|закончи)\b", re.IGNORECASE,
 )
 _DEICTIC_RE = re.compile(
@@ -34,6 +37,12 @@ _QUALIFIER_RE = re.compile(
     r"август[а-яё]*|сентябр[а-яё]*|октябр[а-яё]*|ноябр[а-яё]*|декабр[а-яё]*|\d+)"
 )
 _UUID_RE = re.compile(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
+# Bind a separate follow-up clause to the explicit object in the first clause,
+# rather than treating its progress/request words as alternative topics.
+_COMPLEMENT_RE = re.compile(r"\b(?:with|с|со)\s+([^.!?;,\n]+)", re.IGNORECASE)
+_TRANSFER_RE = re.compile(
+    r"\b(?:from|с|со)\s+([\w.-]+)\s+(?:to|на)\s+([\w.-]+)", re.IGNORECASE,
+)
 
 
 def _words(text: str) -> list[str]:
@@ -72,6 +81,20 @@ def automatic_recall_terms(query: str, stopwords: AbstractSet[str]) -> list[str]
     identifiers = [word for word in words if _opaque(word)]
     if identifiers:
         return identifiers
+    # Transfer endpoints can be short (PC -> TV). The connecting preposition
+    # must never become corroboration simply because short endpoints are valid.
+    endpoints = [word.casefold() for pair in _TRANSFER_RE.findall(subject) for word in pair]
+    if endpoints and all(word not in stopwords and not word.isdigit() for word in endpoints):
+        return list(dict.fromkeys(endpoints))
+    clauses = re.split(r"[.!?;]\s+", subject, maxsplit=1)
+    # A modifier in a single noun phrase ("telescope with coated optics")
+    # must not displace the main subject. Focus only a multi-clause request.
+    complements = _words(' '.join(_COMPLEMENT_RE.findall(clauses[0]))) if len(clauses) > 1 else []
+    focus = [word for word in complements if len(word) >= 3 and word not in stopwords
+             and not _QUALIFIER_RE.fullmatch(word) and '_' not in word
+             and not any(c.isdigit() for c in word)]
+    if focus:
+        return focus
     # Request operators with a numeric rank (top-10/топ-10) are not IDs.
     terms = [word for word in words if len(word) >= 3 and word not in stopwords
              and not (re.fullmatch(r'.+-\d+', word) and word.rsplit('-', 1)[0] in stopwords)]

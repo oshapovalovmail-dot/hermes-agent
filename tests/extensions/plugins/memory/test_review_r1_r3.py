@@ -84,8 +84,7 @@ def test_openviking_async_human_suffix_native_extractor(http_fixture, isolated, 
         assert state["committed"]
         assert any("explicit human" in part.lower() and "task" in part.lower() for part in human)
         interpreter = sys.executable if importlib.util.find_spec("openviking") is not None else None
-        if not interpreter:
-            pytest.skip("native DTO/extractor acceptance requires OPENVIKING_CONTRACT_PYTHON")
+        assert interpreter, "native DTO/extractor acceptance requires installed interpreter"
         script = '''import json, sys
 from openviking.server.routers.sessions import AddMessageRequest, _resolve_message_parts
 from openviking.server.identity import RequestContext, Role, UserIdentifier

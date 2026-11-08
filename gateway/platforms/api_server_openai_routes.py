@@ -956,6 +956,8 @@ class OpenAICompatRoutesMixin:
             # id from a header-less client is NOT: delegate_task keeps its forced-sync fallback
             # there — the wake would hard-fail or land in history that client never reloads.
             session_history_delivery=("1" if provided_session_id else ""))
+        from gateway.platforms.api_server_capture import runtime_wake_kwargs
+        run_kwargs.update(runtime_wake_kwargs(self, request, provided_session_id, user_message, messages, stream))
         run_kwargs.update(self._authority_chat_kwargs(request, provided_session_id))
         # This is presentation only. The ordinary API-key/session authorization
         # above still applies; it grants no internal ingress or control authority.

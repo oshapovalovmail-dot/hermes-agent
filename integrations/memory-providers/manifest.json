@@ -6,8 +6,8 @@
       "commit": "7dd3702933d5cc1ce1f0a44bba6525cc61ee6e16",
       "subdir": "hermes-plugin-honcho",
       "source_sha256": "cb753f49b540e8bf250a5dbc2c24c37f5de4c6c446143a1e4cc406cf008a8f50",
-      "patch_sha256": "813e9d3d96e9e5fc8dfca0120c221fe3c43cb3631904b9aa5b3eb461794adb29",
-      "result_sha256": "c46fce472c1e7218176fa5380b1a47beee66891b9343d775136408997fcfc70f",
+      "patch_sha256": "0e079258937b3ab4be5e6e65d9afa11755c4ce114835bf850d4cb33e6dc90d35",
+      "result_sha256": "f1506e5940f53e5366f9da1425e1b7604bdaad3dd8d54b54f26a7154bc9c15ab",
       "license": "MIT",
       "license_path": "LICENSE"
     },
@@ -16,8 +16,8 @@
       "commit": "e855796c83f9eb575d9b0f3082926660730f6a63",
       "subdir": "examples/hermes-plugin",
       "source_sha256": "579524de2cdc055b17b5ebdd79bdc6bcc38cd5a61e8f17077f9d545cdb797fa3",
-      "patch_sha256": "25c913fa21a606a0a1a6e93e13ee1f4cf5f9058ed9dea79b3869de3f6d62f84e",
-      "result_sha256": "fcdb1d8ce26b9ac8112ab61c433edab2d036bf68da4ad94e5ca584d4f6c1d6c2",
+      "patch_sha256": "889224c8c0b5c362d1a942bdbb94b8f32cfc0c3062d658d0242419bfe9c760ef",
+      "result_sha256": "b32cf2a9ec06393b42ad42100d153d2faea2c9c7b3eca43b77f5d1fb12f60d94",
       "license": "MIT",
       "license_path": "LICENSE"
     }
