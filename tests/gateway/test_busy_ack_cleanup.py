@@ -293,3 +293,40 @@ async def test_cleanup_registration_failure_is_best_effort(monkeypatch):
     monkeypatch.setattr(adapter, "register_post_delivery_callback", unavailable_registration)
     runner._run_agent_schedule_bubble_cleanup({"final_response": "done"}, adapter, ctx)
     assert adapter.deleted == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("send_ok,failed,streamed", [
+    (True, False, False), (False, False, False), (True, True, False), (True, False, True),
+])
+async def test_queued_first_final_cleans_its_own_messages_before_followup(
+    monkeypatch, send_ok, failed, streamed,
+):
+    from gateway.transient_cleanup import bind_turn_cleanup
+
+    runner, adapter, ctx, turn, event, key = setup_turn(monkeypatch)
+    bind_turn_cleanup(runner, ctx, adapter)
+    working = await adapter.send("chat", "Working")
+    turn._track_progress_result(working)
+    await runner._send_busy_ack_reply(event, adapter, "busy receipt")
+    transient_ids = {working.message_id, adapter.sent[-1]["message_id"]}
+    if streamed:
+        ctx.stream_consumer_holder[0] = SimpleNamespace(
+            final_response_sent=True, final_content_delivered=True,
+            delivered_final_matches=lambda text: True,
+        )
+    adapter.final_ok = send_ok
+    adapter.final_release.set()
+    response = {"final_response": "final answer", "failed": failed}
+    await runner._run_agent_deliver_first_response(ctx, adapter, response, response, None)
+    assert {d["message_id"] for d in adapter.deleted} == (transient_ids if send_ok and not failed else set())
+
+    # Recursive queued turns retain the run generation, but must get a fresh receipt owner.
+    disp = runner._run_agent_display_settings(event.source)
+    successor, next_turn, _adapter = runner._run_agent_build_turn_context(
+        disp, object, message="followup", source=event.source, session_key=key, run_generation=1,
+    )
+    next_working = await adapter.send("chat", "Working followup")
+    next_turn._track_progress_result(next_working)
+    assert successor._cleanup_msg_ids == [next_working.message_id]
+    assert next_working.message_id not in {d["message_id"] for d in adapter.deleted}

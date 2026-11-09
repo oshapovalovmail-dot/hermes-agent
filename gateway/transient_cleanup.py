@@ -40,8 +40,11 @@ class TransientCleanup:
 
     async def after_delivery(self) -> None:
         if self.delivered or final_delivery_succeeded.get():
-            self.delivered = True
-            await self.delete_pending()
+            await self.confirm_delivery()
+
+    async def confirm_delivery(self) -> None:
+        self.delivered = True
+        await self.delete_pending()
 
 
 def cleanup_for_context(ctx: Any, adapter: Any) -> TransientCleanup:
@@ -88,3 +91,14 @@ def busy_ack_cleanup(runner: Any, event: Any, adapter: Any) -> TransientCleanup 
     if cleanup is None or cleanup.generation != generation or cleanup.adapter is not adapter:
         cleanup = state.turn.transient_cleanup = TransientCleanup(adapter, event.source.chat_id, [], generation)
     return cleanup
+
+
+def queued_cleanup_callback(runner: Any, ctx: Any, adapter: Any, *, failed: bool):
+    """A recursive queued turn shares its generation, not the previous answer's receipts."""
+    if not getattr(ctx, "_cleanup_progress", False) or adapter is None:
+        return None
+    cleanup = cleanup_for_context(ctx, adapter)
+    state = runner._peek_session_state(ctx.session_key) if ctx.session_key else None
+    if state is not None and state.turn.transient_cleanup is cleanup:
+        state.turn.transient_cleanup = None
+    return None if failed else cleanup.confirm_delivery

@@ -1616,6 +1616,8 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
                 logger.debug("Stream consumer wait before queued message failed: %s", e)
         # Delivery uses the finalized task result (empty/failure normalization), not raw ``result``.
         _delivery_result = response if isinstance(response, dict) else (result or {})
+        from gateway.transient_cleanup import queued_cleanup_callback
+        _cleanup_delivered = queued_cleanup_callback(self, turn_ctx, adapter, failed=bool(_delivery_result.get("failed")))
         first_response = _delivery_result.get("final_response", "")
         _already_streamed = self._run_agent_stream_confirmed_final_delivery(
             _sc, first_response, previewed=bool(_delivery_result.get("response_previewed")),
@@ -1659,6 +1661,7 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
                     # The text send records a delivery-ledger obligation under this key, keyed on
                     # the raw inbound id (the anchor above is only the reply target).
                     session_key=session_key, inbound_message_id=turn_ctx.inbound_message_id,
+                    on_text_delivered=_cleanup_delivered,
                 )
             except Exception as e:
                 logger.warning("Failed to send first response before queued message: %s", e)
