@@ -63,7 +63,7 @@ def items(response: dict) -> list:
     return value if isinstance(value, list) else []
 
 
-def semantic_match(value, canary: str) -> bool:
+def semantic_match(value, canary: str, *, scoped_subject: bool = False) -> bool:
     # Search/request metadata is not derived evidence.
     def texts(item):
         if isinstance(item, str):
@@ -73,7 +73,8 @@ def semantic_match(value, canary: str) -> bool:
         if isinstance(item, dict):
             return [text for key in ("content", "text", "conclusion") for text in texts(item.get(key))]
         return []
-    bodies = [text.casefold() for text in texts(value)]
+    bodies = [re.sub(r", as stated by synthetic-user(?=[.!?]|$)", "", text.casefold())
+              for text in texts(value)]
     # Conservative English canary grammar, not a general semantic judge. Fail closed
     # on polarity conflicts and never join separate subjects/documents into proof.
     denied = r"\b(?:not|never|false|no longer|revok\w*|retract\w*|withdraw\w*)\b"
@@ -84,9 +85,21 @@ def semantic_match(value, canary: str) -> bool:
     if any(match.group(1).strip() != "cobalt blue"
            for body in bodies for match in re.finditer(preference, body)):
         return False
+    reported = r"(?:(?:on [a-z]+ \d{1,2}, \d{4}, )?synthetic-user state[sd] that )?"
     predicate = r" (?:permanently )?(?:prefers|has chosen) cobalt blue[.!]?"
-    return any(re.fullmatch(subject + predicate, sentence.strip("-* \t"))
-               for body in bodies for sentence in re.split(r"(?<=[.!?])\s+|\n+", body))
+    patterns = [reported + subject + predicate]
+    sentences = [sentence.strip("-* \t") for body in bodies for sentence in re.split(r"(?<=[.!?])\s+|\n+", body)]
+    lasting = r"(?:lasting|permanent|long-term) project preference"
+    suffix = r"(?: as (?:the project's color|a " + lasting + r"))?(?:; this is a " + lasting + r")?"
+    # A scoped positive never overrides a conflicting read, including implicit choices.
+    if any(not re.fullmatch("cobalt blue" + suffix, match.group(1))
+           for sentence in sentences
+           if (match := re.fullmatch(r"(?:permanently )?(?:prefers|has chosen) ([^.!?\n]+)[.!]?", sentence))):
+        return False
+    if scoped_subject:
+        # Only the causal entity-diff verifier may supply an implicit subject.
+        patterns.append(r"(?:permanently )?prefers cobalt blue" + suffix + r"[.!]?")
+    return any(re.fullmatch(pattern, sentence) for sentence in sentences for pattern in patterns)
 
 
 def check_honcho(base: str, *, storage_only: bool, timeout: float) -> dict:
@@ -139,6 +152,36 @@ def memory_rows(value) -> list[dict]:
     return []
 
 
+def scoped_memory_match(call, status: dict, identity: str, session: str, documents: dict[str, str]) -> bool:
+    result = status.get("result", {})
+    archive = result.get("archive_uri", "")
+    prefix = f"viking://user/{identity}/sessions/{session}/history/"
+    if (status.get("resource_id") != session or result.get("session_id") != session
+            or not archive.startswith(prefix) or not re.fullmatch(r"archive_\d+", archive[len(prefix):])
+            or result.get("memory_diff_uri") != archive + "/memory_diff.json"):
+        return False
+    diff = result_object(call("/api/v1/content/read?uri=" + urllib.parse.quote(result["memory_diff_uri"], safe="")))
+    diff = json.loads(diff) if isinstance(diff, str) else diff
+    if not isinstance(diff, dict) or diff.get("archive_uri") != archive:
+        return False
+    operations = diff.get("operations", {})
+    if operations.get("updates") or operations.get("deletes"):
+        return False
+    bound = []
+    entity_prefix = f"viking://user/{identity}/memories/preferences/{identity}/"
+    for entry in operations.get("adds", []):
+        if entry.get("memory_type") != "preferences":
+            continue
+        uri = entry.get("uri", "")
+        leaf = uri[len(entity_prefix):]
+        if (not uri.startswith(entity_prefix) or not leaf.endswith(".md") or "/" in leaf or leaf.startswith(".")
+                or not entry.get("after") or documents.get(uri) != entry["after"]):
+            return False
+        bound.append(documents[uri])
+    return (bool(bound) and semantic_match(bound, identity, scoped_subject=True)
+            and semantic_match(list(documents.values()), identity, scoped_subject=True))
+
+
 def check_openviking(base: str, *, storage_only: bool, timeout: float, api_key: str = "") -> dict:
     identity = "probe-" + uuid.uuid4().hex
     headers = {"X-OpenViking-Account": "default", "X-OpenViking-User": identity,
@@ -180,7 +223,7 @@ def check_openviking(base: str, *, storage_only: bool, timeout: float, api_key: 
             found = result_object(call("/api/v1/search/find", {"query": "cobalt blue project " + identity,
                                                                "target_uri": "viking://user/memories", "limit": 10}))
             rows = memory_rows(found)
-            documents = []
+            documents = {}
             uris = []
             for row in rows:
                 uri = row["uri"]
@@ -190,9 +233,14 @@ def check_openviking(base: str, *, storage_only: bool, timeout: float, api_key: 
                 if isinstance(content, dict):
                     content = content.get("content", content.get("text", ""))
                 if isinstance(content, str):
-                    documents.append(content)
+                    if uri in documents and documents[uri] != content:
+                        result.update(passed=False, derivation="inconsistent_read", task_id=task,
+                                      error="inconsistent-memory-content")
+                        return result
+                    documents[uri] = content
                     uris.append(uri)
-            if semantic_match(documents, identity):
+            if (semantic_match(list(documents.values()), identity)
+                    or scoped_memory_match(call, status, identity, session, documents)):
                 result.update(derivation="completed_task_and_semantic_readback", task_id=task, memory_uris=uris)
                 return result
             result.update(passed=False, derivation="no_derived_memory", task_id=task,
