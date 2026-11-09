@@ -62,12 +62,43 @@ def probe(monkeypatch):
     return checks, data
 
 
-@pytest.mark.parametrize("content", [CONTENT, "- Permanently prefers cobalt blue as a lasting project preference."])
+@pytest.mark.parametrize("content", [CONTENT, "- Permanently prefers cobalt blue as a lasting project preference.",
+    "- Permanently prefers cobalt blue for project probe-canary."])
 def test_scoped_preference_requires_completed_causal_diff_and_independent_content_read(probe, content):
     checks, data = probe
     data["reads"][URI] = content
     data["diff"]["operations"]["adds"][0]["after"] = content
     assert checks.check_openviking("http://fixture.invalid", storage_only=False, timeout=1)["passed"]
+
+
+def test_user_project_qualified_lasting_preference_is_derived_evidence(probe):
+    checks, _ = probe
+    text = "synthetic-user has a lasting preference for cobalt blue for project probe-canary."
+    assert checks.semantic_match([{"content": text}], IDENTITY)
+
+
+@pytest.mark.parametrize("content", [
+    "synthetic-user has a lasting preference for crimson red for project probe-canary.",
+    "synthetic-user has a lasting preference for cobalt blue and crimson red for project probe-canary.",
+    "synthetic-user no longer has a lasting preference for cobalt blue for project probe-canary.",
+])
+def test_user_project_qualified_positive_cannot_override_conflicting_read(probe, content):
+    checks, _ = probe
+    positive = "Project probe-canary permanently prefers cobalt blue."
+    assert not checks.semantic_match([{"content": positive}, {"content": content}], IDENTITY)
+
+
+def test_user_project_qualified_preference_for_foreign_project_is_not_evidence(probe):
+    checks, _ = probe
+    assert not checks.semantic_match("synthetic-user has a lasting preference for cobalt blue for project foreign.", IDENTITY)
+
+
+def test_project_qualified_implicit_preference_still_requires_causal_diff(probe):
+    checks, data = probe
+    content = "- Permanently prefers cobalt blue for project probe-canary."
+    data["reads"][URI] = content
+    data["diff"]["operations"]["adds"] = []
+    assert not checks.check_openviking("http://fixture.invalid", storage_only=False, timeout=1)["passed"]
 
 
 @pytest.mark.parametrize("changes", [

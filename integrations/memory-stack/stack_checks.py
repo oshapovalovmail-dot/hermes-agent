@@ -90,7 +90,13 @@ def semantic_match(value, canary: str, *, scoped_subject: bool = False) -> bool:
     patterns = [reported + subject + predicate]
     sentences = [sentence.strip("-* \t") for body in bodies for sentence in re.split(r"(?<=[.!?])\s+|\n+", body)]
     lasting = r"(?:lasting|permanent|long-term) project preference"
-    suffix = r"(?: as (?:the project's color|a " + lasting + r"))?(?:; this is a " + lasting + r")?"
+    qualifier = r" for project " + re.escape(canary.casefold())
+    user_preference = r"synthetic-user has a (?:lasting|permanent|long-term) preference for "
+    if any(match.group(1).strip() != "cobalt blue" for sentence in sentences
+           if (match := re.fullmatch(user_preference + r"([^.!?\n]+)" + qualifier + r"[.!]?", sentence))):
+        return False
+    patterns.append(user_preference + "cobalt blue" + qualifier + r"[.!]?")
+    suffix = r"(?:(?: as (?:the project's color|a " + lasting + r"))?(?:; this is a " + lasting + r")?|" + qualifier + r")"
     # A scoped positive never overrides a conflicting read, including implicit choices.
     if any(not re.fullmatch("cobalt blue" + suffix, match.group(1))
            for sentence in sentences
