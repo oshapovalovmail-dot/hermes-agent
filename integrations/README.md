@@ -3,8 +3,18 @@
 This directory is an explicit, source-only export for this fork. Nothing here is
 in the bundled `plugins/` discovery path; nothing activates on checkout. It adds
 no core patches, credentials, personal configuration, skills, model weights,
-meeting records, project banks, watcher database, or service deployment.
+meeting records, project banks, watcher database, or implicit service deployment.
 The upstream built-in skills are untouched.
+
+## Complete memory-stack installer
+
+[`memory-stack/README.md`](memory-stack/README.md) is the end-to-end guide for a
+**new, isolated** deployment: choose `honcho`, `openviking`, or `both`, serve the
+pinned FRIDA ONNX INT8 release locally, and configure the selected native Hermes
+plugins. `memory-stack/install.py` provides the explicit prepare/up/check/down
+lifecycle. It never runs on checkout, overwrites an existing profile, installs a
+watcher, or synchronizes this fork automatically. Read the guide's verification
+levels: backend health or accepted writes alone are not proof of derived memory.
 
 The native plugin API was checked against the pinned fork base
 `21ae0e1238fdf466fa52a85a6ebf75d6899e49da`, especially

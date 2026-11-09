@@ -1,0 +1,43 @@
+--- a/__init__.py
++++ b/__init__.py
+@@ -964,6 +964,11 @@
+ 
+ 
+ def _provider_ovcli_config_path(provider_config: dict, *, env: Optional[dict] = None, hermes_home=None) -> Path:
++    if provider_config.get("deployment") == "external-compose":
++        path = _clean_config_value(provider_config.get("ovcli_config_path"))
++        if provider_config.get("use_ovcli_config") is not True or not path or not Path(path).is_absolute():
++            raise _OpenVikingEndpointError("External Compose requires use_ovcli_config=true and an absolute ovcli_config_path.")
++        return Path(path)
+     if provider_config.get("deployment") == quick_local.DEPLOYMENT:
+         return quick_local.managed_paths(Path(hermes_home or get_hermes_home())).ovcli_config
+     return _resolve_ovcli_config_path(str(provider_config.get("ovcli_config_path") or ""), env=env)
+@@ -986,6 +991,16 @@
+     under multiplexing ``os.environ`` is the DEFAULT profile's .env, and a raw read
+     would spend its key and tenant on behalf of a secondary profile."""
+     provider_config = dict(provider_config or {})
++    if provider_config.get("deployment") == "external-compose":
++        path = _provider_ovcli_config_path(provider_config)
++        try:
++            profile = _load_ovcli_config(path)
++            if not _clean_config_value(profile.get("url")) or not _clean_config_value(profile.get("api_key")):
++                raise ValueError("url and api_key are required")
++            values = _connection_values_from_ovcli(profile)
++        except (OSError, ValueError) as exc:
++            raise _OpenVikingEndpointError("External Compose CLI config is missing or invalid; no connection fallback is allowed.") from exc
++        return {key: values[key] or ("default" if key in ("account", "user") else "") for key in _CONNECTION_KEYS} | {"extra_headers": values["extra_headers"]}
+     if provider_config.get("deployment") == quick_local.DEPLOYMENT:
+         try:
+             profile = quick_local.connection_config(provider_config, Path(hermes_home or get_hermes_home()))
+@@ -1747,6 +1762,11 @@
+     def _handle_runtime_openviking_unreachable(self, *, status_callback=None, warning_callback=None) -> None:
+         endpoint = self._endpoint
+         self._client = None
++        config, _env = self._profile_config_and_env()
++        if config.get("deployment") == "external-compose":
++            _emit_runtime(f"External Compose OpenViking server at {endpoint} is not reachable. {_RETRY_LATER} "
++                          "Manage this server through its external Compose deployment.", warning_callback)
++            return
+         if not _is_local_openviking_url(endpoint):
+             _emit_runtime(f"Remote OpenViking server at {endpoint} is not reachable. {_RETRY_LATER} "
+                           "Check the configured endpoint and network connectivity.", warning_callback)

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "hf_repo": "OShapovalov/frida-onnx-int8",
+  "hf_revision": "8c1ba6091bb395acff08e0921cd88fe9ad8a472b",
+  "assets": {
+    "frida-encoder-int8.onnx": {
+      "size": 2850575,
+      "sha256": "9365771dcf4c666ce1fcc39248951ac4ad57eebd1a922c7c17d557ad1afeaa2b"
+    },
+    "frida-encoder-int8.onnx.data": {
+      "size": 1255173120,
+      "sha256": "bd6bbf146f299ca23b65933ce50e4e92f6cf3c1c2baff73c54be58cd9bb3e46e"
+    },
+    "tokenizer.json": {
+      "size": 5592981,
+      "sha256": "fad60ebecad875f146cac79ab7774047b9896a050bd6a1ed4362bfbdb0ffb503"
+    },
+    "LICENSE": {
+      "size": 1757,
+      "sha256": "fc8bb72d537d613690501dc23216ccd6d3e7024e95bf2ece94ad74e54bd02c67"
+    }
+  },
+  "honcho_commit": "2ad56a4d715b015d744ea86f05a287069d264898",
+  "honcho_patch_sha256": "0d79b7ab0597d24d7c50e8218484b557c75dba8607c8f64f2ddd841586e8dde8",
+  "openviking_version": "0.4.15",
+  "embedding_contract": "frida-850455b6-document-mean-l2-frida512-overlap20-v2",
+  "images": {
+    "python_frida": "python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
+    "python_honcho": "python:3.13-slim-bookworm@sha256:a5a7017efc5969e00ae2b91c8eb0631049a569652aa4ffc4501769049ae45c72",
+    "uv": "ghcr.io/astral-sh/uv:0.9.24",
+    "postgres": "pgvector/pgvector:pg15@sha256:a947c45cdc5906a1bc951f20a8709e321256343ee0f251e4ae00b5e7def4e6da",
+    "redis": "redis:8.2@sha256:69549d08c5a19b8c28214dea5dfe3b6afa7ac1ad7ea61d66c29a8454b875df40"
+  },
+  "honcho_lock_patch_sha256": "ff8732a224ec36e118a0a481f33b6b83710d1bea78493a659d93732e791521e5",
+  "openviking_lock_sha256": "dc556b13dfe61a9c25f3d8a05a07f754bd722c9a63d6fbe55c568ac01249d356",
+  "openviking_external": {
+    "patch_sha256": "67f70f4026c45d71c86975cc295f06e0e50c540b82a14a1bd4499ac1a908293f",
+    "baseline_sha256": "91c3782da38e71b281536e59196de2291745123fbdee9b734a2d59840e4afe46",
+    "postimage_sha256": "7258744127b1a069ff708f1a03ff4555ee6d16fda53be56f57617d95235398dd"
+  }
+}

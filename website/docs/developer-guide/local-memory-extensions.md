@@ -7,6 +7,16 @@ description: "Opt-in pinned Honcho and OpenViking patches carried by this fork"
 
 This fork keeps current upstream's external-provider architecture: no provider source is bundled in core or `extensions/`, and existing installations are not activated or migrated.
 
+## Complete optional deployment
+
+For a new installation of **Honcho, OpenViking, or both with the local FRIDA
+embedder**, start with the [complete memory-stack guide](https://github.com/oshapovalovmail-dot/hermes-agent/blob/main/integrations/memory-stack/README.md)
+and `integrations/memory-stack/install.py`. This opt-in controller prepares an
+isolated profile and owned Docker Compose project; existing profiles and
+backends are not reused or modified. It covers model/source pins, credentials,
+startup, causal checks, shutdown and troubleshooting. The lower-level installer
+below only reconstructs plugin source and intentionally does not deploy services.
+
 ## Provenance and trust
 
 `integrations/memory-providers/manifest.json` pins the public catalog repositories:
