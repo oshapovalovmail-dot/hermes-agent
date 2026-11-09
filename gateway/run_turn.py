@@ -37,6 +37,7 @@ from gateway.session import (
 )
 from gateway.session_transcript import TranscriptReadError
 from gateway.turn_context import TurnContext
+from gateway.run_turn_delivery import GatewayTurnDeliveryMixin
 from gateway.turn_lease import DEFAULT_LEASE_WAIT, TurnLeaseTimeoutError
 from hermes_constants import get_hermes_home_override
 from pathlib import Path
@@ -167,7 +168,7 @@ from gateway.run_turn_hygiene import GatewayTurnHygieneMixin
 from gateway.run_turn_persistence import GatewayTurnPersistenceMixin
 
 
-class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, GatewayTurnPersistenceMixin):
+class GatewayTurnMixin(GatewayTurnDeliveryMixin, GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, GatewayTurnPersistenceMixin):
     """Agent-turn execution for GatewayRunner (see module docstring)."""
 
 
@@ -1292,7 +1293,7 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
         """True only when the actual final reply reached the user: a finalize call may carry only the
         last preview snapshot, so reconcile against the recorded payload — a demonstrable mismatch
         (False) overrides the flag; None keeps legacy trust."""
-        if consumer is None:
+        if consumer is None or getattr(consumer, "delivery_uncertain", False) is True:
             return False
         if getattr(consumer, "final_response_sent", False):
             matcher = getattr(consumer, "delivered_final_matches", None)
@@ -1613,6 +1614,11 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
                 logger.debug("Stream consumer wait before queued message failed: %s", e)
         # Delivery uses the finalized task result (empty/failure normalization), not raw ``result``.
         _delivery_result = response if isinstance(response, dict) else (result or {})
+        if _sc is not None and getattr(_sc, "delivery_uncertain", False) is True:
+            _delivery_result["delivery_uncertain"] = True
+            if isinstance(result, dict):
+                result["delivery_uncertain"] = True
+            return
         first_response = _delivery_result.get("final_response", "")
         _already_streamed = self._run_agent_stream_confirmed_final_delivery(
             _sc, first_response, previewed=bool(_delivery_result.get("response_previewed")),
@@ -1888,25 +1894,9 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
                     # A background task that died of a real error must not abort the cleanup path.
                     logger.debug("background turn task failed during cleanup", exc_info=True)
 
-    async def _run_agent_edit_streamed_message(
-        self, _sc, source, response, content, *, _sk, ok, fail_result: str, fail_exc: str,
-    ) -> None:
-        """Edit the stream consumer's message in place with ``content``; on success mark
-        ``response["already_sent"]`` and log ``ok``. A returned failure logs ``fail_result`` as
-        ``(session, error)`` and an exception logs ``fail_exc`` as ``(session, exc)``; either way
-        ``already_sent`` stays unset so the normal final send delivers the content."""
-        try:
-            _res = await _sc.adapter.edit_message(
-                chat_id=source.chat_id, message_id=_sc.message_id, content=content, finalize=True,
-            )
-        except Exception as _edit_err:
-            logger.warning(fail_exc, _sk, _edit_err)
-            return
-        if not getattr(_res, "success", True):
-            logger.warning(fail_result, _sk, getattr(_res, "error", None))
-            return
-        response["already_sent"] = True
-        logger.info(*ok)
+
+
+
 
     async def _run_agent_mark_streamed_delivery(self, response: Any, turn_ctx: TurnContext) -> None:
         """Set ``response["already_sent"]`` when streaming already delivered the final reply.
@@ -1917,6 +1907,9 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
         from gateway.session_finite import finite_turn_required
         _sc, source, session_key = turn_ctx.stream_consumer_holder[0], turn_ctx.source, turn_ctx.session_key
         if not isinstance(response, dict) or response.get("failed") or finite_turn_required() is True:
+            return
+        if _sc is not None and getattr(_sc, "delivery_uncertain", False) is True:
+            response["delivery_uncertain"] = True
             return
         _final = response.get("final_response") or ""
         _is_empty_sentinel = not _final or _final == "(empty)"
@@ -1976,7 +1969,7 @@ class GatewayTurnMixin(GatewayBackgroundMixin, GatewayTurnPrepareMixin, GatewayT
                 )
         elif _transformed and _sc is not None:
             # Transformed after streaming: edit the streamed message instead of sending a duplicate.
-            if _sc.message_id:
+            if _sc.message_id and _sc.message_id != "__no_edit__":
                 await self._run_agent_edit_streamed_message(
                     _sc, source, response, response["final_response"], _sk=_sk,
                     ok=("Edited streamed message %s for session %s to include plugin-transformed content.", _sc.message_id, _sk),

@@ -194,6 +194,8 @@ from plugins.platforms.telegram.telegram_topic_transfer import TopicTransferFn, 
 from plugins.platforms.telegram.telegram_network import (
     SEED_FALLBACK_IPS, TelegramFallbackTransport, discover_fallback_ips, parse_fallback_ip_env, tcp_keepalive_socket_options)
 from plugins.platforms.telegram.telegram_topic_routing import TelegramTopicRoutingMixin
+from plugins.platforms.telegram.telegram_qa_tail import TelegramQATailMixin
+from plugins.platforms.telegram.telegram_qa_request import TelegramDeliveryUncertain
 from utils import env_float, env_int
 
 _TELEGRAM_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
@@ -522,7 +524,7 @@ class _PollingStallError(RuntimeError):
     """
 
 
-class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BasePlatformAdapter):
+class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BasePlatformAdapter):
     """Telegram bot adapter: users/groups, MarkdownV2 replies, forum topics, media."""
 
     # Bound for the per-(chat_id, status_key) status-message cache; FIFO half-trim on overflow.
@@ -1477,6 +1479,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
     def _rich_transient_result(self, exc: Exception, what: str, *, retry_after: Any = None) -> SendResult:
         """SendResult for a transient/unknown rich-API failure (request may have reached Telegram, so the
         caller must NOT legacy-resend); retry semantics mirror legacy send()."""
+        if isinstance(exc, TelegramDeliveryUncertain):
+            return self._qa_uncertain_result(exc)
         safe_error = _redact_telegram_error_text(exc)
         logger.warning("[%s] %s transient failure (no legacy resend): %s", self.name, what, safe_error)
         return SendResult(
@@ -1507,7 +1511,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         # Only non-None routing keys: direct_messages_topic_id is paired with message_thread_id=None.
         payload.update({k: v for k, v in thread_kwargs.items() if v is not None})
         payload.update(self._notification_kwargs(metadata))
-        keyboard = self._reply_keyboard_markup(chat_id)
+        keyboard = self._delivery_keyboard_markup(chat_id)
         if keyboard is not None:
             payload["reply_markup"] = keyboard
         if reply_to_id is not None:
@@ -1516,11 +1520,12 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         try:
             # Raw Bot API result: return_type=Message would make PTB deserialize a 10.1 shape it doesn't
             # fully model; a post-delivery parse error ≠ send failure.
-            msg = await _await_with_thread_deadline(
-                self._bot.do_api_request("sendRichMessage", api_kwargs=payload),
+            msg = await self._qa_await_delivery(
+                self._qa_delivery_request(chat_id, "sendRichMessage", metadata=metadata, api_kwargs=payload),
+                scope_chat_id=chat_id, metadata=metadata,
                 timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
         except Exception as exc:
-            if self._rich_rejected(exc, "sendRichMessage", "MarkdownV2"):
+            if self._qa_can_fallback(chat_id, exc, metadata) and self._rich_rejected(exc, "sendRichMessage", "MarkdownV2"):
                 return None
             # Honor Telegram's flood-control retry_after over the base retry schedule.
             _retry_after = getattr(exc, "retry_after", None)
@@ -1563,16 +1568,17 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         payload = {**self._rich_payload_base(chat_id, content), "message_id": int(message_id)}
         payload.update(self._inline_keyboard_kwargs(chat_id))
         try:
-            await _await_with_thread_deadline(
-                self._bot.do_api_request("editMessageText", api_kwargs=payload),
+            await self._qa_await_delivery(
+                self._qa_delivery_request(chat_id, "editMessageText", metadata=metadata, api_kwargs=payload),
+                scope_chat_id=chat_id, metadata=metadata,
                 timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
         except Exception as exc:
             # "Message is not modified" = successful no-op; skip the redundant legacy edit.
-            if "not modified" in str(exc).lower():
+            if self._qa_can_fallback(chat_id, exc, metadata) and "not modified" in str(exc).lower():
                 if self._is_rich_fallback_error(exc) and self._is_rich_capability_error(exc):
                     self._rich_send_disabled = True
                 return SendResult(success=True, message_id=message_id)
-            if self._rich_rejected(exc, "rich editMessageText", "MarkdownV2 edit"):
+            if self._qa_can_fallback(chat_id, exc, metadata) and self._rich_rejected(exc, "rich editMessageText", "MarkdownV2 edit"):
                 return None
             return self._rich_transient_result(exc, "rich editMessageText")
         # Mirror the fresh-send index: a streamed final finalized via edit is otherwise never recorded.
@@ -3492,9 +3498,9 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             "one_time_keyboard": False,
         }
 
-    def _inline_keyboard_kwargs(self, chat_id: str) -> dict[str, Any]:
+    def _native_inline_keyboard_kwargs(self, chat_id: str) -> dict[str, Any]:
         """Edits and overflow continuations accept only inline reply markup."""
-        keyboard = self._reply_keyboard_markup(chat_id)
+        keyboard = self._delivery_keyboard_markup(chat_id)
         return {"reply_markup": keyboard} if isinstance(keyboard, dict) and "inline_keyboard" in keyboard else {}
 
 
@@ -3530,14 +3536,18 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
     async def _send_chunk_markdown_or_plain(self, chunk: str, send_kwargs: dict[str, Any]):
         """MarkdownV2 first; on a parse/markdown rejection resend as stripped plain text."""
         try:
-            return await _await_with_thread_deadline(
-                self._bot.send_message(text=chunk, parse_mode=ParseMode.MARKDOWN_V2, **send_kwargs),
+            return await self._qa_await_delivery(
+                self._qa_message_request("sendMessage", text=chunk, parse_mode=ParseMode.MARKDOWN_V2, **send_kwargs),
+                scope_chat_id=send_kwargs["chat_id"],
                 timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
         except Exception as md_error:
+            if isinstance(md_error, TelegramDeliveryUncertain):
+                raise
             if "parse" in str(md_error).lower() or "markdown" in str(md_error).lower():
                 logger.warning("[%s] MarkdownV2 parse failed, falling back to plain text: %s", self.name, md_error)
-                return await _await_with_thread_deadline(
-                    self._bot.send_message(text=_strip_mdv2(chunk), parse_mode=None, **send_kwargs),
+                return await self._qa_await_delivery(
+                    self._qa_message_request("sendMessage", text=_strip_mdv2(chunk), parse_mode=None, **send_kwargs),
+                    scope_chat_id=send_kwargs["chat_id"],
                     timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
             raise
 
@@ -3559,7 +3569,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             thread_kwargs = dict(thread_kwargs)
             thread_kwargs["message_thread_id"] = None
         effective_thread_id = thread_kwargs.get("message_thread_id")
-        keyboard = self._reply_keyboard_markup(chat_id)
+        keyboard = self._delivery_keyboard_markup(chat_id)
         if isinstance(keyboard, dict) and "inline_keyboard" in keyboard and not last_chunk:
             keyboard = None
         for _send_attempt in range(3):
@@ -3618,6 +3628,9 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
                                self.name, _send_attempt + 1, wait, _redact_telegram_error_text(send_err))
                 await asyncio.sleep(wait)
             except Exception as send_err:
+                from .telegram_qa_request import raise_if_delivery_uncertain
+
+                raise_if_delivery_uncertain(send_err)
                 retry_after = getattr(send_err, "retry_after", None)
                 if retry_after is not None or "retry after" in str(send_err).lower():
                     wait = float(retry_after) if retry_after is not None else 1.0
@@ -3688,7 +3701,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             tracked.add(task)
             task.add_done_callback(tracked.discard)
 
-    async def send(
+    async def _send_without_shortcuts(
         self, chat_id: str, content: str, reply_to: Optional[str] = None, metadata: Optional[dict[str, Any]] = None) -> SendResult:
         """Send a message to a Telegram chat."""
         if not self._bot:
@@ -3760,6 +3773,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         """The failed ``SendResult`` for an exception escaping the chunk loop. ``retryable`` doubles as
         "non-delivery is certain": a plain ``TimedOut`` may have reached Telegram, so it is neither re-sent
         by ``_send_with_retry`` nor resumed from; a wrapped ConnectTimeout / httpx pool timeout never left."""
+        if isinstance(e, TelegramDeliveryUncertain):
+            return self._qa_uncertain_result(e)
         safe_error = _redact_telegram_error_text(e)
         logger.error("[%s] Failed to send Telegram message: %s", self.name, safe_error)
         err_str = str(e).lower()
@@ -3820,7 +3835,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         result.raw_response = raw
         return result
 
-    async def _resume_partial_send(
+    async def _resume_without_shortcuts(
         self, chat_id: str, result: SendResult, *, reply_to: Optional[str], metadata: Optional[dict[str, Any]]) -> Optional[SendResult]:
         """Send only the chunks a partial ``send()`` could not deliver (``raw_response["undelivered_chunks"]``),
         continuing the message-id sequence; ``None`` when the tail was not certain-undelivered."""
@@ -3855,6 +3870,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         cached_id = self._status_message_ids.get(key)
         if cached_id is not None:
             result = await self.edit_message(chat_id, cached_id, content, finalize=True, metadata=metadata)
+            if result.delivery_uncertain:
+                return result
             if result.success:
                 # Only write back if nobody evicted/replaced this key during the await.
                 if result.message_id and self._status_message_ids.get(key) == cached_id:
@@ -3878,8 +3895,9 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             kwargs.update(self._inline_keyboard_kwargs(chat_id))
         if parse_mode is not None:
             kwargs["parse_mode"] = parse_mode
-        await _await_with_thread_deadline(
-            self._bot.edit_message_text(**kwargs), timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
+        await self._qa_await_delivery(
+            self._qa_message_request("editMessageText", **kwargs), scope_chat_id=chat_id,
+            timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
 
     async def _edit_markdown_or_plain(
         self, chat_id: str, message_id: str, formatted: str, plain: str, warn_fmt: str, *, inline_keyboard: bool = True) -> bool:
@@ -3888,142 +3906,13 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         try:
             await self._edit_text(chat_id, message_id, formatted, ParseMode.MARKDOWN_V2, inline_keyboard=inline_keyboard)
         except Exception as fmt_err:
+            if isinstance(fmt_err, TelegramDeliveryUncertain):
+                raise
             if "not modified" in str(fmt_err).lower():
                 return True
             logger.warning(warn_fmt, self.name, _redact_telegram_error_text(fmt_err))
             await self._edit_text(chat_id, message_id, plain, inline_keyboard=inline_keyboard)
         return False
-
-    async def edit_message(
-        self, chat_id: str, message_id: str, content: str, *, finalize: bool = False, metadata: Optional[dict[str, Any]] = None,
-   ) -> SendResult:
-        """Edit a previously sent Telegram message.
-
-        Telegram caps a message at 4096 UTF-16 codeunits. Streaming replies that outgrow it must NOT be truncated
-        silently nor fail (the consumer would re-send a duplicate): edit with the first chunk, send the rest as
-        continuations, and return the final chunk's id as the next edit target."""
-        if not self._bot:
-            return SendResult(success=False, error="Not connected")
-        # Shared per-chat budget (#116312): an interim (preview) edit is SKIPPED when the slot is busy —
-        # the text it would show is shown by the next edit anyway, so a burst of edits can't trip flood
-        # control. A final edit is never gated (the completed answer is always delivered). Sends wait for
-        # their slot; edits defer instead. Over-cap interim edits are exempt: the saturated-preview dedup
-        # below already throttles them to one real edit per ~4096-char growth. Consumed only when the
-        # edit actually fires. The skip is flagged in raw_response so the stream consumer does not
-        # record never-shown text as the visible prefix (a later flood fallback would then drop the
-        # tail the user never saw).
-        if (
-            not finalize
-            and utf16_len(content) <= self.MAX_MESSAGE_LENGTH
-            and self._chat_outbound_slot_remaining(chat_id) > 0
-        ):
-            logger.debug(
-                "[%s] skipping interim edit for chat %s (shared send+edit budget: slot busy)",
-                self.name, chat_id)
-            return SendResult(success=True, message_id=message_id, raw_response={"skipped": True})
-        self._hold_chat_outbound_slot(chat_id)
-        # Rich finalize (Bot API 10.1): edit the preview IN PLACE via rich_message — no fresh send + delete.
-        # Before the 4,096 pre-flight because the rich cap is 32,768; falls back to legacy on rejection.
-        # Rich finalize (Bot API 10.1): when the completed content has constructs the legacy MarkdownV2 edit
-        # degrades (tables → bullet lists, task lists, <details>, block math) and rich is available, edit
-        # the preview IN PLACE via editMessageText's rich_message param. No fresh send + delete → no
-        # duplicate preview (the problem #46206 reverted the fresh-final path for). Attempted before the
-        # 4,096 overflow pre-flight because the rich text cap is 32,768 — a rich table that exceeds the
-        # MarkdownV2 limit must not be split into legacy chunks. Falls back to the legacy edit path
-        # (overflow split included) on capability/permanent rejection.
-        if finalize and self._rich_eligible(content):
-            rich_result = await self._try_edit_rich(chat_id, message_id, content, metadata=metadata)
-            if rich_result is not None:
-                return rich_result
-        # Pre-flight: over-limit content is split-and-delivered on finalize; mid-stream we truncate instead
-        # (splitting moves the edit target to a continuation → infinite duplication loop).
-        # Pre-flight: if content already exceeds the limit, split-and-deliver without round-tripping a
-        # doomed edit. During streaming (finalize=False) we truncate instead of splitting — splitting
-        # creates continuation messages whose IDs become the new edit target, and on the next token chunk
-        # the full accumulated text is re-edited into the continuation, triggering another split → infinite
-        # duplication loop (#48648).
-        _preview_key = (str(chat_id), str(message_id))
-        _saturated_preview = False
-        if finalize:
-            self._last_overflow_preview.pop(_preview_key, None)  # the final edit always delivers full content
-        if utf16_len(content) > self.MAX_MESSAGE_LENGTH:
-            if finalize:
-                return await self._edit_overflow_split(chat_id, message_id, content, finalize=finalize, metadata=metadata)
-            content = self._truncate_stream_overflow_preview(content)
-            _saturated_preview = True
-            # Saturated-preview dedup: past the cap every progressive edit truncates to the same text;
-            # re-sending is a visual no-op that still burns flood budget (200s+ penalties).
-            if self._last_overflow_preview.get(_preview_key) == content:
-                return SendResult(success=True, message_id=message_id)
-        elif not finalize:
-            # Content shrank back under the cap — clear stale saturation state so dedup can't mask an edit.
-            self._last_overflow_preview.pop(_preview_key, None)
-        try:
-            if not finalize:
-                await self._edit_text(chat_id, message_id, content)
-                if _saturated_preview:
-                    self._last_overflow_preview[_preview_key] = content
-                return SendResult(success=True, message_id=message_id)
-            await self._edit_markdown_or_plain(
-                chat_id, message_id, self.format_message(content), _strip_mdv2(content) if content else content,
-                "[%s] MarkdownV2 edit failed, falling back to plain text: %s")
-            return SendResult(success=True, message_id=message_id)
-        except Exception as e:
-            err_str = str(e).lower()
-            if "not modified" in err_str:
-                return SendResult(success=True, message_id=message_id)
-            # Reactive split: MarkdownV2 escapes can inflate the payload past the limit even when raw text fit.
-            if "message_too_long" in err_str or "too long" in err_str:
-                logger.debug(
-                    "[%s] edit_message overflow (%d UTF-16 > %d), splitting", self.name, utf16_len(content), self.MAX_MESSAGE_LENGTH)
-                if finalize:
-                    return await self._edit_overflow_split(chat_id, message_id, content, finalize=finalize, metadata=metadata)
-                # Mid-stream: truncate and retry instead of splitting (saturated-preview dedup as above).
-                # See #48648.
-                truncated = self._truncate_stream_overflow_preview(content)
-                if self._last_overflow_preview.get(_preview_key) == truncated:
-                    return SendResult(success=True, message_id=message_id)
-                await self._edit_text(chat_id, message_id, truncated)
-                self._last_overflow_preview[_preview_key] = truncated
-                return SendResult(success=True, message_id=message_id)
-            # Flood control: short waits retry inline; long waits fail immediately so streaming falls back
-            # to a normal final send instead of a clipped partial.
-            retry_after = getattr(e, "retry_after", None)
-            if retry_after is not None or "retry after" in err_str:
-                wait = retry_after if retry_after else 1.0
-                if wait > _FLOOD_INLINE_WAIT_CAP_SECS:
-                    # Log AFTER the cap check: "waiting 33.0s" followed by no wait misled an investigation.
-                    logger.warning(
-                        "[%s] Telegram flood control, refusing edit (retry_after %.1fs > %.0fs inline cap)",
-                        self.name, wait, _FLOOD_INLINE_WAIT_CAP_SECS)
-                    return _flood_cap_result(wait)
-                logger.warning("[%s] Telegram flood control, waiting %.1fs", self.name, wait)
-                await asyncio.sleep(wait)
-                try:
-                    await self._edit_text(chat_id, message_id, content)
-                    return SendResult(success=True, message_id=message_id)
-                except Exception as retry_err:
-                    safe_retry_error = _redact_telegram_error_text(retry_err)
-                    logger.error("[%s] Edit retry failed after flood wait: %s", self.name, safe_retry_error)
-                    retry_wait = getattr(retry_err, "retry_after", None)
-                    if retry_wait is not None or "retry after" in str(retry_err).lower():
-                        # Still flooded after the inline wait, and typically for much longer than the
-                        # first refusal asked for. Fail closed canonically so the ledger arms its
-                        # timer on this delay rather than storing the platform's raw wording, which
-                        # it would read as an ordinary failure and never redeliver.
-                        return _flood_cap_result(
-                            float(retry_wait) if retry_wait is not None else wait)
-                    return SendResult(success=False, error=safe_retry_error)
-            safe_error = _redact_telegram_error_text(e)
-            # Transient network errors must not permanently disable progress-message editing.
-            _transient_markers = (
-                "connecterror", "connect error", "connection error", "networkerror", "network error", "timed out", "readtimeout",
-                "writetimeout", "server disconnected", "temporarily unavailable", "temporary failure", "httpx")
-            if any(m in err_str for m in _transient_markers):
-                logger.warning("[%s] Transient network error editing message %s (will retry): %s", self.name, message_id, safe_error)
-                return SendResult(success=False, error=safe_error, retryable=True)
-            logger.error("[%s] Failed to edit Telegram message %s: %s", self.name, message_id, safe_error)
-            return SendResult(success=False, error=safe_error)
 
     def _truncate_stream_overflow_preview(self, content: str) -> str:
         """One-message preview for oversized streaming edits (edits must keep targeting the original id;
@@ -4050,24 +3939,30 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
                 else:
                     # Degrade to stripped text on finalize (raw ** / ``` would render literally); previews stay raw.
                     text = _strip_mdv2(chunk) if finalize else chunk
-                return await _await_with_thread_deadline(
-                    self._bot.send_message(
+                return await self._qa_await_delivery(
+                    self._qa_message_request("sendMessage",
                     chat_id=normalize_telegram_chat_id(chat_id), text=text, parse_mode=ParseMode.MARKDOWN_V2 if use_markdown else None,
                     reply_to_message_id=reply_to_id, **thread_kwargs, **base),
+                    scope_chat_id=chat_id, metadata=metadata,
                     timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
             except Exception as send_err:
+                if isinstance(send_err, TelegramDeliveryUncertain):
+                    raise
                 if "reply message not found" in str(send_err).lower():
                     # Private DM topic fallback needs anchor + topic id together; forum topics keep thread id.
                     retry_thread_kwargs = (
                         {} if self._dm_topic_fallback(metadata)
                         else self._thread_kwargs_for_send(chat_id, thread_id, metadata, reply_to_message_id=None))
                     try:
-                        return await _await_with_thread_deadline(
-                            self._bot.send_message(
+                        return await self._qa_await_delivery(
+                            self._qa_message_request("sendMessage",
                             chat_id=normalize_telegram_chat_id(chat_id), text=_strip_mdv2(chunk) if finalize else chunk,
                             **retry_thread_kwargs, **base),
+                            scope_chat_id=chat_id, metadata=metadata,
                             timeout=_TEXT_SEND_DEADLINE, label="telegram-send", dump_on_blocked_loop=False)
                     except Exception as _retry_err:
+                        if isinstance(_retry_err, TelegramDeliveryUncertain):
+                            raise
                         logger.warning(
                             "[%s] Overflow continuation no-reply retry failed: %s", self.name, _redact_telegram_error_text(_retry_err))
                         return None
@@ -4095,6 +3990,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             else:
                 await self._edit_text(chat_id, message_id, first_chunk, inline_keyboard=len(chunks) == 1)
         except Exception as e:
+            if isinstance(e, TelegramDeliveryUncertain):
+                return self._qa_uncertain_result(e)
             if "not modified" not in str(e).lower():  # identical first chunk still sends continuations
                 logger.error("[%s] Overflow split: first-chunk edit failed: %s", self.name, _redact_telegram_error_text(e), exc_info=True)
                 return SendResult(success=False, error=_redact_telegram_error_text(e))
@@ -4801,51 +4698,6 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             if data.startswith(prefix):
                 await handler(query, data, cb)
                 return
-
-    async def _handle_quick_action_callback(self, query, data: str, update_id: Optional[int]) -> None:
-        """Text shortcuts use ordinary human ingress, never approval resolvers."""
-        message = query.message
-        chat = getattr(message, "chat", None)
-        chat_id = getattr(message, "chat_id", None)
-        chat_type = getattr(chat, "type", None)
-        markup = self._reply_keyboard_markup(str(chat_id))
-        text = _QUICK_ACTION_TEXT.get(data)
-        if (
-            message is None or not hasattr(message, "text") or not text
-            or not isinstance(markup, dict) or "inline_keyboard" not in markup
-            or not any(button["callback_data"] == data for row in markup["inline_keyboard"] for button in row)
-        ):
-            await query.answer(text="Кнопка больше недоступна.")
-            return
-        if not self._is_callback_user_authorized(
-            str(getattr(query.from_user, "id", "")), chat_id=chat_id,
-            chat_type=str(chat_type) if chat_type is not None else None,
-            thread_id=self._effective_message_thread_id(message), user_name=getattr(query.from_user, "first_name", None),
-        ):
-            await query.answer(text="⛔ Нет доступа.")
-            return
-        event = self._build_message_event(message, MessageType.TEXT, update_id=update_id, user_override=query.from_user)
-        event.text = text
-        event.message_id = None
-        event.reply_to_message_id = str(message.message_id)
-        event.reply_to_text = message.text or message.caption or self._extract_rich_reply_text(message)
-        event.reply_to_is_own_message = True
-        event.raw_message = query
-        event.timestamp = datetime.now(UTC)
-        await query.answer(text=text)
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-            assert self._bot is not None
-            await self._bot.send_message(
-                chat_id=event.source.chat_id,
-                text=f"Команда: {text}",
-                message_thread_id=int(event.source.thread_id) if event.source.thread_id else None,
-                reply_markup={"remove_keyboard": True},
-            )
-        except Exception:  # health: allow BLE001 -- fail closed without exposing private Telegram transport details
-            await query.answer(text="Не удалось обработать нажатие.")
-            return
-        await self.handle_message(event)
 
     async def _claim_callback_state(self, query, cb: dict[str, Any], state: dict, key, denial: str, resolved: str, *, pop: bool = True):
         """Auth-gate a button tap, then claim its pending entry; None (after answering) when refused or expired."""
@@ -6595,11 +6447,11 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             self._observe_unmentioned_group_message(msg, msg_type, update_id=update.update_id)
         return False
 
-    async def _build_triggered_event(self, msg, update, msg_type: MessageType) -> MessageEvent:
+    async def _build_triggered_event(self, msg, update, msg_type: MessageType, *, event: Optional[MessageEvent] = None) -> MessageEvent:
         """Event for an addressed text/command: trigger text cleaned (sole addressee only), replied-to
         media cached, attribution applied."""
         from plugins.platforms.telegram.telegram_context import group_trigger_text
-        event = self._build_message_event(msg, msg_type, update_id=update.update_id)
+        event = event or self._build_message_event(msg, msg_type, update_id=update.update_id)
         event.text = group_trigger_text(self, msg, event.text)
         await self._cache_replied_media(msg, event)
         return self._apply_telegram_group_observe_attribution(event)
@@ -6615,8 +6467,10 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             return
         if not self._gate_or_observe(msg, update, MessageType.TEXT):
             return
+        event = self._build_message_event(msg, MessageType.TEXT, update_id=update.update_id)
+        await self._qa_prepare_input(event)
         await self._ensure_forum_commands(update.message)
-        self._enqueue_text_event(await self._build_triggered_event(msg, update, MessageType.TEXT))
+        self._enqueue_text_event(await self._build_triggered_event(msg, update, MessageType.TEXT, event=event))
 
     async def _handle_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming command messages."""
@@ -6628,8 +6482,10 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         if not self._is_user_authorized_from_message(msg):
             self._log_blocked_user(msg)
             return
+        event = self._build_message_event(msg, MessageType.COMMAND, update_id=update.update_id)
+        await self._qa_prepare_input(event)
         await self._ensure_forum_commands(msg)
-        event = await self._build_triggered_event(msg, update, MessageType.COMMAND)
+        event = await self._build_triggered_event(msg, update, MessageType.COMMAND, event=event)
         # A >4096-char command paste arrives as a near-limit COMMAND chunk plus TEXT continuations; dispatching
         # immediately would orphan them. Near-limit commands go through text batching.
         if len(event.text or "") >= self._SPLIT_THRESHOLD:
@@ -6668,13 +6524,15 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
             "Ask what they'd like to find nearby (restaurants, cafes, etc.) and any preferences."]
         event = self._build_message_event(msg, MessageType.LOCATION, update_id=update.update_id)
         event.text = "\n".join(parts)
+        await self._qa_retire_on_input(event)
         await self.handle_message(self._apply_telegram_group_observe_attribution(event))
 
     # -- Text message aggregation (handles Telegram client-side splits) --
 
     def _text_batch_key(self, event: MessageEvent) -> str:
         """Session-scoped batching key; topic recovery first so DM-topic batches coalesce on the recovered lane."""
-        self._apply_topic_recovery(event)
+        if not getattr(event, '_qa_topic_prepared', False):
+            self._apply_topic_recovery(event)
         return super()._text_batch_key(event)
 
     def _enqueue_text_event(self, event: MessageEvent) -> None:
@@ -6944,6 +6802,7 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
                 self._observe_unmentioned_group_message(msg, _event.message_type, update_id=update.update_id, event=_event)
             return
         event = self._build_message_event(msg, self._media_message_type(msg), update_id=update.update_id)
+        await self._qa_retire_on_input(event)
         if msg.caption:
             from plugins.platforms.telegram.telegram_context import group_trigger_text
             event.text = group_trigger_text(self, msg, expand_link_entities(msg))
