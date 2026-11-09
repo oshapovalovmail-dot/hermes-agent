@@ -1598,9 +1598,9 @@ class SendResult:
     success: bool
     message_id: Optional[str] = None
     error: Optional[str] = None
-    # Adapter-specific metadata. Contracts: raw_response["partial_overflow"] (Telegram edit-overflow partial: the stream
-    # consumer sends the missing tail); raw_response["failure_notice_sent"] (a failed media send already posted a notice).
+    # Adapter metadata: partial_overflow (consumer sends missing tail); failure_notice_sent (media failure already shown).
     raw_response: Any = None
+    delivery_uncertain: bool = False  # submitted, but no authoritative delivery receipt
     retryable: bool = False  # transient connection error — base retries automatically
     retry_after: Optional[float] = None  # server-requested delay (Telegram FloodWait) beats our backoff
     # Extra ids (send order) when a payload was split; ``message_id`` is then the LAST id so
@@ -3546,7 +3546,7 @@ class BasePlatformAdapter(ABC):
             return await self._resume_partial_send(chat_id, previous, reply_to=reply_to, metadata=metadata)
 
         result = await _send(content)
-        if result.success or self._send_retry_is_final(result):
+        if result.success or result.delivery_uncertain or self._send_retry_is_final(result):
             return result
         error_str = result.error or ""
         # A rate-limited / flood-capped send is transient: it should back off
@@ -3598,7 +3598,7 @@ class BasePlatformAdapter(ABC):
                     logger.info("[%s] Send succeeded on retry %d", self.name, attempt)
                     return result
                 error_str = result.error or ""
-                if self._send_retry_is_final(result):
+                if result.delivery_uncertain or self._send_retry_is_final(result):
                     return result
                 if result.retry_after is not None:
                     server_retry_after = result.retry_after
