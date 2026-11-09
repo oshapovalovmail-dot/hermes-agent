@@ -12,7 +12,6 @@ Adapters without ``delete_message`` silently no-op.
 
 import asyncio
 import importlib
-import inspect as _inspect
 import sys
 import time
 import types
@@ -24,14 +23,9 @@ from gateway.config import Platform, PlatformConfig
 
 
 async def _fire_post_delivery_cb(cb):
-    """Invoke a popped post-delivery callback, awaiting if it's async.
-
-    Chained registrations return an async wrapper; single registrations
-    return the raw sync callable. Either way, await any awaitable result.
-    """
-    result = cb()
-    if _inspect.isawaitable(result):
-        await result
+    """Model the adapter's positively acknowledged final delivery."""
+    from gateway.platforms.base_post_delivery import run_post_delivery_callback
+    await run_post_delivery_callback(cb, 5, delivery_succeeded=True)
 from gateway.platforms.base import BasePlatformAdapter, SendResult
 from gateway.session import SessionSource
 

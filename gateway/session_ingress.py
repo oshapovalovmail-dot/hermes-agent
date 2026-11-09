@@ -216,6 +216,7 @@ async def fire_post_delivery(authority, admission_id):
     a deferred /goal or /loop verdict) after its reply was sent, as ``_process_message_background``
     does after a messaging reply. Never run, they also pinned the whole turn (its agent, history
     and result) in the adapter's slot until restart."""
+    delivered = _registry(authority, 'final_delivery_receipts').pop(admission_id, False)
     if admission_id in authority.native_waiters:
         _hand_back_post_delivery(authority, admission_id)
         return
@@ -226,7 +227,8 @@ async def fire_post_delivery(authority, admission_id):
     from gateway.platforms.base_post_delivery import run_post_delivery_callback
     callback = _split_post_delivery_entry(taken[2])[1]
     with await _execution_scope(authority, None):  # off-turn: the owning profile's scope
-        await run_post_delivery_callback(callback, _POST_DELIVERY_CALLBACK_TIMEOUT_SECONDS)
+        await run_post_delivery_callback(
+            callback, _POST_DELIVERY_CALLBACK_TIMEOUT_SECONDS, delivery_succeeded=delivered)
 
 
 async def _release_turn_marker(authority, event):
@@ -469,6 +471,7 @@ async def deliver_settled(authority, admission_id):
         logger.exception('Delivery of settled admission %s failed', admission_id)
     finally:
         # Held until the send returns: an empty map means every settled reply was handed over.
+        _registry(authority, 'final_delivery_receipts')[admission_id] = delivered and bool(response)
         authority.pending_deliveries.pop(admission_id, None)
         # The ledgered send already released the marker; an empty or failed send owes no more.
         await _release_turn_marker(authority, event)

@@ -24,6 +24,7 @@ class TurnState:
     # redirect re-anchors both to the redirecting message (#115001).
     event: Any = None
     ctx: Any = None
+    transient_cleanup: Any = None  # receipt owner, including the pending-agent startup window
     started_ts: float = 0.0  # 0.0 = not running
     lease: Any = None  # cross-process active-session slot lease
     busy_ack_ts: float = 0.0  # debounce; 0.0 = never acked
@@ -37,7 +38,7 @@ class TurnState:
 
     def clear(self) -> None:
         """Reset the per-turn slot.  The caller pops ``lease`` first to release it."""
-        self.agent = self.lease = self.event = self.ctx = None
+        self.agent = self.lease = self.event = self.ctx = self.transient_cleanup = None
         self.started_ts = self.busy_ack_ts = 0.0
 
 

@@ -1013,6 +1013,13 @@ display:
 
 Defaults to `false`. Only platforms whose adapter implements `delete_message` honor the setting (currently Telegram and Discord). Failed runs **skip** cleanup so the bubbles remain as breadcrumbs.
 
+On Telegram the same opt-in also cleans up busy acknowledgements (redirected,
+steered, or queued). Temporary messages are deleted only after the final reply's
+delivery succeeds, including acknowledgement receipts that arrive late. A failed
+or absent final delivery keeps them visible. Cleanup is scoped to the originating
+session and run; it never deletes user commands, approval prompts, command results,
+or final answers, and does not send an extra cleanup notice.
+
 ## Next Steps
 
 - [Telegram Setup](telegram.md)

@@ -19,7 +19,7 @@ import time
 from agent.i18n import DEFAULT_LANGUAGE, t
 from agent.session_activity import format_iteration_progress
 from gateway.config import Platform
-from gateway.platforms.base import EphemeralReply
+from gateway.platforms.base import EphemeralReply, SendResult
 from gateway.platforms.event import MessageEvent, MessageType
 from gateway.session import SessionSource
 from gateway.whatsapp_identity import canonical_whatsapp_identifier
@@ -615,7 +615,7 @@ class GatewayBusySessionMixin:
             return reply_anchor if event.source.chat_type == "dm" else None
         return None if getattr(event, "internal", False) else event.message_id
 
-    async def _send_busy_reply(self, event: MessageEvent, adapter, content: str, *, plain_anchor: bool = False) -> None:
+    async def _send_busy_reply(self, event: MessageEvent, adapter, content: str, *, plain_anchor: bool = False) -> SendResult | None:
         """Send a busy-path reply anchored to the event (thread metadata included). Never to a bot:
         an ack, redirect or drain notice is a new inbound message for its turn loop (#137027)."""
         from gateway.bot_peer_notices import automatic_notices_allowed
@@ -623,7 +623,7 @@ class GatewayBusySessionMixin:
             logger.debug("Busy-path notice suppressed for bot-authored message in %s", event.source.chat_id)
             return
         reply_anchor = self._reply_anchor_for_event(event)
-        await adapter._send_with_retry(
+        return await adapter._send_with_retry(
             chat_id=event.source.chat_id, content=content,
             reply_to=reply_anchor if plain_anchor else self._busy_reply_to(event, reply_anchor),
             metadata=self._thread_metadata_for_source(event.source, reply_anchor),
@@ -927,8 +927,18 @@ class GatewayBusySessionMixin:
         return message
 
     async def _send_busy_ack_reply(self, event: MessageEvent, adapter, message: str) -> None:
+        from gateway.transient_cleanup import busy_ack_cleanup
+        # Capture before awaiting: a slow ack receipt must not attach to a successor turn.
+        cleanup = None
         try:
-            await self._send_busy_reply(event, adapter, message)
+            cleanup = busy_ack_cleanup(self, event, adapter)
+        except Exception as e:
+            logger.debug("Busy-ack cleanup lookup failed: %s", e, exc_info=True)
+        try:
+            result = await self._send_busy_reply(event, adapter, message)
+            if cleanup is not None:
+                cleanup.track(result)
+                await cleanup.delete_pending()
         except Exception as e:
             logger.debug("Failed to send busy-ack: %s", e)
 
