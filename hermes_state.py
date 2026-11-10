@@ -73,6 +73,7 @@ from hermes_state_coverage import SessionCoverageMixin
 from hermes_state_rewind import SessionRewindMixin
 from hermes_state_wal import (
     _WAL_INCOMPAT_MARKERS, _on_disk_journal_mode, apply_database_pragmas, apply_wal_with_fallback,
+    begin_immediate_without_busy_wait, raise_if_timeout_restore_failed,
 )
 from hermes_state_repair import _claim_repair_attempt, preflight_db_writability, repair_state_db_schema
 from hermes_state_titles import SessionTitlesMixin
@@ -1048,8 +1049,8 @@ class SessionDB(
                     self._raise_if_db_replaced()
                     if self._conn is None:  # close() raced this writer
                         self._reopen_after_close_locked(context="write")
-                    self._conn.execute("BEGIN IMMEDIATE")
                     try:
+                        begin_immediate_without_busy_wait(cast(sqlite3.Connection, self._conn))
                         fn_started = True
                         result = fn(self._conn)
                         self._conn.commit()
@@ -1083,6 +1084,7 @@ class SessionDB(
                     continue
                 raise
             except sqlite3.Error as exc:
+                raise_if_timeout_restore_failed(self, exc)
                 # 'no more rows' is a transient engine error on contended WAL appends (some builds
                 # raise it as InterfaceError, a sibling of DatabaseError): retry like locked/busy.
                 if _is_no_more_rows(exc) and self._sleep_before_write_retry(deadline, patience_s):
