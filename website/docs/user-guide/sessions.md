@@ -1018,6 +1018,16 @@ The keyword mode supports standard FTS5 query syntax:
 - Boolean: `docker OR kubernetes`, `python NOT java`
 - Prefix: `deploy*`
 
+If the normal word and substring routes find nothing, a bounded plain Russian
+query also tries inflected forms from the existing FTS5 vocabulary. For example,
+`файлами` can find `файлы`. Forms must have the same Russian Snowball stem; a
+shared character prefix alone is insufficient. This route keeps the original
+message text, BM25 ordering, role/source filters and pagination, and creates no
+persistent index or schema migration. Existing exact hits keep their ordering.
+Quoted phrases, explicit boolean/prefix syntax, paths and identifiers are not
+morphologically rewritten. This is word-form matching, not synonym or semantic
+search. Broad or unsupported expansions fall back to the existing search routes.
+
 ### Optional parameters
 
 - `sort` — `newest` or `oldest`, on top of FTS5 ranking. Omit for relevance-only ordering (the default; suitable for exploratory recall). Use `newest` for "where did we leave X" questions, `oldest` for "how did X start" questions.
