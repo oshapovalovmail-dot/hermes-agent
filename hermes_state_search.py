@@ -1190,6 +1190,7 @@ class SessionSearchMixin:
         result_fields = self._search_message_fields(fields)
         if not query or not query.strip():
             return []
+        raw_query = query
         query = self._sanitize_fts5_query(query)
         if not query:
             return []
@@ -1253,6 +1254,15 @@ class SessionSearchMixin:
             fb_query = _quote_fts_tokens(query.strip('"').strip())
             if self._trigram_available and self._trigram_eligible_tokens(query):
                 matches = self._match_rows("messages_fts_trigram", fb_query, **route) or matches
+
+        # Inflection expansion is a separate bounded route over the existing vocabulary.
+        # Exact/substr hits retain their ordering and explicit FTS syntax is never broadened.
+        if not matches and not is_cjk and not self._fts_stale:
+            from hermes_state_morphology import search_russian_inflections
+
+            morphology_matches = search_russian_inflections(self, query, route, raw_query=raw_query)
+            if morphology_matches is not None:
+                return self._finalize_search_matches(morphology_matches, result_fields=result_fields)
 
         # OR-relaxed retry: the implicit AND between terms means a paraphrased multi-word query
         # misses a stored sentence that lacks even ONE word ("when does Sarah like her standup

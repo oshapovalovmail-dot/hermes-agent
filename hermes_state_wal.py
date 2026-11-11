@@ -13,10 +13,13 @@ import sqlite3
 import sys
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from hermes_cli.sqlite_runtime import is_sqlite_wal_reset_vulnerable as _is_sqlite_wal_reset_vulnerable
 from hermes_state_errors import is_sqlite_lock_error
+
+if TYPE_CHECKING:
+    from hermes_state import SessionDB
 
 # Log-record parity with the origin module (caplog tests pin "hermes_state").
 logger = logging.getLogger("hermes_state")
@@ -639,6 +642,50 @@ def _apply_synchronous_pragma(conn: sqlite3.Connection, raw_value: Any, *, db_la
         return
     with contextlib.suppress(sqlite3.OperationalError):
         conn.execute(f"PRAGMA synchronous={level}")
+
+
+class BusyTimeoutRestoreError(sqlite3.Error):
+    """BEGIN and timeout restoration both failed; never retry with an unknown timeout."""
+
+    def __init__(self, begin_error: sqlite3.Error, restore_error: sqlite3.Error) -> None:
+        self.begin_error = begin_error
+        self.restore_error = restore_error
+        begin_error.add_note(f"busy_timeout restoration also failed: {restore_error!r}")
+        super().__init__(f"busy_timeout restoration failed after BEGIN error: {restore_error}")
+
+
+def raise_if_timeout_restore_failed(db: SessionDB, exc: sqlite3.Error) -> None:
+    """Preserve corruption quarantine and fail closed before generic write retries."""
+    if not isinstance(exc, BusyTimeoutRestoreError):
+        return
+    if db._is_structural_corruption_error(exc.begin_error):
+        with db._lock:
+            db._raise_if_db_replaced()
+        db._halt_db_corrupt(exc.begin_error)
+    raise exc
+
+
+def begin_immediate_without_busy_wait(conn: sqlite3.Connection) -> None:
+    """Let the caller's retry deadline own write-lock waiting, not SQLite's busy handler.
+
+    Call with the connection lock held. Restore its timeout on both BUSY and success so
+    callback execution and DELETE-mode reads keep their existing wait policy.
+    """
+    previous_timeout = int(conn.execute("PRAGMA busy_timeout").fetchone()[0])
+    begin_error = None
+    try:
+        conn.execute("PRAGMA busy_timeout=0")
+        conn.execute("BEGIN IMMEDIATE")
+    except sqlite3.Error as exc:
+        begin_error = exc
+        raise
+    finally:
+        try:
+            conn.execute(f"PRAGMA busy_timeout={previous_timeout}")
+        except sqlite3.Error as restore_error:
+            if begin_error is not None:
+                raise BusyTimeoutRestoreError(begin_error, restore_error) from restore_error
+            raise
 
 
 def apply_database_pragmas(conn: sqlite3.Connection, *, db_label: str = "state.db") -> None:

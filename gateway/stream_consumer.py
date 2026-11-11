@@ -34,6 +34,7 @@ from gateway.response_filters import (
     strip_trailing_silence_marker as _strip_trailing_silence_marker)
 from gateway.stream_consumer_directives import has_pending_media_directive, strip_image_tags_for_display
 from gateway.stream_consumer_fences import ensure_closed_code_fences
+from gateway.stream_consumer_delivery import StreamDeliveryMixin
 from gateway.stream_consumer_transport import StreamTransportMixin
 from gateway.stream_consumer_fallback import StreamFallbackMixin
 from gateway.stream_consumer_think import StreamThinkFilterMixin
@@ -99,7 +100,7 @@ class _Tick:
         return not self.got_done and not self.got_segment_break and self.commentary_text is None
 
 
-class GatewayStreamConsumer(StreamTransportMixin, StreamFallbackMixin, StreamThinkFilterMixin):
+class GatewayStreamConsumer(StreamDeliveryMixin, StreamTransportMixin, StreamFallbackMixin, StreamThinkFilterMixin):
     """Async consumer that progressively edits a platform message with streamed tokens.
     Usage: ``agent.stream_delta_callback = consumer.on_delta``; ``create_task(consumer.run())``;
     after the agent finishes ``consumer.finish()`` then ``await task`` for the final edit."""
@@ -155,6 +156,7 @@ class GatewayStreamConsumer(StreamTransportMixin, StreamFallbackMixin, StreamThi
         # would be stale by completion time. Ported from openclaw/openclaw#72038.
         self._preview_message_ids: set[str] = set()
         self._already_sent = False
+        self._delivery_uncertain = False  # turn-scoped; never cleared at segment boundaries
         self._edit_supported = True  # False once progressive edits stop working
         self._last_edit_time = 0.0
         self._last_edit_overflowed = False  # last _send_or_edit split into continuations
@@ -273,9 +275,10 @@ class GatewayStreamConsumer(StreamTransportMixin, StreamFallbackMixin, StreamThi
 
     # Read-only views for the gateway (flag semantics: see _clear_turn_final_flags).
     already_sent = property(lambda self: self._already_sent)
-    final_response_sent = property(lambda self: self._final_response_sent)
+    delivery_uncertain = property(lambda self: self._delivery_uncertain)
+    final_response_sent = property(lambda self: self._final_response_sent and not self._delivery_uncertain)
     message_id = property(lambda self: self._message_id)
-    final_content_delivered = property(lambda self: self._final_content_delivered)
+    final_content_delivered = property(lambda self: self._final_content_delivered and not self._delivery_uncertain)
 
     async def _notify_before_finalize(self) -> None:
         """Run the pre-finalize hook exactly once, swallowing hook errors."""
@@ -309,6 +312,8 @@ class GatewayStreamConsumer(StreamTransportMixin, StreamFallbackMixin, StreamThi
 
     def _mark_final_delivered(self, record: Optional[str] = None) -> None:
         """Set both turn-final flags; ``record`` also records the delivered payload."""
+        if self._delivery_uncertain:
+            return
         self._final_response_sent = True
         # Only claim final delivery if the sealed chunks and final tail actually landed. ``_already_sent``
         # may be True from prior progress/fallback state (#10748).
@@ -338,6 +343,8 @@ class GatewayStreamConsumer(StreamTransportMixin, StreamFallbackMixin, StreamThi
         must not confirm delivery).  True: recorded payload (or an earlier segment /
         commentary) matches.  False: payload differs, or payload-less split.  None: nothing
         recorded on a legacy/ambiguous path (caller trusts flags)."""
+        if self._delivery_uncertain:
+            return False
         target = self._display_payload(final_text)
         if not target:
             return None
@@ -900,6 +907,8 @@ class GatewayStreamConsumer(StreamTransportMixin, StreamFallbackMixin, StreamThi
 
     async def _finalize_turn(self, tick: _Tick) -> None:
         """got_done: final edit without cursor, or one continuation send if edits failed."""
+        if self._delivery_uncertain:
+            return
         if self._accumulated or self._message_id is not None or self._already_sent:
             await self._notify_before_finalize()
         if self._reopen_seed_pending() and not self._accumulated:

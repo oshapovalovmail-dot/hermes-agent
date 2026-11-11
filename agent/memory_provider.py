@@ -34,7 +34,7 @@ def spawn_context_thread(target: Callable[..., Any], *, name: str, daemon: bool 
     Every memory-provider background job (prefetch, sync, writer loops) must go through this."""
     return threading.Thread(target=ctx_bound(target), args=args, kwargs=kwargs, name=name, daemon=daemon)
 
-# v1 = best-effort on_pre_compress() with the raw message list; v2 = opt-in fail-closed
+# v1 = best-effort conversational knowledge extraction; v2 = opt-in fail-closed
 # checkpoint (normalized evidence handoff + strict-mode failure propagation).
 PRE_COMPRESS_CHECKPOINT_API_VERSION = 2
 
@@ -161,7 +161,9 @@ class MemoryProvider(ABC):
         session_id: str = "", messages: Optional[list[dict[str, Any]]] = None,
         turn_author: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Persist a completed turn (non-blocking). ``messages`` is the OpenAI-style list so far.
+        """Persist a completed turn (non-blocking). ``messages`` is a detached text-only projection
+        of human turns and final answers, not the canonical transcript. Runtime/service rows, tools,
+        intermediate assistant messages, reasoning and arbitrary metadata are excluded by the host.
         ``turn_author`` (``{"id", "name", "is_bot"}``) is who wrote the user side; the manager sends it only to signatures that accept it."""
 
     @abstractmethod
@@ -197,7 +199,8 @@ class MemoryProvider(ABC):
         return {}
 
     def on_session_end(self, messages: list[dict[str, Any]]) -> None:
-        """End-of-session extraction; fires only at real session boundaries, never per-turn."""
+        """End-of-session extraction from conversational knowledge (same projection as sync_turn).
+        Fires only at real session boundaries, never per-turn; empty knowledge captures are skipped."""
 
     def on_session_switch(
         self, new_session_id: str, *, parent_session_id: str = "", reset: bool = False, rewound: bool = False, **kwargs,
@@ -208,7 +211,9 @@ class MemoryProvider(ABC):
         same id but the transcript was truncated."""
 
     def on_pre_compress(self, messages: list[dict[str, Any]]) -> str:
-        """Extract insights from ``messages`` about to be compressed, fed into the summary prompt."""
+        """Extract insights from conversational knowledge before compression, fed into the summary prompt.
+        Opt-in checkpoint API v2 providers instead receive the host's separate normalized evidence
+        contract (or the raw fallback when evidence is absent), preserving context continuity."""
         return ""
 
     def on_delegation(self, task: str, result: str, *, child_session_id: str = "", **kwargs) -> None:

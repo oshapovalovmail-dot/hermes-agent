@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from collections.abc import Set as AbstractSet
 
+from agent.recall_morphology import russian_stem
+
 _CONTROL_RE = re.compile(
     r"\b(?:(?:i\s+)?hereby\s+|настоящим\s+)?(?:"
     r"(?:сам\s+)?(?:можешь|можете)\s+[а-яё]+(?:ть|ти|чь)|"
@@ -27,7 +29,7 @@ _DEICTIC_RE = re.compile(
     r"(?:только\s+)?в\s+рамках\s+(?:этой|текущей)\s+задачи)\b", re.IGNORECASE,
 )
 # Paths retain directory identity; device revision suffixes stay on the model.
-_WORD_RE = re.compile(r"(?<![\w])(?:/[\w.-]+){2,}|[^\W_]+(?:[_.-][^\W_]+)*(?:/\d+)?")
+_WORD_RE = re.compile(r"(?<![\w])(?:/[\w.-]+){2,}|[^\W_]+(?:[_.-][^\W_]+)*(?:/[\w.-]+)*")
 _QUALIFIER_RE = re.compile(
     r"(?:latest|last|schedules?|checks?|checking|results?|runs?|"
     r"како[а-яё]*|последн[а-яё]*|расписан[а-яё]*|проверк[а-яё]*|"
@@ -117,9 +119,9 @@ def recall_has_topic(text: str, terms: list[str]) -> bool:
             # A base device code supports its revision, never another model.
             return (not term.startswith('/') and '/' not in term
                     and any(re.fullmatch(re.escape(term) + r'/\d+', word) for word in words))
-        if len(term) >= 5 and re.fullmatch(r'[а-яё]+', term):
-            return any(len(word) >= 5 and word[:5] == term[:5] for word in words)
-        return False
+        # Match real inflections, not arbitrary words sharing five letters.
+        stem = russian_stem(term)
+        return bool(stem and any(russian_stem(word) == stem for word in words))
 
     exact = [term for term in terms if _opaque(term)]
     return all(matches(term) for term in exact) if exact else any(matches(term) for term in terms)

@@ -18,6 +18,8 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
 from agent.redact import redact_for_egress
+from agent.memory_capture import (CaptureOrigins, capture_author, current_user_text, final_answer_text,
+                                  human_input, knowledge_messages)
 
 from agent.memory_caller_scope import bound_scope, caller_scope, claim_instance, in_owner_home, refused_tool_message
 # Moved to agent.memory_context / agent.memory_manager_tools; still importable here because agent.memory_manager is a public
@@ -240,6 +242,7 @@ class MemoryManager:
         # construction path keeps writing.
         self._agent_context = "primary"
         self._tool_call_keywords_cache: dict[int, Optional[frozenset[str]]] = {}
+        self._capture_origins = CaptureOrigins()
 
     def _each_provider(self, label: str, call: Callable[[MemoryProvider], Any], *, level: int = logging.DEBUG,
                        providers: Optional[list[MemoryProvider]] = None, exc_info: bool = False) -> list[Any]:
@@ -355,7 +358,7 @@ class MemoryManager:
         """Merge non-empty prefetch context from all providers (failures are non-fatal)."""
         if self._fork_turn_hooks_suppressed():
             return ""
-        clean_query = self._strip_skill_scaffolding(query)
+        clean_query = human_input(self._strip_skill_scaffolding(query) or "")
         if not clean_query or not self._owner_allows("prefetch"):
             return ""
         clean_query = _redact_for_provider(clean_query)
@@ -434,7 +437,7 @@ class MemoryManager:
         if self._fork_turn_hooks_suppressed():
             return
         providers = list(self._providers)
-        clean_query = self._strip_skill_scaffolding(query) if providers else None
+        clean_query = human_input(self._strip_skill_scaffolding(query) or "") if providers else None
         if not clean_query or not self._owner_allows("queue_prefetch"):
             return
         clean_query = _redact_for_provider(clean_query)
@@ -459,9 +462,9 @@ class MemoryManager:
         open after the user saw the response. The single worker also serializes writes (turn N before N+1).
         ``turn_author`` reaches only providers whose ``sync_turn`` accepts it.
 
-        Everything forwarded is provider egress: turn strings AND the ``messages`` transcript slice
-        (tool outputs included) go through ``_redact_for_provider`` so secrets are never archived
-        verbatim in a provider's store (#115104).
+        Only conversational knowledge leaves this boundary, never tools, internal messages or
+        reasoning carriers. Secret redaction still learns from the complete local transcript before
+        projection, so a secret discovered in excluded tool evidence is masked in visible prose too.
         """
         if self._fork_turn_hooks_suppressed():
             return
@@ -469,11 +472,16 @@ class MemoryManager:
         clean_user_content = self._strip_skill_scaffolding(user_content) if providers else None
         if not clean_user_content or not self._owner_allows("sync_turn"):
             return
-        from agent.capture_origin import capture_messages
-        messages = capture_messages(clean_user_content, assistant_content, messages, original_user=user_content)
+        messages = self._capture_origins.prepare(
+            messages, user=clean_user_content, assistant=assistant_content, original_user=user_content)
+        clean_user_content = current_user_text(clean_user_content, messages)
+        if not clean_user_content.strip():
+            return
         clean_user_content, assistant_content, redacted_messages = _redact_for_provider(
             clean_user_content, assistant_content, messages)
-        optional_kwargs = {"messages": redacted_messages, "turn_author": turn_author}
+        assistant_content = final_answer_text(assistant_content, redacted_messages)
+        redacted_messages = None if messages is None else knowledge_messages(redacted_messages)
+        optional_kwargs = {"messages": redacted_messages, "turn_author": capture_author(turn_author)}
 
         def _sync(provider: MemoryProvider) -> None:
             kwargs: dict[str, Any] = {"session_id": session_id}
@@ -629,10 +637,13 @@ class MemoryManager:
     def on_turn_start(self, turn_number: int, message: str, **kwargs) -> None:
         if self._fork_turn_hooks_suppressed() or not self._owner_allows("on_turn_start"):
             return
+        message = human_input(message)
+        if not message.strip():
+            return
         # previous_message is earlier user text, so it is scrubbed with the message (one learned-token set). The rest
         # are identity/runtime values, raw as in sync_all: masking a phone-number author_id merges two senders.
         if "previous_message" in kwargs:
-            message, previous = _redact_for_provider(message, kwargs["previous_message"])
+            message, previous = _redact_for_provider(message, self._capture_origins.previous_text(kwargs["previous_message"]))
             kwargs = {**kwargs, "previous_message": previous}
         else:
             message = _redact_for_provider(message)
@@ -648,7 +659,9 @@ class MemoryManager:
     def on_session_end(self, messages: list[dict[str, Any]]) -> None:
         if self._fork_turn_hooks_suppressed() or not self._owner_allows("on_session_end"):
             return
-        messages = _redact_messages_for_egress(messages or [])
+        messages = knowledge_messages(_redact_messages_for_egress(self._capture_origins.prepare(messages or [])))
+        # Empty capture still closes the lifecycle and flushes previously accepted writes;
+        # it must not suppress the hook or resurrect raw transcript rows.
         self._each_provider("on_session_end failed", lambda p: p.on_session_end(messages), level=logging.WARNING,
                             exc_info=True)
 
@@ -717,8 +730,9 @@ class MemoryManager:
                         checkpoint_api_version: int = PRE_COMPRESS_CHECKPOINT_API_VERSION) -> str:
         """Notify providers before compression; return their combined summary-prompt text.
 
-        ``messages`` is the raw v1 transcript; ``evidence_messages`` is the host-normalized list handed
-        only to checkpoint (v2+) providers. With ``require_checkpoint`` at least one checkpoint provider
+        Legacy v1 insight extraction receives only conversational knowledge. ``evidence_messages``
+        is the separate host-normalized context-preservation contract handed only to checkpoint
+        (v2+) providers; it must not be replaced by a knowledge projection. With ``require_checkpoint`` at least one checkpoint provider
         must succeed — its exception propagates so the caller keeps the uncompressed transcript. Not gated
         for forks (``_fork_turn_hooks_suppressed``): the checkpoint is why a fork holds a provider, so a v2
         provider must save here whatever its non-primary write scope.
@@ -730,15 +744,19 @@ class MemoryManager:
         parts = []
         checkpoint_succeeded = False
         from agent.message_metadata import without_withheld_prompts
-        messages, evidence_messages = _redact_for_provider(
-            without_withheld_prompts(messages or []), without_withheld_prompts(evidence_messages))
+        messages, evidence_messages, knowledge = _redact_for_provider(
+            without_withheld_prompts(messages or []), without_withheld_prompts(evidence_messages),
+            self._capture_origins.prepare(messages or []))
+        knowledge = knowledge_messages(knowledge)
         for provider in self._providers:
             version = self._checkpoint_api_version(provider)
             if version is None:
                 version = _LEGACY_PRE_COMPRESS_API_VERSION
             is_checkpoint_provider = version >= checkpoint_api_version
             use_evidence = is_checkpoint_provider and evidence_messages is not None
-            provider_messages = evidence_messages if use_evidence else messages
+            provider_messages = (evidence_messages if use_evidence else messages) if is_checkpoint_provider else knowledge
+            if not is_checkpoint_provider and not provider_messages:
+                continue
             kwargs: dict[str, Any] = {}
             # v1 providers and bare-shape v2 providers never see the signal.
             if is_checkpoint_provider and _accepts_require_checkpoint(provider.on_pre_compress):
