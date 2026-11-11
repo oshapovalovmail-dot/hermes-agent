@@ -53,12 +53,19 @@ def stamp_failure(result: dict[str, Any], reason: str, retryable: bool) -> dict[
 # (``agent/conversation_loop.py::run_conversation``) and the gateway's own writer
 # (``gateway/run_turn.py::_hmwa_close_failed_turn``) say the same thing.
 
-FAILED_TURN_NOTICE = (
-    "Your request was not processed. Send it again if you still want me to carry it out."
-)
+# This boundary also closes an interrupted intro whose successor is already queued.
+# It knows only this turn's tail, not whether the user's request will continue next:
+# do not diagnose lost input or instruct a resend here. Failure-specific guidance
+# remains on the result/error card; keep this row neutral on both surfaces.
+FAILED_TURN_NOTICE = "Этот ход завершился без ответа."
 PARTIAL_FAILED_TURN_NOTICE = (
+    "Этот ход не завершён. Некоторые действия могли уже выполниться; проверьте их результат."
+)
+# Exact old spellings remain read-side provenance, not new boundary copy.
+_LEGACY_FAILED_TURN_NOTICES = (
+    "Your request was not processed. Send it again if you still want me to carry it out.",
     "This turn did not complete. Some actions may already have run; verify their effects "
-    "before resending."
+    "before resending.",
 )
 # A turn no person sent (a cron run, a process completion, a webhook delivery) lost across a gateway
 # restart, or fenced inside the running owner (a lost managed worker): it settles interrupted and is
@@ -95,6 +102,7 @@ def untyped_failed_turn_display_kind(role: Any, content: Any) -> Optional[str]:
     (exact notice text, so a real reply quoting it stays a reply); read-side only."""
     if role == "assistant" and isinstance(content, str) and content.strip() in (
         FAILED_TURN_NOTICE, PARTIAL_FAILED_TURN_NOTICE, AUTOMATION_INTERRUPTED_NOTICE,
+        *_LEGACY_FAILED_TURN_NOTICES,
     ):
         return FAILED_TURN_DISPLAY_KIND
     return None

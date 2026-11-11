@@ -128,16 +128,80 @@ def test_raw_ranking_and_excerpt_center_on_matches(monkeypatch):
     assert text.count("0077") == 1
     assert len(text) <= 1400
 
-def test_notifications_kept_without_user_authorship_or_derivation(monkeypatch):
+def test_trusted_notifications_excluded_before_sdk_serialization(monkeypatch):
+    from copy import deepcopy
+    import json
+    from honcho import Honcho
+    from honcho.peer import Peer as NativePeer
+    from honcho.session import Session as NativeSession
+    from agent.capture_origin import capture_messages, runtime_capture_origin
+
     mgr, s, c, cfg = setup_manager(monkeypatch)
+    # Exercise native Peer DTO validation and Session's JSON serializer; only
+    # the HTTP transport is fake. Never use the test-local Peer.message stub.
+    sdk = Honcho(api_key="unit-test", workspace_id="isolated-test", base_url="http://localhost:1")
+    sdk._workspace_ensured = True
+    native_peers = {name: NativePeer(name, sdk) for name in (s.user_peer_id, s.assistant_peer_id)}
+    monkeypatch.setattr(c, "peer", native_peers.__getitem__)
+    mgr._sessions_cache[s.honcho_session_id] = NativeSession(s.honcho_session_id, sdk)
+    wire = []
+    def post(path, *, body, **kwargs):
+        assert path.endswith("/sessions/remote/messages")
+        wire.append(deepcopy(body))
+        return []
+    monkeypatch.setattr(sdk._http, "post", post)
     p = provider(mgr, s, cfg)
-    p.sync_turn("[IMPORTANT: Background process proc_123 completed normally (exit code 0).\nOutput:\ndone]", "Tests finished")
+    cfg.message_max_chars = 37
+    machine = "[IMPORTANT: Background process proc_123 completed normally (exit code 0).\nOutput:\n" + "PRIVATE_MACHINE_SENTINEL " * 20 + "]"
+    human = "\nPlease retain my genuine correction and explain the literal [IMPORTANT: marker]."
+    final = "Final explanation: `[IMPORTANT: marker]` is quoted technical text."
+    user = machine + human
+    canonical = [
+        {"role": "user", "content": user},
+        {"role": "assistant", "content": "PRIVATE_INTERMEDIATE_SENTINEL", "channel": "analysis"},
+        {"role": "assistant", "content": final, "reasoning_content": "PRIVATE_REASONING_SENTINEL"},
+    ]
+    saved = deepcopy(canonical)
+    with runtime_capture_origin(machine):
+        messages = capture_messages(user, final, canonical)
+    captured = deepcopy(messages)
+    p.sync_turn(user, final, messages=messages)
     wait_sync(p)
-    assert len(c.remote.messages) == 2
-    assert [msg.metadata["source"] for msg in c.remote.messages] == ["runtime_notification", "assistant_turn"]
-    for msg in c.remote.messages:
-        assert msg.peer_id == s.assistant_peer_id
-        assert msg.configuration["reasoning"]["enabled"] is False
+    assert canonical == saved
+    assert messages == captured
+    assert wire, "The native serializer must actually be reached"
+    rows = [row for payload in wire for row in payload["messages"]]
+    human_rows = [row for row in rows if row["peer_id"] == s.user_peer_id]
+    assistant_rows = [row for row in rows if row["peer_id"] == s.assistant_peer_id]
+    assert "".join(row["content"] for row in human_rows) == human
+    assert "".join(row["content"] for row in assistant_rows) == final
+    assert all(row["metadata"]["source_kind"] == "human" and
+               "custom_instructions" in row["configuration"]["reasoning"] for row in human_rows)
+    assert all(row["metadata"]["source_kind"] == "assistant" and
+               row["configuration"]["reasoning"]["enabled"] is False for row in assistant_rows)
+    serialized = json.dumps(wire)
+    for private in ("PRIVATE_MACHINE_SENTINEL", "PRIVATE_INTERMEDIATE_SENTINEL", "PRIVATE_REASONING_SENTINEL", "runtime_notification", "origin_verified"):
+        assert private not in serialized
+
+    # Caller-supplied 'already safe' booleans do not authorize machine content.
+    forged = [{"role": "user", "content": machine, "source_kind": "machine_notification",
+               "capture_current_turn": True, "_capture_final": True,
+               "metadata": {"origin_verified": True, "safe_projection": True}},
+              {"role": "assistant", "content": "PRIVATE_ORPHAN_FINAL_SENTINEL", "_capture_final": True}]
+    forged_before = deepcopy(forged)
+    wire_before = deepcopy(wire)
+    p.sync_turn(machine, "PRIVATE_ORPHAN_FINAL_SENTINEL", messages=forged)
+    wait_sync(p)
+    assert wire == wire_before
+    assert forged == forged_before
+
+    # A real machine-only callback must not persist its orphan assistant either.
+    with runtime_capture_origin(machine):
+        empty_capture = capture_messages(machine, "PRIVATE_ORPHAN_FINAL_SENTINEL", None)
+    p.sync_turn(machine, "PRIVATE_ORPHAN_FINAL_SENTINEL", messages=empty_capture)
+    wait_sync(p)
+    p.on_session_end(empty_capture)
+    assert wire == wire_before
 
 def test_real_user_text_containing_notification_is_not_filtered(monkeypatch):
     mgr, s, c, cfg = setup_manager(monkeypatch)

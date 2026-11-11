@@ -26,8 +26,8 @@ What is real
 * The ledger module, on a real ``state.db`` under an isolated
   ``HOME=<tmp>/home``, ``HERMES_HOME=<tmp>/home/.hermes`` (every child).
 * The turn-side checkpoints: ``BasePlatformAdapter._record_delivery_obligation``
-  (record + mark_attempting) and ``_finalize_delivery_obligation``
-  (mark_delivered) — the exact methods the adapter's final-send path calls.
+  (record + mark_attempting) and ``base_delivery_ledger.finalize_delivery_obligation``
+  (mark_delivered) — the exact hooks the adapter's final-send path calls.
   The "recorded, crashed before attempting" kill point calls the ledger's
   ``record_obligation`` directly (there is no seam between the two writes).
 * The boot sweep: ``GatewayRunner._claim_pending_obligations`` (ledger claim +
@@ -87,6 +87,7 @@ import asyncio, json, os, sys, time
 from pathlib import Path
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import BasePlatformAdapter, SendResult
+from gateway.platforms.base_delivery_ledger import finalize_delivery_obligation
 
 JOURNAL = Path(os.environ["CELL5_JOURNAL"])
 ROLE = os.environ["CELL5_ROLE"]
@@ -163,7 +164,7 @@ async def main():
     oid = await adapter._record_delivery_obligation(ev, SESSION_KEY, text, adapter, False)
     assert oid, "ledger refused to record the control obligation"
     result = await adapter.send(CHAT_ID, text)
-    await adapter._finalize_delivery_obligation(oid, result, ev, adapter)
+    await finalize_delivery_obligation(adapter, oid, result, ev, adapter)
     ids[body("control")] = {"id": oid, "kind": "delivered"}
     for i, kind in enumerate(kinds):
         ev, text = event(i), body(i)

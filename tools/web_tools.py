@@ -97,7 +97,7 @@ def _probe(provider, method: str, context: str = "") -> Optional[bool]:
         return None
 
 
-def _get_backend() -> str:
+def _get_backend(capability: Optional[str] = None) -> str:
     """Shared web backend name. A stored ``web.backend`` is returned as-is — no availability probe, no
     fallback — so a broken selection surfaces the vendor's honest error rather than silently rerouting.
     The managed ``use_gateway`` selection also resolves to firecrawl with no ladder. Autodetect runs
@@ -112,13 +112,16 @@ def _get_backend() -> str:
         return "firecrawl"
 
     # Never-configured install.
-    return _autodetect_backend() or _keyless_backend() or "firecrawl"  # default (backward compat)
+    return _autodetect_backend(capability) or _keyless_backend(capability) or "firecrawl"  # default (backward compat)
 
 
-def _autodetect_backend() -> Optional[str]:
+def _autodetect_backend(capability: Optional[str] = None) -> Optional[str]:
     """Autodetect rungs above the keyless tier, or None. Explicit user credentials beat the managed-gateway
     probe (a Nous OAuth token's tier may not grant web access; the gateway then fails at runtime with no
-    fallback). Free tiers trail paid."""
+    fallback). Free tiers trail paid. A capability restricts selection to client-executable
+    providers; None preserves transport-level native search selection."""
+    if capability:
+        _ensure_web_plugins_loaded()
     backend_candidates = (
         ("tavily", _has_env("TAVILY_API_KEY")), ("perplexity", _has_env("PERPLEXITY_API_KEY")),
         ("exa", _has_env("EXA_API_KEY")),
@@ -128,17 +131,20 @@ def _autodetect_backend() -> Optional[str]:
         ("brave-free", _has_env("BRAVE_SEARCH_API_KEY")), ("ddgs", _ddgs_package_importable()),
     )
     for backend, available in backend_candidates:
-        if available:
+        if available and (not capability or _probe(_registered_web_provider(backend), f"supports_{capability}")):
             return backend
 
     # Plugin-contributed providers (built-ins are covered above); probe the held object directly.
     for provider in _list_registered_web_providers():
-        if provider.name not in _LEGACY_WEB_BACKENDS and _probe(provider, "is_available"):
+        if (provider.name not in _LEGACY_WEB_BACKENDS
+                and not (capability == "search" and provider.name == "openai-native")
+                and (not capability or _probe(provider, f"supports_{capability}"))
+                and _probe(provider, "is_available")):
             return provider.name
     return None
 
 
-def _keyless_backend() -> Optional[str]:
+def _keyless_backend(capability: Optional[str] = None) -> Optional[str]:
     """Keyless free-tier backend name, or None. Strictly the last autodetect rung so it never
     pre-empts a keyed backend. Discovery must run first: reachable from contexts that haven't
     loaded plugins (subprocess runs, delegate children)."""
@@ -148,7 +154,9 @@ def _keyless_backend() -> Optional[str]:
         if _keyless_tier_enabled():
             for name in _keyless_preference():
                 provider = _registered_web_provider(name)
-                if provider is not None and _probe(provider, "is_keyless_available"):
+                if (provider is not None
+                        and (not capability or _probe(provider, f"supports_{capability}"))
+                        and _probe(provider, "is_keyless_available")):
                     return name
     except Exception as exc:
         logger.debug("keyless fallback walk failed: %s", exc)
@@ -188,7 +196,7 @@ def _get_extract_backend() -> str:
     """Backend for web_extract: ``web.extract_backend`` (strict, no probe) > ``web.backend`` > autodetect.
     A ``nous`` pin is managed Firecrawl; the client picks the gateway route for that capability."""
     pin = _configured_backend("extract_backend")
-    return "firecrawl" if pin == NOUS_MANAGED_PROVIDER else pin or _get_backend()
+    return "firecrawl" if pin == NOUS_MANAGED_PROVIDER else pin or _get_backend("extract")
 
 
 def _ddgs_package_importable() -> bool:
@@ -322,6 +330,10 @@ def web_search_tool(query: str, limit: int = 5) -> str:
         _ensure_web_plugins_loaded()
         from agent.web_search_registry import get_active_search_provider, get_provider as _wsp_get_provider
         backend = _get_search_backend()
+        if (backend == "openai-native" and not _configured_backend("search_backend")
+                and read_selection("web") is None):
+            # Native transports retain their selection; Python dispatch needs an executable provider.
+            backend = _get_backend("search")
         provider = _wsp_get_provider(backend) if backend else None
         if provider is None or not provider.supports_search():
             if provider is None and backend and selection_exists("web"):
@@ -330,6 +342,9 @@ def web_search_tool(query: str, limit: int = 5) -> str:
                 return json.dumps({"success": False, "error": error_text}, indent=2, ensure_ascii=False)
             # Never-configured install: legacy availability-walked autodetect.
             provider = get_active_search_provider()
+            if provider is not None and provider.name == "openai-native":
+                # The registry also serves native transports; this dispatcher cannot host the marker.
+                provider = None
 
         if provider is None:
             fallback = "No web search provider configured. Run `hermes tools` to set one up."
@@ -372,6 +387,9 @@ def _memoized_search(provider, query: str, limit: int) -> dict:
     def _served_after_failure(error: str, fetch_limit: int) -> Optional[dict]:
         """Managed Firecrawl for a failed managed Perplexity call, else the one-shot keyless rescue when
         eligible; None means the vendor's own failure stands."""
+        if provider.name == "openai-native":
+            # An explicit native pin is a capability mismatch here, not a transient vendor outage.
+            return None
         fallback = _managed_search_fallback(provider, error, query, fetch_limit)
         if fallback is not None:
             return fallback

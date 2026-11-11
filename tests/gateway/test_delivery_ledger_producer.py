@@ -183,9 +183,8 @@ class TestProducerHook:
         assert adapter.sent == ["final answer"]
 
     @pytest.mark.asyncio
-    async def test_crash_between_attempting_and_ack_is_recoverable(self):
-        """The core scenario (#58818): process dies mid-send. The row must
-        be claimable by a later process and carry the ambiguity marker."""
+    async def test_unconfirmed_send_exception_is_unknown_without_replay(self):
+        """A caught exception is not process death or proof that nothing was sent."""
         adapter = _Adapter()
 
         async def _dies_mid_send(chat_id, content, reply_to=None, metadata=None):
@@ -201,13 +200,28 @@ class TestProducerHook:
 
         rows = _rows()
         assert len(rows) == 1
-        # Row is stuck in 'attempting' (or failed if retry wrapper caught it):
-        # either way it is non-delivered and recoverable.
-        assert rows[0][1] in ("attempting", "failed")
+        assert rows[0][1] == "unknown"
         with dl._connect() as conn:
             conn.execute(
                 "UPDATE delivery_obligations SET owner_pid=999999999, owner_started_at=1"
             )
+        assert dl.sweep_recoverable() == []
+
+    @pytest.mark.asyncio
+    async def test_crash_between_attempting_and_ack_is_recoverable(self):
+        """A real process exit bypasses finalization and keeps native crash recovery."""
+        from pathlib import Path
+        import subprocess
+        import sys
+
+        fixture = Path(__file__).parent / "fixtures" / "delivery_process_crash.py"
+        result = await asyncio.to_thread(
+            subprocess.run, [sys.executable, str(fixture), str(dl._db_path())],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 37, result.stdout + result.stderr
+        rows = _rows()
+        assert len(rows) == 1 and rows[0][1] == "attempting"
         claimed = dl.sweep_recoverable()
         assert len(claimed) == 1
         assert claimed[0]["needs_marker"] is True

@@ -10,18 +10,29 @@ from memory_test_plugins.honcho.automatic_context import select_history, bound_u
 from memory_test_plugins.openviking import OpenVikingMemoryProvider
 
 
-def test_native_capture_preserves_human_suffix_and_machine_derivation_guard():
-    machine = "[ASYNC DELEGATION COMPLETE — worker] result"
-    user = machine + "\nHuman correction remains local."
+def test_native_capture_preserves_human_suffix_without_machine_projection():
+    from copy import deepcopy
+
+    machine = "[ASYNC DELEGATION COMPLETE — worker] PRIVATE_MACHINE_SENTINEL"
+    human_text = "\nHuman correction remains local."
+    user = machine + human_text
+    final = "The final answer preserves technical discussion of [ASYNC DELEGATION COMPLETE]."
+    canonical = [{"role": "user", "content": user}, {"role": "assistant", "content": final}]
+    saved = deepcopy(canonical)
     with runtime_capture_origin(machine):
-        messages = capture_messages(user, "answer", None)
-    rows = build_capture_turn(user, "answer", messages=messages, max_chars=13)
+        messages = capture_messages(user, final, canonical)
+    snapshot = deepcopy(messages)
+    rows = build_capture_turn(user, final, messages=messages, max_chars=13)
     human = [r for r in rows if r["metadata"]["source_kind"] == "human"]
-    runtime = [r for r in rows if r["metadata"]["source_kind"] == "machine_notification"]
-    assert "".join(r["content"] for r in human) == "\nHuman correction remains local."
-    assert "".join(r["content"] for r in runtime) == machine
-    assert all(r["role"] == "assistant" and r["configuration"]["reasoning"]["enabled"] is False for r in runtime)
+    assistant = [r for r in rows if r["metadata"]["source_kind"] == "assistant"]
+    assert "".join(r["content"] for r in human) == human_text
+    assert "".join(r["content"] for r in assistant) == final
+    assert not [r for r in rows if r["metadata"]["source_kind"] == "machine_notification"]
+    assert "PRIVATE_MACHINE_SENTINEL" not in "".join(r["content"] for r in rows)
     assert all("custom_instructions" in r["configuration"]["reasoning"] for r in human)
+    assert all(r["configuration"]["reasoning"]["enabled"] is False for r in assistant)
+    assert canonical == saved
+    assert messages == snapshot
 
 
 def test_generation_rejects_completed_base_after_query_pivot():

@@ -189,7 +189,9 @@ def _runner_authority(tmp_path, monkeypatch):
                         _adapter_for_source=lambda source: None)
     authority = SessionAuthority(runner, profile_id='owned', instance_id='current', db=db,
                                  epoch=begin_runtime_epoch(db, instance_id='current'))
-    authority.sessions['s'] = LiveSession(SimpleNamespace(platform=None, user_id='human'), 'route')
+    # This control-plane fixture has no platform reply, but supplies the optional identity field.
+    authority.sessions['s'] = LiveSession(
+        SimpleNamespace(platform=None, user_id='human', message_id=None), 'route')
     return db, authority, runner
 
 

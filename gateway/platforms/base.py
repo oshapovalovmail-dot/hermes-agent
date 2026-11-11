@@ -20,6 +20,7 @@ import weakref
 from abc import ABC, abstractmethod
 from hermes_dir_acl import make_user_dir, unusable_dir_remedy
 from gateway.platforms.base_log_safety import safe_url_for_log
+from gateway.platforms.base_delivery_ledger import finalize_delivery_obligation
 
 from utils import normalize_proxy_url, unlink_files_older_than
 from agent.i18n import t
@@ -4179,37 +4180,6 @@ class BasePlatformAdapter(ABC):
             logger.debug("delivery ledger record failed", exc_info=True)
             return None
 
-    async def _finalize_delivery_obligation(
-        self, obligation_id: str, result: Any, event: MessageEvent,
-        delivery_adapter: "BasePlatformAdapter") -> None:
-        """Mark the ledger row delivered/failed (best-effort). On ``send_path_degraded`` with a
-        replacement adapter live, trigger another redelivery sweep (the watcher's may have run
-        before this failure landed; atomic claiming keeps it idempotent). On any other rejection arm
-        the runner's timed redelivery, so the reply goes out once the flood penalty or the retry
-        backoff has passed instead of waiting for the next restart (#91653)."""
-        try:
-            from gateway.dead_targets import classify_dead_error
-            from gateway.delivery_ledger import is_reconnect_only, mark_delivered, mark_failed
-            if getattr(result, "success", False):
-                await asyncio.to_thread(mark_delivered, obligation_id)
-                return
-            error = str(getattr(result, "error", "") or "")
-            await asyncio.to_thread(mark_failed, obligation_id, error)
-            if is_reconnect_only(error):
-                redeliver = getattr(
-                    self.gateway_runner, "_redeliver_failed_obligations_for_platform", None)
-                live = self._final_delivery_adapter(event.source)
-                if live is not delivery_adapter and callable(redeliver):
-                    await redeliver(event.source.platform,
-                                    profile=getattr(delivery_adapter, "_owner_profile", None))
-            elif classify_dead_error(error) is None:  # a dead chat is never retried: no timer to wake
-                schedule = getattr(self.gateway_runner, "_schedule_flood_redelivery", None)
-                if callable(schedule):
-                    schedule(event.source.platform,
-                             profile=getattr(delivery_adapter, "_owner_profile", None))
-        except Exception:
-            logger.debug("delivery ledger update failed", exc_info=True)
-
     async def _deliver_media_attachments(
         self, event: MessageEvent, media_files: list, local_files: list, *,
         force_document_attachments: bool, human_delay: float, metadata: dict[str, Any],
@@ -4294,13 +4264,19 @@ class BasePlatformAdapter(ABC):
                     len(text_content), event.source.chat_id)
         obligation_id = await self._record_delivery_obligation(
             event, session_key, text_content, delivery_adapter, is_ephemeral_response)
-        if obligation_id is not None:
-            await self._release_turn_marker(event)  # the ledger now owns the crash recovery
-        result = await delivery_adapter._send_with_retry(
-            chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
+        result = SendResult(success=False, delivery_uncertain=True,
+                            error="Final send did not return a delivery receipt")
+        try:
+            if obligation_id is not None:
+                await self._release_turn_marker(event)  # the ledger now owns the crash recovery
+            result = await delivery_adapter._send_with_retry(
+                chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
+        finally:
+            # Exceptions (including cancellation) cannot prove non-submission. Persist unknown,
+            # preserve the original exception, and never schedule a blind retry.
+            if obligation_id is not None:
+                await finalize_delivery_obligation(self, obligation_id, result, event, delivery_adapter)
         stop_reply_clock(delivery_adapter, event.source.chat_id, result)
-        if obligation_id is not None:
-            await self._finalize_delivery_obligation(obligation_id, result, event, delivery_adapter)
         return result, delivery_adapter
 
     async def _release_turn_marker(self, event: MessageEvent) -> None:

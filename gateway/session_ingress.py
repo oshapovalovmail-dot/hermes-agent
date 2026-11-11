@@ -300,9 +300,16 @@ async def execute_admission(authority, ref, row):
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
     else:
+        from gateway.platforms.base import _reply_anchor_for_event
         from gateway.session_ingress_media import restore_attachments
         event = MessageEvent(text=row['payload']['text'], source=live.source,
-                             message_id=row['admission_id'], **restore_attachments(row['payload']))
+                             message_id=live.source.message_id,
+                             ledger_message_id=row['admission_id'], **restore_attachments(row['payload']))
+        # Freeze the platform reply identity BEFORE assigning the synthetic execution handle
+        # (cli_turn_v1 and queued-turn scopes still key on message_id). Empty explicitly means
+        # no platform reply, not "derive a reply from the admission UUID".
+        event.reply_anchor_override = _reply_anchor_for_event(event) or ''
+        event.message_id = row['admission_id']
         if 'local_automation_v1' in row['payload']:
             from gateway.session_automation import restore_local_automation
             event = restore_local_automation(authority, ref, row)
