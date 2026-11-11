@@ -446,7 +446,9 @@ class TestReadShape:
         db.create_session("s_titled", source="cli")
         db.set_session_title("s_titled", "quasar ledger reconciliation")
         db.append_message("s_titled", role="user", content="reconcile the quasar ledger")
-        db.append_message("s_titled", role="tool", content="y" * 80_000)
+        # Default discovery now excludes raw tool output. Keep the content-cap
+        # regression on a substantive role rather than requiring that old leak.
+        db.append_message("s_titled", role="assistant", content="y" * 80_000)
         db.end_session("s_titled", "cli_exit")
         result = json.loads(session_search(query="quasar ledger reconciliation", db=db, detail="full"))
         entry = next(r for r in result["results"] if r["matched_role"] == "session_title")

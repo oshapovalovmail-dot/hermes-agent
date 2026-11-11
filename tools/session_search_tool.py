@@ -18,6 +18,18 @@ from typing import Any, Dict, List, Optional, Union
 from hermes_state_common import _BOUNDARY_END_REASONS
 from hermes_time import safe_strftime
 
+
+def _recall_view(db, session_id, message_id, include_tool_calls=False):
+    if include_tool_calls:
+        return db.get_anchored_view(session_id, message_id, window=5, bookend=3)
+    from tools.session_search_context import get_recall_anchored_view
+    return get_recall_anchored_view(db, session_id, message_id, window=5, bookend=3)
+
+
+def _context_status(view):
+    return {key: view[key] for key in ("context_truncated", "context_scan_limit", "context_continuation")
+            if key in view}
+
 # Hidden from browsing/searching — integrations (HERMES_SESSION_SOURCE=tool), delegate
 # subagent runs, kanban workers are not the user's history.
 _HIDDEN_SESSION_SOURCES = ("kanban", "subagent", "tool")
@@ -47,9 +59,8 @@ _EXCLUDE_SESSION_IDS_CAP = 20
 _RELATIVE_BOUND_RE = re.compile(r"^(\d+)\s*(h|d|w)$", re.IGNORECASE)
 _RELATIVE_UNIT_SECONDS = {"h": 3600, "d": 86400, "w": 604800}
 # Raw FTS rows are only a plan input; the response hydrates its own window/bookends.
-_DISCOVER_SEARCH_FIELDS = ("id", "session_id", "role", "snippet", "source", "model", "session_started")
-# Compaction handoff summaries (agent/context_compressor.py); excluded from bookends.
-_COMPACTION_PREFIXES = ("[CONTEXT COMPACTION", "[CONTEXT SUMMARY]:")
+_DISCOVER_SEARCH_FIELDS = ("id", "session_id", "role", "snippet", "source", "model", "session_started", "search_route")
+
 # /new, /reset, idle/daily expiry and CLI /new ("new_session") end the predecessor WITHOUT
 # carrying its transcript forward — unlike compression continuations and live delegation
 # children. The store's boundary set, so the two cannot drift.
@@ -100,8 +111,9 @@ def _ok(**payload) -> str:
     return json.dumps({"success": True, **payload}, ensure_ascii=False)
 
 
-def _is_compaction_summary(content: str) -> bool:
-    return bool(content) and content.lstrip().startswith(_COMPACTION_PREFIXES)
+def _is_compaction_summary(content: Any) -> bool:
+    from tools.session_search_context import _is_handoff
+    return _is_handoff(content)
 
 
 def _resolve_to_parent(db, session_id: str) -> tuple[str, bool]:
@@ -234,20 +246,36 @@ def _is_compacted_message(db, message_id) -> bool:
     return _is_compacted_state(_get_message_storage_state(db, message_id))
 
 
+def _bounded_body(content, limit):
+    if not limit or content is None:
+        return {}
+    text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    if len(text) <= limit:
+        return {}
+    excerpt = text[:limit]
+    # Prefer a complete paragraph over presenting a severed instruction as a unit.
+    boundary = excerpt.rfind("\n\n")
+    if boundary >= limit // 2:
+        excerpt = excerpt[:boundary].rstrip()
+    result = {"content": excerpt + "…", "content_truncated": True, "original_content_chars": len(text)}
+    if not isinstance(content, str):
+        result["content_format"] = "json_excerpt"
+    return result
+
+
 def _shape_message(m: dict[str, Any], anchor_id: Optional[int] = None,
-                   max_content_len: Optional[int] = None) -> dict[str, Any]:
+                   max_content_len: Optional[int] = None, include_tool_calls: bool = True) -> dict[str, Any]:
     """Slim a message row; keeps ``content`` even when empty (tool-call-only turns)."""
     content = m.get("content")
     if isinstance(content, str) and "\x1b" in content:  # archived terminal output carries ANSI
         from tools.ansi_strip import strip_ansi
         content = strip_ansi(content)
     entry = {"id": m.get("id"), "role": m.get("role"), "content": content, "timestamp": m.get("timestamp")}
-    entry.update({k: m.get(k) for k in ("tool_name", "tool_calls", "tool_call_id") if m.get(k)})
+    if include_tool_calls:
+        entry.update({k: m.get(k) for k in ("tool_name", "tool_calls", "tool_call_id") if m.get(k)})
     if anchor_id is not None and m.get("id") == anchor_id:
         entry["anchor"] = True
-    if max_content_len and content and len(content) > max_content_len:
-        entry.update(content=content[:max_content_len] + "…", content_truncated=True,
-                     original_content_chars=len(content))
+    entry.update(_bounded_body(content, max_content_len))
     return {k: v for k, v in entry.items() if v is not None or k == "content"}
 
 
@@ -273,7 +301,8 @@ def _discovery_entry(lineage_root: Optional[str], **fields) -> dict[str, Any]:
     return entry
 
 
-def _title_match_result(db, query: str, current_lineage_root: Optional[str]) -> Optional[dict[str, Any]]:
+def _title_match_result(db, query: str, current_lineage_root: Optional[str],
+                        include_tool_calls: bool = False) -> Optional[dict[str, Any]]:
     """Discovery-shaped result when the query matches a session title, else None."""
     title_query = query.strip().strip("`'\"")  # models often quote a remembered title
     session_id = title_query and _quiet(lambda: db.resolve_session_by_title(title_query), None,
@@ -289,15 +318,18 @@ def _title_match_result(db, query: str, current_lineage_root: Optional[str]) -> 
                           "get_session failed for title match %s", session_id) or {}
     if session_meta.get("source") in _HIDDEN_SESSION_SOURCES:
         return None
-    messages = _quiet(lambda: db.get_messages(session_id), [], "get_messages failed for title match %s", session_id)
+    messages = (_quiet(lambda: db.get_messages(session_id, limit=1), [],
+                       "get_messages failed for title match %s", session_id) if include_tool_calls else [])
     anchor_id = messages[0].get("id") if messages else None
-    view = {} if anchor_id is None else _quiet(
-        lambda: db.get_anchored_view(session_id, anchor_id, window=5, bookend=3), {},
+    view = {} if include_tool_calls and anchor_id is None else _quiet(
+        lambda: _recall_view(db, session_id, anchor_id, include_tool_calls), {},
         "get_anchored_view failed for title match %s/%s", session_id, anchor_id)
+    if not include_tool_calls:
+        anchor_id = next((m["id"] for m in view.get("window", [])), None)
     title = session_meta.get("title") or title_query
     # Same caps as FTS hits (_bookend / _hydrate_hit): a title match is a discovery entry too.
     def shape(key, fallback, anchor=None, max_content_len=1200):
-        return [_shape_message(m, anchor_id=anchor, max_content_len=max_content_len)
+        return [_shape_message(m, anchor_id=anchor, max_content_len=max_content_len, include_tool_calls=include_tool_calls)
                 for m in (view.get(key) or fallback)]
     return {**_discovery_entry(
         lineage_root, session_id=session_id, when=_format_timestamp(session_meta.get("started_at")),
@@ -308,7 +340,7 @@ def _title_match_result(db, query: str, current_lineage_root: Optional[str]) -> 
         messages=shape("window", messages[:5], anchor_id, max_content_len=4000),
         bookend_end=shape("bookend_end", messages[-3:]), messages_before=view.get("messages_before", 0),
         messages_after=view.get("messages_after", max(len(messages) - 5, 0)), detail="full"),
-        "_lineage_root": lineage_root}
+        "_lineage_root": lineage_root, **_context_status(view)}
 
 
 def _discover_payload(db, query: str, detail: str, results: list, **extra) -> str:
@@ -319,46 +351,53 @@ def _discover_payload(db, query: str, detail: str, results: list, **extra) -> st
         f"The search index is rebuilding in the background ({status['percent']}% done, "
         f"{status['indexed']:,} of {status['total']:,} messages). Results from older messages "
         f"may be incomplete until it finishes.")}}
+    if any(r.get("partial_match") for r in results):
+        extra["match_warning"] = (
+            "Partial any-term lexical candidates may describe a different object. Verify the "
+            "requested entity and relationship in the actual text; keyword overlap is not answer support.")
     return _ok(mode="discover", query=query, detail=detail, results=results, count=len(results), **extra, **rebuild)
 
 
-def _bookend(view: dict[str, Any], key: str) -> list[dict[str, Any]]:
-    return [_shape_message(m, max_content_len=1200) for m in (view.get(key) or [])
+def _bookend(view: dict[str, Any], key: str, include_tool_calls: bool = False) -> list[dict[str, Any]]:
+    return [_shape_message(m, max_content_len=1200, include_tool_calls=include_tool_calls) for m in (view.get(key) or [])
             if not _is_compaction_summary(m.get("content", ""))]
 
 
-def _hydrate_hit(db, lineage_root: str, match_info: dict[str, Any], result_detail: str) -> Optional[dict[str, Any]]:
+def _hydrate_hit(db, lineage_root: str, match_info: dict[str, Any], result_detail: str,
+                 include_tool_calls: bool = False) -> Optional[dict[str, Any]]:
     """Discovery result from a surviving FTS row; None (dropped) if the view can't load."""
     hit_sid, msg_id = match_info.get("session_id") or lineage_root, match_info.get("id")
     try:
-        view = db.get_anchored_view(hit_sid, msg_id, window=5, bookend=3)
+        view = _recall_view(db, hit_sid, msg_id, include_tool_calls)
     except Exception as e:
         logging.warning("get_anchored_view failed for %s/%s: %s", hit_sid, msg_id, e, exc_info=True)
         return None
     session_meta, full = _get_session_meta(db, lineage_root), result_detail == "full"
-    return _discovery_entry(
+    entry = _discovery_entry(
         lineage_root, session_id=hit_sid,
         when=_format_timestamp(session_meta.get("started_at") or match_info.get("session_started")),
         source=session_meta.get("source") or match_info.get("source", "unknown"),
         model=session_meta.get("model") or match_info.get("model") or "unknown",
         title=session_meta.get("title") or None, matched_role=match_info.get("role"),
         match_message_id=msg_id, snippet=match_info.get("snippet") or "",
-        bookend_start=_bookend(view, "bookend_start") if full else [],
-        messages=[_shape_message(m, anchor_id=msg_id, max_content_len=4000)
+        bookend_start=_bookend(view, "bookend_start", include_tool_calls) if full else [],
+        messages=[_shape_message(m, anchor_id=msg_id, max_content_len=4000, include_tool_calls=include_tool_calls)
                   for m in (view.get("window") or []) if full or m.get("id") == msg_id],
-        bookend_end=_bookend(view, "bookend_end") if full else [],
+        bookend_end=_bookend(view, "bookend_end", include_tool_calls) if full else [],
         messages_before=view.get("messages_before", 0), messages_after=view.get("messages_after", 0),
         detail=result_detail)
+    return {**entry, **_context_status(view), "search_route": match_info.get("search_route", "unknown"),
+            "partial_match": match_info.get("search_route") == "or_relaxed"}
 
 
 def _discover(db, query: str, role_filter: Optional[list[str]], limit: int, sort: Optional[str],
               detail: str, current_session_id: str | None = None, link_profile: str | None = None,
               after_ts: Optional[int] = None, before_ts: Optional[int] = None,
-              exclude_session_ids: Optional[list[str]] = None) -> str:
+              exclude_session_ids: Optional[list[str]] = None, include_tool_calls: bool = False) -> str:
     """Discovery shape: FTS5 plus adaptive or full result hydration."""
     current_lineage_root = _resolve_lineage(db, current_session_id) if current_session_id else None
     excluded_roots = _excluded_lineage_roots(db, exclude_session_ids or [])
-    title_result = _title_match_result(db, query, current_lineage_root)
+    title_result = _title_match_result(db, query, current_lineage_root, include_tool_calls)
     # FTS rows are time-bounded in SQL (_search_filter_clauses); the title match bypasses that
     # query, so it is the one place the window is re-checked in Python.
     if title_result:
@@ -369,7 +408,8 @@ def _discover(db, query: str, role_filter: Optional[list[str]], limit: int, sort
     raw_results, err = _loud(lambda: db.search_messages(
         query=query, role_filter=role_filter or ["user", "assistant"],
         exclude_sources=list(_HIDDEN_SESSION_SOURCES), limit=_DISCOVER_SCAN_LIMIT, offset=0, sort=sort,
-        fields=_DISCOVER_SEARCH_FIELDS, after_ts=after_ts, before_ts=before_ts), "FTS5 search failed: %s", "Search failed")
+        fields=_DISCOVER_SEARCH_FIELDS, after_ts=after_ts, before_ts=before_ts,
+        content_only=not include_tool_calls), "FTS5 search failed: %s", "Search failed")
     if err:
         return err
     # Demote cron rows below interactive ones BEFORE dedup so a high-volume cron corpus
@@ -418,7 +458,8 @@ def _discover(db, query: str, role_filter: Optional[list[str]], limit: int, sort
         if match_info.get("_title_only"):
             continue
         # Adaptive: only the top-ranked result is fully hydrated.
-        entry = _hydrate_hit(db, lineage_root, match_info, "full" if detail == "full" or not results else "compact")
+        entry = _hydrate_hit(db, lineage_root, match_info, "full" if detail == "full" or not results else "compact",
+                             include_tool_calls)
         if entry is not None:
             results.append(entry)
     for entry in results:
@@ -576,7 +617,7 @@ def _scroll(db, session_id: str, around_message_id: int, window: int = 5,
 
 def _dispatch(query, role_filter, limit, db, current_session_id, session_id,
               around_message_id, window, sort, profile, detail,
-              after=None, before=None, exclude_session_ids=None) -> str:
+              after=None, before=None, exclude_session_ids=None, include_tool_calls=False) -> str:
     """Mode dispatch (see module docstring); scroll wins when an anchor is set."""
     if isinstance(session_id, str) and session_id.strip():
         if around_message_id is not None:
@@ -597,13 +638,14 @@ def _dispatch(query, role_filter, limit, db, current_session_id, session_id,
         role_filter=([r.strip() for r in role_filter.split(",") if r.strip()] or None) if isinstance(role_filter, str) else None,
         detail="full" if isinstance(detail, str) and detail.strip().lower() == "full" else "adaptive",
         current_session_id=current_session_id, link_profile=profile, after_ts=after_ts, before_ts=before_ts,
-        exclude_session_ids=_normalize_exclude_session_ids(exclude_session_ids))
+        exclude_session_ids=_normalize_exclude_session_ids(exclude_session_ids), include_tool_calls=include_tool_calls)
 
 
 def session_search(query: str = "", role_filter: str | None = None, limit: int | None = None, db=None,
                    current_session_id: str | None = None, session_id: str | None = None, around_message_id: int | None = None,
                    window: int = 5, sort: str | None = None, profile: str | None = None, detail: str = "adaptive",
-                   after: str | None = None, before: str | None = None, exclude_session_ids: Optional[list[str]] = None) -> str:
+                   after: str | None = None, before: str | None = None, exclude_session_ids: Optional[list[str]] = None,
+                   include_tool_calls: bool = False) -> str:
     """Run session search, closing DBs opened here. Positional order is frozen for old callers;
     new parameters are appended after ``detail``."""
     from hermes_constants import get_hermes_home
@@ -646,7 +688,8 @@ def session_search(query: str = "", role_filter: str | None = None, limit: int |
     try:
         return _dispatch(query, role_filter, limit, db, current_session_id, session_id,
                          around_message_id, window, sort, profile, detail,
-                         after=after, before=before, exclude_session_ids=exclude_session_ids)
+                         after=after, before=before, exclude_session_ids=exclude_session_ids,
+                         include_tool_calls=include_tool_calls is True)
     finally:
         for owned_db in reversed(owned_dbs):
             _quiet(lambda: release_or_close(owned_db), None, "Failed to close session_search SessionDB")
@@ -778,6 +821,16 @@ SESSION_SEARCH_SCHEMA = {
                     "behaviour) or 'tool' to search tool output only."
                 ),
             },
+            "include_tool_calls": {
+                "type": "boolean",
+                "default": False,
+                "description": (
+                    "Discovery only. False searches actual message text and counts substantive "
+                    "messages in the context window. Set true to investigate tool-call names "
+                    "and serialized arguments, including empty assistant call turns. Those are "
+                    "recorded requests, not proof that the requested action completed."
+                ),
+            },
             "profile": {
                 "type": "string",
                 "description": (
@@ -801,7 +854,8 @@ registry.register(
     schema=SESSION_SEARCH_SCHEMA,
     handler=lambda args, **kw: session_search(
         query=args.get("query") or "", limit=args.get("limit"), window=args.get("window", 5),
-        detail=args.get("detail", "adaptive"), db=kw.get("db"), current_session_id=kw.get("current_session_id"),
+        detail=args.get("detail", "adaptive"), include_tool_calls=args.get("include_tool_calls", False),
+        db=kw.get("db"), current_session_id=kw.get("current_session_id"),
         **{k: args.get(k) for k in ("role_filter", "session_id", "around_message_id", "sort", "profile",
                                     "after", "before", "exclude_session_ids")}),
     check_fn=check_session_search_requirements,

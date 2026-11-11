@@ -967,16 +967,34 @@ session_search(query="auth refactor", limit=3)
 
 Runs FTS5, dedupes hits by session lineage, and returns the top N sessions. Discovery uses adaptive detail by default: the highest-ranked result includes its full context window and bookends, while lower-ranked results stay compact. Pass `detail="full"` to fully hydrate every result.
 
+Discovery searches message **content** by default, not tool names or serialized
+call arguments. A command mentioning an identifier is a recorded request, not
+evidence that the command ran or established a fact. For tool-call investigations,
+pass `include_tool_calls=True`; the original index and raw call rows remain available.
+This option does not change explicit session read or scroll.
+
 Each result carries:
 
 - `session_id`, `title`, `when`, `source`
 - `snippet` — FTS5-highlighted match excerpt
 - `detail` — `full` or `compact`
 - `bookend_start` / `bookend_end` — first/last 3 user+assistant messages for full results; empty lists for compact results
-- `messages` — ±5 messages around the FTS5 match for full results; only the flagged anchor message for compact results
+- `messages` — up to 5 substantive user/assistant messages on each side of the FTS5 match for full results; empty assistant call turns do not consume those positions. Compact results contain only the flagged anchor.
 - `match_message_id`, `messages_before`, `messages_after`
+- `search_route` and `partial_match` for message hits. `or_relaxed` means the exact and word-form routes missed and the result matches only some query terms; `match_warning` explicitly marks these as lexical candidates, not verified support for the requested object.
 
 The top result reconstructs goal → match → resolution immediately. If another compact result looks more promising, use its session and message IDs with the scroll shape. Typical wall time is tens of milliseconds on a real session DB.
+
+Discovery message bodies are bounded excerpts, not a guarantee of an entire
+instruction or document. Long text prefers a complete paragraph boundary when
+one is available within the cap; `content_truncated` and `original_content_chars`
+identify excerpts. Scroll around that message ID for the original body.
+The cap also applies to serialized structured content. An oversized structured
+body is explicitly marked `content_format="json_excerpt"`, not returned as a
+purportedly complete JSON object; small structured bodies retain their native shape.
+Context scans also have a raw-row work cap. If it is reached, `context_truncated`,
+`context_scan_limit` and `context_continuation` report the partial scan and its
+raw cursors; a short context window then does not establish a session boundary.
 
 **2. Scroll — pass `session_id` + `around_message_id`:**
 
@@ -1033,6 +1051,7 @@ search. Broad or unsupported expansions fall back to the existing search routes.
 - `sort` — `newest` or `oldest`, on top of FTS5 ranking. Omit for relevance-only ordering (the default; suitable for exploratory recall). Use `newest` for "where did we leave X" questions, `oldest` for "how did X start" questions.
 - `detail` — `adaptive` (default) fully hydrates only the top discovery result; `full` hydrates every discovery result.
 - `role_filter` — comma-separated roles to include. Discovery defaults to `user,assistant` (tool output is usually noise). Pass `user,assistant,tool` to include tool output (debugging tool behaviour) or `tool` to search tool output only.
+- `include_tool_calls` — false by default. Set true to search tool names/arguments as well as message content and retain raw call rows in discovery windows. Prefer this only for investigating tool behaviour, not factual recall.
 
 ### When It's Used
 
