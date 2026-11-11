@@ -304,7 +304,7 @@ _HOOKS = {
     "queue_prefetch": lambda m: (m.queue_prefetch_all("what did we decide", session_id="s"), _drain(m)),
     "prefetch": lambda m: m.prefetch_all("what did we decide", session_id="s"),
     "on_turn_start": lambda m: m.on_turn_start(1, "what did we decide"),
-    "on_session_end": lambda m: m.on_session_end([]),
+    "on_session_end": lambda m: m.on_session_end([{"role": "user", "content": "a real user turn"}]),
     "on_session_switch": lambda m: m.on_session_switch("s2"),
     "session_boundary": lambda m: (m.commit_session_boundary_async([], new_session_id="s3"), _drain(m)),
     "on_pre_compress": lambda m: m.on_pre_compress([{"role": "user", "content": "x"}]),

@@ -1,33 +1,12 @@
 --- a/__init__.py
 +++ b/__init__.py
-@@ -20,6 +20,7 @@
- import re
- import shutil
- import socket
+@@ -22,0 +23 @@
 +import sqlite3
- import stat
- import subprocess
- import tempfile
-@@ -38,6 +39,7 @@
- 
- from agent.message_content import flatten_message_text
- from agent.memory_provider import MemoryProvider, spawn_context_thread
+@@ -40,0 +42 @@
 +from agent.recall_query import automatic_recall_terms, recall_has_topic, is_continuation_prompt
- from agent.secret_scope import get_secret
- from agent.skill_commands import extract_user_instruction_from_skill_message
- from hermes_cli import __version__ as _HERMES_VERSION
-@@ -157,6 +159,7 @@
-     _cfg_field("recall_limit", "Maximum memories injected by automatic recall", type="integer", minimum=1, maximum=100, default=6),
-     _cfg_field("recall_score_threshold", "Minimum relevance score for automatic recall", type="number", minimum=0.0, maximum=1.0, step=0.01, default=0.15),
-     _cfg_field("recall_max_injected_chars", "Maximum total characters injected by recall", type="integer", minimum=100, maximum=50000, default=4000),
+@@ -159,0 +162 @@
 +    {"key": "startup_catalog", "description": "Opt in to startup filename catalog", "type": "boolean", "default": False},
-     _cfg_field("profile_token_budget", "Maximum session-start memory tokens injected", type="integer", minimum=500, maximum=50000, default=6000),
-     _cfg_field("recall_timeout_seconds", "Total timeout for recall (seconds)", **_NUM, default=4.0),
-     _cfg_field("recall_request_timeout_seconds", "Per-request timeout for recall (seconds)", **_NUM, default=_DEFAULT_RECALL_REQUEST_TIMEOUT_SECONDS),
-@@ -502,18 +505,46 @@
-     ["query"],
- )
- 
+@@ -505,9 +508,38 @@
 -READ_SCHEMA = _tool_schema(
 -    "viking_read",
 -    "Read one or a few specific viking:// URIs returned by viking_search or viking_browse. Three detail levels:\n"
@@ -75,23 +54,32 @@
 +            },
 +        },
 +        "required": [],
-     },
+@@ -515,2 +547 @@
 -    [],
 -)
 +}
- 
- BROWSE_SCHEMA = _tool_schema(
-     "viking_browse",
-@@ -1414,20 +1445,15 @@
-             except Exception as batch_error:
-                 if self.next_index:
-                     raise
+@@ -1401,0 +1433,17 @@
++    def __post_init__(self) -> None:
++        # Independent final native-DTO boundary, including old-host callers.
++        # Keep no raw scalar fallback or caller-owned nested part dictionaries.
++        from .egress import project_messages
++        original = self.batch_messages
++        canonical = [{**message, "content": message.get("parts"), "_capture_index": i}
++                     for i, message in enumerate(original) if isinstance(message, dict)]
++        selected = project_messages(canonical)
++        self.batch_messages = [
++            {"role": row["role"], "parts": [{"type": "text", "text": row["content"]}],
++             **({"peer_id": original[row["_capture_index"]]["peer_id"]}
++                if isinstance(original[row["_capture_index"]].get("peer_id"), str) else {})}
++            for row in selected]
++        self.next_index = sum(row["_capture_index"] < self.next_index for row in selected)
++        self.user_content = "".join(row["content"] for row in selected if row["role"] == "user")
++        self.assistant_content = "".join(row["content"] for row in selected if row["role"] == "assistant")
++
+@@ -1417 +1465 @@
 -                logger.warning("OpenViking structured sync failed; falling back to text sync: %s", batch_error)
 +                logger.warning("OpenViking structured sync failed; falling back to individual DTOs: %s", batch_error)
-                 break
-             self.next_index = batch_end
-         if self.batch_messages and self.next_index == len(self.batch_messages):
-             return
+@@ -1422,9 +1470,4 @@
 -        # Plain-text fallback: one user + one assistant message.
 -        user_message: Dict[str, Any] = {"role": "user", "parts": [{"type": "text", "text": self.user_content[:4000]}]}
 -        if self.user_peer_id:
@@ -105,44 +93,20 @@
 +        for payload in self.batch_messages[self.next_index:]:
 +            client.post(f"/api/v1/sessions/{self.sid}/messages", payload)
 +            self.next_index += 1
- 
-     def run(self) -> Optional[_VikingClient]:
-         try:
-@@ -1519,6 +1545,7 @@
-         self._upload_tails: Dict[str, threading.Event] = {}  # guarded by _inflight_lock
-         self._deferred_commit_threads: Set[threading.Thread] = set()
-         self._commit_scope: Optional[_CommitScope] = None
+@@ -1432,0 +1476,2 @@
++        if not self.batch_messages:
++            return None
+@@ -1521,0 +1567 @@
 +        self._profile_prefetch_scope = ""
-         self._profile_prefetched_sessions: Set[str] = set()
-         self._conn_snapshot: Optional[tuple] = None
-         self._extra_headers: dict = {}
-@@ -2002,6 +2029,8 @@
-     def prefetch(self, query: str, *, session_id: str = "") -> str:
-         """Session-start memory block (once per session) + query recall."""
-         query_text = _derive_openviking_user_text(query).strip()
+@@ -2004,0 +2051,2 @@
 +        if is_continuation_prompt(query_text):
 +            return ""
-         if not self._ensure_client():
-             return ""
-         effective_session_id = str(session_id or self._session_id or "").strip()
-@@ -2147,7 +2176,7 @@
-             selected = self._select_recall_candidates(candidates, query_text, limit=cfg["limit"], score_threshold=cfg["score_threshold"])
-             return "\n".join(self._build_prefetch_entries(
-                 client, selected, prefer_abstract=cfg["prefer_abstract"], max_injected_chars=cfg["max_injected_chars"],
+@@ -2150 +2198 @@
 -                deadline=deadline, request_timeout=cfg["request_timeout_seconds"], full_read_limit=cfg["full_read_limit"],
 +                deadline=deadline, request_timeout=cfg["request_timeout_seconds"], full_read_limit=cfg["full_read_limit"], query=query_text,
-             ))
-         except Exception as e:
-             # A timeout leaves query recall empty. Report only local, bounded
-@@ -2286,24 +2315,27 @@
- 
-     @classmethod
-     def _truncate_profile_content(cls, content: str, max_units: int) -> str:
+@@ -2289 +2336,0 @@
 -        """Keep head + tail (first 8 lines, then the end) within max_units; head-only for short profiles."""
-         content = content.strip()
-         if cls._token_units(content) <= max_units:
-             return content
- 
+@@ -2294,13 +2341,17 @@
 -        def _head_only() -> str:
 -            marker = "\n... [profile truncated]"
 -            head = cls._take_tokens(content, max_units - cls._token_units(marker)).rstrip()
@@ -173,13 +137,7 @@
 +        return [unit.strip() for unit in re.split(
 +            r"\n\s*\n|\n(?=[-*+]\s|\d+\.\s|#{1,6}\s)", content
 +        ) if unit.strip()]
- 
-     def _user_space(self, client=None, *, timeout: Optional[float] = None, require_confirmed: bool = False) -> str:
-         """Resolve the user space, caching only a confirmed connection identity.
-@@ -2396,8 +2428,14 @@
-         """Once per session: profile + preferences/entities listings. Skipped (not latched) when
-         the profile read fails for any reason other than absence (404/410) or no client is set."""
-         session_key = session_id or self._session_id or "__openviking_default_session__"
+@@ -2399 +2450,6 @@
 -        if session_key in self._profile_prefetched_sessions:
 +        home, marker = self._startup_profile_identity()
 +        marker = marker.replace(" -->", f" peer={self._current_sender_peer()} -->")
@@ -187,57 +145,30 @@
 +            self._profile_prefetched_sessions.clear()
 +            self._profile_prefetch_scope = marker
 +        if session_key in self._profile_prefetched_sessions or self._saved_startup_profile(home, session_id or self._session_id, marker):
-             return ""
+@@ -2400,0 +2457 @@
 +        catalog = self._profile_config_and_env()[0].get("startup_catalog") is True
-         try:
-             client = self._client
-             if not client:
-@@ -2420,7 +2458,7 @@
-                     return ""
-                 profile = ""
-             listings = []
+@@ -2423 +2480 @@
 -            for uri in uris[1:]:
 +            for uri in uris[1:] if catalog else () :
-                 try:
-                     listings.append(self._extract_memory_listing(budgeted_get("/api/v1/fs/ls", {"uri": uri, **_SESSION_START_LIST_PARAMS})))
-                 except Exception:
-@@ -2428,10 +2466,14 @@
-         except Exception as e:
-             logger.debug("OpenViking session-start memory prefetch failed: %s", e)
-             return ""
+@@ -2430,0 +2488,2 @@
 +        if len(self._profile_prefetched_sessions) >= 128:
 +            self._profile_prefetched_sessions.pop()
-         self._profile_prefetched_sessions.add(session_key)
+@@ -2432,2 +2491,3 @@
 -        return self._build_session_start_memory_block(
 -            profile=profile, preferences=listings[0], entities=listings[1], token_budget=self._profile_token_budget(), uris=uris,
 +        block = self._build_session_start_memory_block(
 +            profile=profile, preferences=listings[0] if catalog else [], entities=listings[1] if catalog else [],
 +            token_budget=self._profile_token_budget() if catalog else min(self._profile_token_budget(), 800), uris=uris,
-         )
+@@ -2434,0 +2495 @@
 +        return f"{marker}\n{block}" if block else ""
- 
-     # -- recall ranking ------------------------------------------------------
- 
-@@ -2461,10 +2503,15 @@
-             return cls._clamp_score(item.get("score")) + (0.12 if item.get("level") == 2 else 0.0)
- 
-         seen_uri, seen_key = set(), set()
+@@ -2463,0 +2525 @@
 +        tokens = cls._query_tokens(query)
-         filtered: List[Dict[str, Any]] = []
-         for item in items:
-             uri = str(item.get("uri") or "").strip()
-             if not uri or uri in seen_uri or cls._clamp_score(item.get("score")) < score_threshold:
+@@ -2467,0 +2530,4 @@
 +                continue
 +            if item.get("level") in (0, 1) or uri.endswith(("/", "/.abstract.md", "/.overview.md")):
 +                continue
 +            if not cls._recall_has_topic(cls._recall_abstract(item), tokens):
-                 continue
-             abstract = " ".join(cls._recall_abstract(item).lower().split())
-             if abstract and "/events/" not in uri.lower() and "/cases/" not in uri.lower():
-@@ -2479,32 +2526,62 @@
-         filtered.sort(key=rank, reverse=True)
-         return filtered[:limit]
- 
+@@ -2482,4 +2548,12 @@
 -    def _build_prefetch_entries(self, client: _VikingClient, items: List[Dict[str, Any]], *, prefer_abstract: bool,
 -                                max_injected_chars: int, deadline: float, request_timeout: float, full_read_limit: int) -> List[str]:
 -        """One entry per item: abstract, or a full L2 read (budgeted by ``full_read_limit``) for
@@ -254,11 +185,10 @@
 +        full_read_limit: int,
 +        query: str = "",
 +    ) -> List[str]:
-         entries: List[str] = []
-         total_chars = 0
+@@ -2488 +2562 @@
 -        full_reads = 0
 +        read_state = {"full_reads": 0}
-         for item in items:
+@@ -2490,10 +2564,27 @@
 -            content = self._recall_abstract(item)
 -            has_explicit_summary = any(isinstance(item.get(key), str) and item.get(key).strip() for key in _RECALL_SUMMARY_KEYS)
 -            uri = str(item.get("uri") or "")
@@ -296,8 +226,7 @@
 +                        excerpts.append(unit)
 +                        excerpt_chars += cost
 +                content = "\n\n".join(excerpts)
-             if not content:
-                 continue
+@@ -2502,6 +2593,11 @@
 -            category = str(item.get("category") or "").strip() or "memory"
 -            entry = "\n".join([f"- [{category}]", f"  <uri>{item.get('uri', '')}</uri>", *[f"  {line}" for line in content.splitlines()]])
 -            projected_chars = total_chars + (1 if entries else 0) + len(entry)
@@ -315,58 +244,117 @@
 +                continue
 +            entries.append(entry)
 +            total_chars = projected_chars
-         return entries
- 
-     # -- turn sync -----------------------------------------------------------
-@@ -2516,6 +2593,9 @@
-         else the transcript end) back to the matching (else nearest) user message."""
-         if not messages:
-             return []
-+        marked = [i for i, message in enumerate(messages) if message.get("capture_current_turn")]
-+        if marked:
-+            return [dict(message) for message in messages[marked[0]:]]
-         last = len(messages) - 1
- 
-         def locate(role: str, start: int, expected: Any) -> Optional[int]:
-@@ -2569,7 +2649,20 @@
-                 continue
-             flush_tool_parts()
-             text = _message_text(message.get("content"))
+@@ -2514,17 +2610,3 @@
+-        """Slice the completed turn out of Hermes' full canonical transcript: the last
+-        assistant message matching assistant_content (else the last assistant message,
+-        else the transcript end) back to the matching (else nearest) user message."""
+-        if not messages:
+-            return []
+-        last = len(messages) - 1
+-
+-        def locate(role: str, start: int, expected: Any) -> Optional[int]:
+-            matched = _rfind_message(messages, role, start, expected) if _message_text(expected).strip() else None
+-            return matched if matched is not None else _rfind_message(messages, role, start)
+-
+-        end_idx = locate("assistant", last, assistant_content)
+-        end_idx = last if end_idx is None else end_idx
+-        start_idx = locate("user", end_idx, user_content)
+-        if start_idx is None:
+-            return []
+-        return [message for message in messages[start_idx : end_idx + 1] if isinstance(message, dict)]
++        """Plugin-local projection; supplied empty/unmatched input stays empty."""
++        from .egress import current_turn
++        return current_turn(user_content, assistant_content, messages)
+@@ -2534,54 +2616,9 @@
+-        """Convert Hermes canonical messages into OpenViking batch payloads.
+-
+-        Recall-tool calls/results are dropped (re-ingesting recalled memory would
+-        re-store it); tool results are grouped into assistant messages; a tool call
+-        whose result is in the slice is emitted only via its result part.
+-        """
+-        assistant_peer_id = str(assistant_peer_id or "").strip()
+-        user_peer_id = str(user_peer_id or "").strip()
+-        dict_messages = [m for m in messages if isinstance(m, dict)]
+-        tool_calls_by_id, completed_tool_ids, skipped_tool_ids = _index_tool_calls(dict_messages)
+-        payload_messages: List[Dict[str, Any]] = []
+-        pending_tool_parts: List[Dict[str, Any]] = []
+-
+-        def emit(role: str, parts: List[Dict[str, Any]]) -> None:
+-            peer_id = assistant_peer_id if role == "assistant" else user_peer_id if role == "user" else ""
+-            peer = {"peer_id": peer_id} if peer_id else {}
+-            payload_messages.append({"role": role, "parts": parts, **peer})
+-
+-        def flush_tool_parts() -> None:
+-            nonlocal pending_tool_parts
+-            if pending_tool_parts:
+-                emit("assistant", pending_tool_parts)
+-                pending_tool_parts = []
+-
+-        for message in dict_messages:
+-            role = str(message.get("role") or "")
+-            if role == "tool":
+-                tool_id = str(message.get("tool_call_id") or message.get("id") or "")
+-                prior_call = tool_calls_by_id.get(tool_id, {})
+-                tool_name = str(message.get("name") or prior_call.get("tool_name") or "")
+-                if tool_id not in skipped_tool_ids and not _is_openviking_recall_tool_name(tool_name):
+-                    pending_tool_parts.append(_tool_part(tool_id, tool_name, prior_call.get("tool_input", {}), _tool_result_status(message),
+-                                                         tool_output=_message_text(message.get("content"))))
+-                continue
+-            if role not in {"user", "assistant"}:
+-                continue
+-            flush_tool_parts()
+-            text = _message_text(message.get("content"))
 -            parts: List[Dict[str, Any]] = [{"type": "text", "text": text}] if text else []
-+            parts: List[Dict[str, Any]] = []
-+            for kind, scope, source_text in OpenVikingMemoryProvider._capture_text_sources(message, text) if text else ():
-+                if kind in {"user", "human", "user_turn", "assistant", "assistant_turn"}:
-+                    if len(OpenVikingMemoryProvider._capture_text_sources(message, text)) == 1:
-+                        parts.append({"type": "text", "text": source_text})
-+                        if role == "user" and "[ASYNC DELEGATION" in source_text:
-+                            parts.append({"type": "text", "text": "Capture attribution guard: quoted or unclosed runtime callbacks, worker prompts, notifications and assistant proposals are task-scoped machine assertions, not user preferences. Preserve human corrections. Promote standing preferences only from explicit durable human statements or explicit human endorsement; never promote task-local restrictions to global policy."})
-+                    else:
-+                        emit(role, [{"type": "text", "text": source_text}])
-+                else:
-+                    emit("assistant", [_tool_part("source-" + hashlib.sha256(source_text.encode()).hexdigest()[:16],
-+                         "hermes_source", {"source_kind": kind, "scope": scope, "original_role": role, "human_endorsed": False},
-+                         "completed", tool_output=source_text)])
-+                    payload_messages[-1]["message_kind"] = "tool_transport"
-             if role == "assistant":
-                 for tool_call in message.get("tool_calls") or []:
-                     if not isinstance(tool_call, dict):
-@@ -2611,8 +2704,11 @@
-         turn_messages = [dict(m) for m in (self._extract_current_turn_messages(messages, user_content, assistant_content) if messages is not None else [])]
-         for message in turn_messages:
-             if message.get("role") == "user":
--                message["content"] = user_content  # first user message carries the skill-stripped text
-+                if not message.get("capture_current_turn"):
-+                    message["content"] = user_content
-                 break
+-            if role == "assistant":
+-                for tool_call in message.get("tool_calls") or []:
+-                    if not isinstance(tool_call, dict):
+-                        continue
+-                    tool_id, tool_name = _tool_call_id(tool_call), _tool_call_name(tool_call)
+-                    if tool_id in skipped_tool_ids or tool_id in completed_tool_ids or _is_openviking_recall_tool_name(tool_name):
+-                        continue
+-                    # Pre-scan caches non-empty ids; parse again for the uncached empty-id case.
+-                    tool_input = tool_calls_by_id[tool_id]["tool_input"] if tool_id in tool_calls_by_id else _tool_call_input(tool_call)
+-                    parts.append(_tool_part(tool_id, tool_name, tool_input, "pending"))
+-            if parts:
+-                emit(role, parts)
+-
+-        flush_tool_parts()
+-        return payload_messages
++        """Serialize only detached human/final text; never tool/source payloads."""
++        from .egress import project_messages
++        result = []
++        for message in project_messages(messages):
++            role = message["role"]
++            peer_id = assistant_peer_id if role == "assistant" else user_peer_id
++            result.append({"role": role, "parts": [{"type": "text", "text": message["content"]}],
++                           **({"peer_id": str(peer_id).strip()} if peer_id else {})})
++        return result
+@@ -2594,0 +2632,3 @@
++        turn_messages = self._extract_current_turn_messages(messages, user_content, assistant_content)
 +        if not turn_messages:
-+            turn_messages = [{"role": "user", "content": user_content}, {"role": "assistant", "content": assistant_content}]
-         batch_messages = self._messages_to_openviking_batch(turn_messages, assistant_peer_id=assistant_peer_id, user_peer_id=user_peer_id)
-         if env_var_enabled(_SYNC_TRACE_ENV):
-             logger.info(
-@@ -3237,54 +3333,178 @@
-         formatted = [entry for _, entry in sorted(scored_entries, key=lambda x: x[0], reverse=True)]
-         return json.dumps({"results": formatted, "total": result.get("total", len(formatted))}, ensure_ascii=False)
- 
++            return
+@@ -2596,3 +2635,0 @@
+-            return
+-        user_content = _derive_openviking_user_text(user_content)
+-        if not user_content:
+@@ -2611,5 +2647,0 @@
+-        turn_messages = [dict(m) for m in (self._extract_current_turn_messages(messages, user_content, assistant_content) if messages is not None else [])]
+-        for message in turn_messages:
+-            if message.get("role") == "user":
+-                message["content"] = user_content  # first user message carries the skill-stripped text
+-                break
+@@ -2616,0 +2649,4 @@
++        if not batch_messages:
++            return
++        user_content = "".join(m["content"] for m in turn_messages if m["role"] == "user")
++        assistant_content = "".join(m["content"] for m in turn_messages if m["role"] == "assistant")
+@@ -3135,0 +3172,5 @@
++        if action in {"add", "replace"}:
++            from .egress import mirror_content
++            content = mirror_content(content, metadata)
++            if not content:
++                return
+@@ -3240 +3281,9 @@
 -    def _read_uri_payload(self, uri: str, level: str, *, limit: Optional[int] = None) -> Dict[str, Any]:
 +    def _read_uri_payload(
 +        self,
@@ -377,11 +365,11 @@
 +        offset: int = 0,
 +        source_sha256: str = "",
 +    ) -> Dict[str, Any]:
-         summary_level = level in {"abstract", "overview"}
+@@ -3242 +3291,2 @@
 -        # Pseudo summary files (viking://x/.overview.md) are read as their directory.
 +        # OpenViking expects directory URIs for pseudo summary files
 +        # (e.g. viking://user/hermes/.overview.md).
-         resolved_uri = self._normalize_summary_uri(uri) if summary_level else uri
+@@ -3244,4 +3294,22 @@
 -        # abstract/overview are directory-only (v0.3.x returns 500/412 for files):
 -        # probe fs/stat for non-pseudo URIs and route files straight to content/read.
 -        used_fallback = summary_level and resolved_uri == uri and self._is_directory_uri(uri) is False
@@ -408,18 +396,11 @@
 +            elif level == "overview":
 +                endpoint = "/api/v1/content/overview"
 +
-         try:
-             resp = self._client.get(endpoint, params={"uri": resolved_uri})
-         except Exception:
+@@ -3251 +3319,2 @@
 -            # Servers may still 500 on summary reads of plain files; fall back to a full read.
 +            # OpenViking may return HTTP 500 for abstract/overview reads on normal
 +            # file URIs (mem_*.md). For those, gracefully fallback to full read.
-             if not summary_level or resolved_uri != uri or used_fallback:
-                 raise
-             resp = self._client.get("/api/v1/content/read", params={"uri": uri})
-             used_fallback = True
- 
-         result = self._unwrap_result(resp)
+@@ -3258,2 +3327,14 @@
 -        content = result if isinstance(result, str) else (result.get("content", "") or result.get("text", "")) if isinstance(result, dict) else ""
 -        max_len = _LEVEL_MAX_CHARS.get(level, 8000)
 +        # Content endpoints may return either plain strings or objects.
@@ -436,8 +417,7 @@
 +            max_len = 4000
 +        elif level == "abstract":
 +            max_len = 1200
-         if limit is not None:
-             max_len = max(200, min(max_len, limit))
+@@ -3262,3 +3343,36 @@
 -        if len(content) > max_len:
 -            content = content[:max_len] + "\n\n[... truncated, use a more specific URI or full level]"
 -        return {"uri": uri, "resolved_uri": resolved_uri, "level": level, "content": content, **({"fallback": "content/read"} if used_fallback else {})}
@@ -477,18 +457,14 @@
 +            payload["fallback"] = "content/read"
 +
 +        return payload
- 
-     def _tool_read(self, args: dict) -> str:
-         level = args.get("level", "overview")
-         uri_arg = args.get("uri", "")
-         uris_arg = args.get("uris", [])
+@@ -3269,0 +3384,6 @@
 +        offset = args.get("offset", 0)
 +        source_sha256 = args.get("source_sha256", "")
 +        if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
 +            return tool_error("offset must be a nonnegative integer")
 +
 +        raw_uris: List[Any]
-         batch_requested = bool(uris_arg) or isinstance(uri_arg, list)
+@@ -3271,2 +3391,20 @@
 -        raw_uris = uris_arg if isinstance(uris_arg, list) and uris_arg else uri_arg if isinstance(uri_arg, list) else [uri_arg]
 -        uris = list(dict.fromkeys(u.strip() for u in raw_uris if isinstance(u, str) and u.strip()))
 +        if isinstance(uris_arg, list) and uris_arg:
@@ -511,18 +487,16 @@
 +            seen.add(uri)
 +            uris.append(uri)
 +
-         if not uris:
-             return tool_error("uri or uris is required")
+@@ -3274,0 +3413,2 @@
 +        if batch_requested and (offset or source_sha256):
 +            return tool_error("Continue each document using its single uri, not uris")
- 
-         selected = uris[:_READ_BATCH_LIMIT]
+@@ -3276,0 +3417,5 @@
 +        per_item_limit = (
 +            _READ_BATCH_FULL_LIMIT
 +            if len(selected) > 1 and level == "full"
 +            else None
 +        )
-         if len(selected) == 1 and not batch_requested:
+@@ -3278,2 +3423,8 @@
 -            return json.dumps(self._read_uri_payload(selected[0], level), ensure_ascii=False)
 -        per_item_limit = _READ_BATCH_FULL_LIMIT if len(selected) > 1 and level == "full" else None
 +            try:
@@ -533,15 +507,12 @@
 +            except ValueError as e:
 +                return tool_error(str(e))
 +
-         results: List[Dict[str, Any]] = []
-         for uri in selected:
-             try:
+@@ -3283 +3434,3 @@
 -                results.append(self._read_uri_payload(uri, level, limit=per_item_limit))
 +                results.append(
 +                    self._read_uri_payload(uri, level, limit=per_item_limit)
 +                )
-             except Exception as e:
-                 results.append({"uri": uri, "level": level, "error": str(e)})
+@@ -3286,2 +3439,14 @@
 -        return json.dumps({"level": level, "results": results, "requested": len(uris), "returned": len(results),
 -                           "truncated": len(uris) > len(selected)}, ensure_ascii=False)
 +
@@ -558,13 +529,7 @@
 +            },
 +            ensure_ascii=False,
 +        )
- 
-     def _tool_browse(self, args: dict) -> str:
-         action = args.get("action", "list")
-@@ -3405,6 +3625,185 @@
-         }, ensure_ascii=False)
- 
- 
+@@ -3407,0 +3573,179 @@
 +    def _startup_profile_identity(self) -> tuple[Path, str]:
 +        from hermes_constants import get_hermes_home
 +
@@ -744,6 +709,268 @@
 +        return sources
 +
 +
- def register(ctx) -> None:
-     """Register OpenViking as a memory provider plugin."""
-     ctx.register_memory_provider(OpenVikingMemoryProvider())
+--- /dev/null
++++ b/egress.py
+@@ -0,0 +1,244 @@
++"""Plugin-local automatic-capture boundary (no host-private imports).
++
++Only typed provenance establishes machine origin. Human text is never classified
++by marker words. Missing transcripts support legacy callers; supplied empty or
++unmatched transcripts are authoritative. This is not a semantic truth filter.
++"""
++from collections.abc import Mapping
++import json
++import re
++from typing import NamedTuple
++
++_TEXT_TYPES = frozenset({'text', 'input_text', 'output_text'})
++_REASON_TYPES = frozenset({'reasoning', 'thinking', 'redacted_thinking', 'analysis', 'reasoning_content', 'summary_text'})
++_HUMAN = frozenset({'', 'human', 'user', 'user_turn', 'human_statement'})
++_ASSISTANT = frozenset({'', 'assistant', 'assistant_turn'})
++_DISPLAY = frozenset({'', 'steer', 'skill_invocation'})
++_REASON_OPEN = re.compile(r'^ {0,3}<(think|thinking|analysis|reasoning)\b[^>]*>', re.I)
++
++
++class _CaptureSlice(NamedTuple):
++    """Logical assistant text and exact slice; revalidated, never a skip flag."""
++    text: str
++    start: int
++    end: int
++
++
++def _without_reasoning_envelopes(content):
++    """Strip raw line-boundary envelopes, not literal Markdown/code examples.
++
++    Re-scan every closing-tag suffix: adjacent envelopes share a boundary.
++    Untyped prose is not classified by keywords or by inline tag resemblance.
++    """
++    result, fence, hidden, ticks = [], None, None, None
++    for line in content.splitlines(keepends=True):
++        while line:
++            if hidden:
++                close = re.search(r'</' + hidden + r'\s*>', line, re.I)
++                if not close:
++                    break
++                line, hidden = line[close.end():], None
++                continue
++            marker = re.match(r'^ {0,3}(`{3,}|~{3,})', line) if ticks is None else None
++            if marker:
++                value = marker.group(1)
++                if fence is None:
++                    fence = value
++                elif (value[0] == fence[0] and len(value) >= len(fence)
++                      and not line[marker.end():].strip()):
++                    fence = None
++                result.append(line)
++                break
++            opening = _REASON_OPEN.match(line) if fence is None and ticks is None else None
++            if opening:
++                hidden = opening.group(1).lower()
++                line = line[opening.end():]
++                continue
++            if fence is None:
++                for tick in re.finditer(r'(?<!\\)`+', line):
++                    width = len(tick.group())
++                    if ticks is None:
++                        ticks = width
++                    elif width == ticks:
++                        ticks = None
++            result.append(line)
++            break
++    return ''.join(result)
++
++
++def visible_text(content, *, assistant=False):
++    if isinstance(content, str):
++        text = content
++    elif isinstance(content, (list, tuple)):
++        text = ''.join(part['text'] for part in content
++                         if isinstance(part, Mapping) and part.get('type') in _TEXT_TYPES
++                         and part.get('channel') in (None, '', 'final')
++                         and allowed_origin(part, 'assistant' if assistant else 'user')
++                         and isinstance(part.get('text'), str))
++    else:
++        return ''
++    return _without_reasoning_envelopes(text) if assistant else text
++
++
++def allowed_origin(message, role):
++    kinds = _HUMAN if role == 'user' else _ASSISTANT
++    for container in (message, message.get('metadata'), message.get('display_metadata')):
++        if not isinstance(container, Mapping):
++            continue
++        if container.get('source_kind', '') not in kinds:
++            return False
++        if container.get('channel') not in (None, '', 'final'):
++            return False
++        if container.get('message_kind') not in (None, '', 'chat', 'text'):
++            return False
++        if container.get('display_kind', '') not in (_DISPLAY if role == 'user' else {''}):
++            return False
++        if container.get('source') in {'runtime_notification', 'machine', 'service', 'reasoning', 'tool_transport'}:
++            return False
++        if container.get('_compressed_summary') or container.get('compaction_inflight_task_restatement'):
++            return False
++    return True
++
++
++def user_text(message):
++    metadata = message.get('display_metadata')
++    typed = metadata.get('typed_ask') if isinstance(metadata, Mapping) else None
++    return typed if isinstance(typed, str) else visible_text(message.get('content'))
++
++
++def safe_message(message):
++    if not isinstance(message, Mapping):
++        return None
++    role = message.get('role')
++    if role not in {'user', 'assistant'} or not allowed_origin(message, role):
++        return None
++    if role == 'assistant' and message.get('tool_calls'):
++        return None
++    proof = message.get('_capture_slice')
++    verified_slice = False
++    if role == 'assistant' and isinstance(proof, _CaptureSlice):
++        # Parse the complete logical message again, retaining fence/code-span
++        # context. Only an exact slice of that safe projection may use it.
++        whole = visible_text(proof.text, assistant=True)
++        verified_slice = (0 <= proof.start < proof.end <= len(whole)
++                          and message.get('content') == whole[proof.start:proof.end])
++    text = (message['content'] if verified_slice else user_text(message) if role == 'user'
++            else visible_text(message.get('content'), assistant=True))
++    if not text.strip():
++        return None
++    row = {'role': role, 'content': text}
++    if verified_slice:
++        row['_capture_slice'] = proof
++    # Internal routing/state only; never copy arbitrary caller metadata or config.
++    for key in ('_capture_final', '_capture_index'):
++        if key in message:
++            row[key] = message[key]
++    if isinstance(message.get('author_peer_id'), str):
++        row['author_peer_id'] = message['author_peer_id']
++    return row
++
++
++def project_messages(messages):
++    """Keep human spans and only their last final assistant, not tool-loop prose."""
++    result, pending = [], []
++    human_turn = False
++    previous_role = None
++    previous_span = False
++    previous_final_chunk = False
++    for message in messages or []:
++        if not isinstance(message, Mapping):
++            continue
++        role = message.get('role')
++        safe = safe_message(message)
++        if role == 'user':
++            span = message.get('capture_current_turn') is True
++            continuation = ((span and previous_span) or message.get('display_kind') == 'steer'
++                            or (previous_role == 'user' and safe is not None and human_turn))
++            if not continuation:
++                result.extend(pending)
++                pending, human_turn = [], False
++            previous_span = span
++            if safe:
++                result.append(safe)
++                human_turn = True
++        elif role == 'assistant':
++            if not (message.get('_capture_final') is True and previous_final_chunk):
++                pending = []
++            previous_span = False
++            if human_turn and safe:
++                pending.append(safe)
++        elif role == 'tool':
++            pending = []
++            previous_span = False
++        previous_role = role
++        previous_final_chunk = role == 'assistant' and message.get('_capture_final') is True
++    result.extend(pending)
++    return result
++
++
++def current_turn(user, assistant, messages):
++    if messages is None:
++        return project_messages([{'role': 'user', 'content': user}, {'role': 'assistant', 'content': assistant}])
++    rows = [message for message in messages if isinstance(message, Mapping)]
++    marked = [i for i, message in enumerate(rows) if message.get('capture_current_turn') is True]
++    if marked:
++        start = marked[0]
++        # A later unmarked user begins another turn, never extend into history.
++        end = next((i for i in range(marked[-1] + 1, len(rows)) if rows[i].get('role') == 'user'), len(rows))
++        return project_messages(rows[start:end])
++    last_user = next((i for i in range(len(rows)-1, -1, -1) if rows[i].get('role') == 'user'), None)
++    if last_user is None:
++        return []
++    start = last_user
++    while start > 0 and rows[start-1].get('role') == 'user':
++        start -= 1
++    # Core projections may contain several detached human spans with no markers.
++    group = rows[start:last_user+1]
++    # The host strips scalar boundary whitespace; it does not rewrite the
++    # authoritative transcript. Match that normalization, export original bytes.
++    expected = user.strip() if isinstance(user, str) else ''
++    if ''.join(user_text(row) for row in group).strip() != expected:
++        if user_text(rows[last_user]).strip() != expected:
++            return []
++        start = last_user
++    return project_messages(rows[start:])
++
++
++def mirror_content(content, metadata=None):
++    metadata = metadata if isinstance(metadata, Mapping) else {}
++    role = 'assistant' if metadata.get('source_kind') in {'assistant', 'assistant_turn'} else 'user'
++    row = safe_message({'role': role, 'content': content, **{key: metadata[key] for key in
++                        ('source_kind', 'source', 'channel', 'display_kind', 'display_metadata', '_compressed_summary') if key in metadata},
++                        'metadata': metadata})
++    if metadata.get('staged') is True or metadata.get('success') is False:
++        return ''
++    return row['content'] if row else ''
++
++
++def import_content(content):
++    """Curated prose is valid; serialized structural payload is not prose.
++
++    Do not guess origin from technical words or embedded human quotes. Standalone
++    reasoning envelopes and JSON message records can be recognized structurally;
++    untyped semantic paraphrases cannot be reliably classified here.
++    """
++    stripped = content.strip()
++    if not stripped:
++        return ''
++    try:
++        value = json.loads(stripped)
++    except (ValueError, TypeError):
++        value = None
++    if isinstance(value, Mapping) and isinstance(value.get('messages'), list):
++        # A native transcript envelope is structural, not a prose JSON example.
++        value = value['messages']
++    if isinstance(value, (dict, list)):
++        records = value if isinstance(value, list) else [value]
++        if any(isinstance(row, Mapping) and ('role' in row or 'source_kind' in row) for row in records):
++            return '\n'.join(row['content'] for row in project_messages(records))
++        if any(isinstance(row, Mapping) and isinstance(row.get('type'), str)
++               and row['type'] in _TEXT_TYPES | _REASON_TYPES for row in records):
++            # Bare typed blocks have no role. Only their visible text is eligible;
++            # thinking/reasoning and sidecar fields must never fall back to JSON.
++            return visible_text(records, assistant=True)
++    return _without_reasoning_envelopes(content)
+--- a/native_memory_mirror.py
++++ b/native_memory_mirror.py
+@@ -90 +90,2 @@
+-        normalized_content = str(content or "").strip()
++        from .egress import mirror_content
++        normalized_content = mirror_content(content, metadata).strip() if action in {"add", "replace"} else ""
+@@ -100 +101,4 @@
+-            "metadata": dict(metadata or {}),
++            # Mapping identity stays exact; arbitrary raw provenance/reasoning
++            # never needs to enter the worker queue or registry.
++            "metadata": {"previous_content": metadata["previous_content"]}
++                        if isinstance(metadata, dict) and isinstance(metadata.get("previous_content"), str) else {},
+@@ -269,0 +274,5 @@
++        if action in {"add", "replace"}:
++            from .egress import mirror_content
++            content = mirror_content(content, metadata).strip()
++            if not content:
++                return

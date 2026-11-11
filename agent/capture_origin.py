@@ -19,6 +19,12 @@ def runtime_capture_origin(payload: str):
         _RUNTIME_PAYLOAD.reset(token)
 
 
+def runtime_capture_is_ambiguous(user: str) -> bool:
+    """A producer is bound, but its exact span cannot be resolved for automatic learning."""
+    payload = _RUNTIME_PAYLOAD.get()
+    return bool(payload) and user.count(payload) != 1
+
+
 def capture_messages(user: str, assistant: str, messages: list[dict[str, Any]] | None,
                      *, original_user: str | None = None):
     """Snapshot trusted spans before background dispatch; never mutate canonical DTOs.

@@ -78,7 +78,9 @@ def test_every_provider_fanout_scrubs_secrets_without_touching_the_live_transcri
     seen = repr(provider.seen)
     assert _SECRET not in seen and "opaque0123456789abcdef" not in seen
     if fanout in _TRANSCRIPT_FANOUTS:
-        assert "read the config" in seen and repr(_IMAGE) in seen  # clean text and inline media pass through
+        assert "read the config" in seen
+        # Checkpoint evidence preserves media; automatic knowledge extraction is text-only.
+        assert (repr(_IMAGE) in seen) is (fanout == "on_pre_compress")
     assert _SECRET in repr(transcript)  # providers got copies; the agent's own transcript is untouched
 
 
@@ -97,11 +99,16 @@ def test_key_detected_in_a_json_tool_result_is_also_masked_where_the_model_repea
     key = "AQ.Ab8RN6Jx2kq9Zs0VwT4yLm3PbQe7HcUfGdA1nX5oIr"
     tool = json.dumps({"output": json.dumps({"embedding": {"api_key": key}, "model": "gemini"})})
     mgr, provider = _manager()
-    mgr.sync_all("show my ov.conf", f"Your key is {key}.", messages=[{"role": "tool", "content": tool}])
+    mgr.sync_all("show my ov.conf", f"Your key is {key}.", messages=[
+        {"role": "user", "content": "show my ov.conf"},
+        {"role": "tool", "content": tool},
+        {"role": "assistant", "content": f"Your key is {key}. Model: gemini."},
+    ])
     mgr.flush_pending(timeout=5.0)
     user, _assistant, messages = provider.seen[0]
     assert key not in repr(provider.seen)
-    assert user == "show my ov.conf" and json.loads(json.loads(messages[0]["content"])["output"])["model"] == "gemini"
+    assert user == "show my ov.conf" and [row["role"] for row in messages] == ["user", "assistant"]
+    assert "Model: gemini." in _assistant  # useful final prose survives, the bare secret does not
 
 
 def test_on_turn_start_scrubs_user_text_but_hands_identity_through_raw():

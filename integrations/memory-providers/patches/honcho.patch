@@ -1,71 +1,35 @@
 --- a/__init__.py
 +++ b/__init__.py
-@@ -19,6 +19,9 @@
- 
- from agent.memory_manager import sanitize_context
- from agent.memory_provider import MemoryProvider, is_trivial_prompt
+@@ -21,0 +22,3 @@
 +from agent.recall_query import is_continuation_prompt
 +from .recall_contracts import bounded_complete_text
 +from .automatic_context import bound_units
- from agent.coding_context import INTERACTIVE_CODING_PLATFORMS as _LOCAL_PLATFORMS
- from agent.skill_commands import extract_user_instruction_from_skill_message
- from agent.turn_author import a2a_key
-@@ -27,6 +30,7 @@
- from .client import _host_block, _HostLookup
- from .client import join_plugin_threads, spawn_context_thread
- from .dialectic import DialecticMixin
+@@ -29,0 +33 @@
 +from .automatic_recall import AutomaticRecallMixin
- from .session_peers import assistant_peer_id_for, sanitize_peer_id
- from .session_context import usable_honcho_summary
- from .tool_schemas import ALL_TOOL_SCHEMAS
-@@ -114,7 +118,7 @@
- _PREWARM_QUERY = "Summarize what you know about this user. Focus on preferences, current projects, and working style."
- 
- 
+@@ -117 +121 @@
 -class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
 +class HonchoMemoryProvider(AutomaticRecallMixin, DialecticMixin, MemoryProvider):
-     """Honcho AI-native memory with dialectic Q&A and persistent user modeling."""
- 
-     def backup_paths(self) -> List[str]:
-@@ -134,15 +138,24 @@
-         self._prefetch_lock = threading.Lock()
-         self._prefetch_thread: Optional[threading.Thread] = None
-         self._sync_thread: Optional[threading.Thread] = None
+@@ -136,0 +141,3 @@
 +        self._pending_turns = []
 +        self._sync_lock = threading.Lock()
 +        self._sync_active = False
-         self._memwrite_thread: Optional[threading.Thread] = None
-         self._recall_mode = "hybrid"  # "context", "tools", or "hybrid"
-         self._recall_sync = False
+@@ -140 +147 @@
 -        self._recall_generation = object()
 +        self._recall_sync_generation = object()
-         self._recall_sync_thread: Optional[threading.Thread] = None
-         self._recall_sync_lock = threading.Lock()
-         # Base context cache — refreshed on context_cadence, not frozen.
-         self._base_context_cache: Optional[str] = None
-         self._base_context_lock = threading.Lock()
+@@ -145,0 +153,6 @@
 +        self._recall_lock = threading.RLock()
 +        self._recall_identity = None
 +        self._recall_generation = 0
 +        self._base_context_data = {}
 +        self._base_thread = None
 +        self._prefetch_result_generation = -1
- 
-         # Recall cadence state (overwritten from config in initialize()).
-         self._turn_count = 0
-@@ -231,7 +244,7 @@
- 
-     def initialize(self, session_id: str, **kwargs) -> None:
-         """Configure recall settings and start (or defer) Honcho session creation."""
+@@ -234 +247 @@
 -        self._recall_generation = object()
 +        self._recall_sync_generation = object()
-         try:
-             agent_context, platform = kwargs.get("agent_context", ""), kwargs.get("platform", "cli")
-             if agent_context in {"cron", "flush"} or platform == "cron":
-@@ -392,17 +405,10 @@
-             except Exception as e:
-                 logger.debug("Honcho memory file migration skipped: %s", e)
- 
+@@ -387 +400 @@
+-        elif not session.messages:
++        elif self._writes_enabled() and not session.messages:
+@@ -395,9 +408 @@
 -        # Generic dialectic prewarm is incompatible with latest-message query rewriting,
 -        # which needs the first substantive user message.
 -        if self._recall_mode in {"context", "hybrid"} and not self._recall_sync:
@@ -76,20 +40,13 @@
 -            else:
 -                logger.debug("Honcho generic dialectic prewarm skipped: awaiting first user message")
 +        # Automatic retrieval waits for an actual producer-bound current query.
- 
-         self._session_initialized = True
+@@ -405,0 +411 @@
 +        self._drain_pending_turns()
- 
-     def _session_ready(self) -> bool:
-         """Whether the manager/session key can be used safely. Background init sets
-@@ -440,23 +446,42 @@
-         return frozenset(str(x) for x in listed)
- 
-     def _format_first_turn_context(self, ctx: dict) -> str:
+@@ -443,2 +449 @@
 -        """Render the prefetch context, keeping only the ``injection.sessionStart`` components when pinned.
 -        The summary passes usable_honcho_summary here, so a contaminated one never reaches _base_context_cache."""
 +        """Complete cards first; headers, separators and omissions share the cap."""
-         ctx = {**ctx, "summary": usable_honcho_summary(ctx.get("summary")) or ""}
+@@ -446,3 +451,19 @@
 -        allowed = self._session_start_components
 -        parts, suppressed = [], []
 -        for name, key, header in _CONTEXT_SECTIONS:
@@ -112,9 +69,7 @@
 +            ("ai_representation", "AI Self-Representation", 0.15),
 +        )
 +        for key, title, fraction in sections:
-             value = ctx.get(key, "")
-             if not value:
-                 continue
+@@ -452,8 +473,12 @@
 -            if allowed is not None and name not in allowed:
 -                suppressed.append(f"{name} ({len(value)}B)")
 -                continue
@@ -135,13 +90,7 @@
 +                part = header + body
 +                parts.append(part)
 +                used += len(part) + separator
-         return "\n\n".join(parts)
- 
-     def system_prompt_block(self) -> str:
-@@ -569,51 +594,6 @@
-         if self._prefetch_thread and self._prefetch_thread.is_alive():
-             logger.debug("Honcho first-turn dialectic still running after %.1fs — will surface on next turn", dia_wait)
- 
+@@ -572,45 +596,0 @@
 -    def prefetch(self, query: str, *, session_id: str = "") -> str:
 -        """Base context (representation + card, refreshed on context_cadence) plus the
 -        dialectic supplement (refreshed on dialectic_cadence), within the context budget.
@@ -187,13 +136,7 @@
 -        if not parts:
 -            return self._log_injection("fetched-but-empty")
 -        return self._log_injection("injected", self._truncate_to_budget("\n\n".join(parts)))
- 
-     def _previous_user_message(self) -> str:
-         """The user message that opened the previous turn.
-@@ -639,49 +619,8 @@
-         return "\n".join([chunks[0], *(c.removeprefix("[continued] ") for c in chunks[1:])]).strip()
- 
-     def _wait_for_first_recall(self, message: str, *, resumed: bool) -> bool:
+@@ -642,43 +622,2 @@
 -        """Wait for this process's first recall: base context within firstTurnBaseWait, then one
 -        dialectic within firstTurnDialecticWait. False when it could not run yet (no session, or
 -        nothing to recall on), so a later turn tries again.
@@ -239,13 +182,7 @@
 -
 +        """Current-query prefetch owns bounded waits, including resumed sessions."""
 +        return False
-     def _pop_auth_notice(self) -> str:
-         """One-time model-facing notice that Honcho auth expired and memory is paused."""
-         # getattr (not a direct call): test fakes install minimal managers without pop_auth_notice.
-@@ -718,51 +657,7 @@
-                       "on a shared gateway it would merge every user onto one peer.")
-         return f"[Honcho memory status] Honcho memory is off for this session. {self._peer_failure_text()}\n{advice}"
- 
+@@ -721,45 +660 @@
 -    def _truncate_to_budget(self, text: str) -> str:
 -        """Truncate text to the context_tokens budget (≈4 chars/token) at a word boundary."""
 -        if not self._config or not self._config.context_tokens:
@@ -292,32 +229,14 @@
 -            return
 -        self._spawn_dialectic(query, thread_name="honcho-prefetch", fired_at=self._turn_count, log_label="prefetch")
 +
- 
-     # Shared with the core prefetch gate so the two classifiers can never drift apart.
-     _is_trivial_prompt = staticmethod(is_trivial_prompt)
-@@ -802,7 +697,7 @@
-     def on_turn_start(self, turn_number: int, message: str, **kwargs) -> None:
-         """Track turn count for cadence, and record who wrote this turn: a shared session carries
-         several participants, and the peer resolved at session init only names whoever opened it."""
+@@ -805 +700 @@
 -        self._recall_generation = object()
 +        self._recall_sync_generation = object()
-         self._turn_count = turn_number
-         self._previous_turn_message = kwargs.get("previous_message") or ""
-         self._turn_author = {"id": kwargs.get("author_id") or None, "name": kwargs.get("author_name") or None,
-@@ -817,7 +712,8 @@
- 
-     def on_session_switch(self, new_session_id: str, **kwargs) -> None:
-         """Discard in-flight recall even when the configured backend session is pinned."""
+@@ -820 +715,2 @@
 -        self._recall_generation = object()
 +        self._recall_sync_generation = object()
 +        self._activate_recall("", new_session_id)
- 
-     # ----- Writes -----
- 
-@@ -856,31 +752,26 @@
- 
-         return chunks
- 
+@@ -859,9 +755,4 @@
 -    def sync_turn(
 -        self, user_content: str, assistant_content: str, *, session_id: str = "",
 -        turn_author: Optional[Dict[str, Any]] = None,
@@ -331,15 +250,22 @@
 +                  turn_author: Optional[Dict[str, Any]] = None, messages: Optional[list[dict]] = None) -> None:
 +        """Queue immutable turns; no backend call or writer join blocks the next input."""
 +        if not self._writes_enabled() or not (self._config or self._manager):
-             return
+@@ -869,2 +760,3 @@
 -        if _is_internal_gateway_turn(user_content):
 -            logger.debug("Honcho sync skipped machine-generated gateway turn")
 +        user = sanitize_context(user_content or "").strip()
 +        assistant = sanitize_context(assistant_content or "").strip()
 +        if not user and not assistant:
-             return
+@@ -872 +764,7 @@
 -        if not self._ready_or_kick_init():
--            return
++        author = dict(turn_author if isinstance(turn_author, dict) else self._turn_author)
++        author = {key: value for key, value in author.items()
++                  if key in {"id", "name", "is_bot"} and isinstance(value, (str, bool, int))}
++        from .capture import build_capture_turn
++        rows = build_capture_turn(user_content, assistant_content, messages=messages,
++                                  max_chars=self._config.message_max_chars if self._config else 25000)
++        if not rows:
+@@ -874,10 +772,7 @@
 -
 -        msg_limit = self._config.message_max_chars if self._config else 25000
 -        clean_user_content = sanitize_context(user_content or "").strip()
@@ -350,10 +276,6 @@
 -            return
 -
 -        author = turn_author if isinstance(turn_author, dict) else self._turn_author
-+        author = dict(turn_author if isinstance(turn_author, dict) else self._turn_author)
-+        from .capture import build_capture_turn
-+        rows = build_capture_turn(user_content, assistant_content, messages=messages,
-+                                  max_chars=self._config.message_max_chars if self._config else 25000)
 +        with self._sync_lock:
 +            self._pending_turns.append((rows, author, self._session_key))
 +        if self._ready_or_kick_init():
@@ -361,29 +283,17 @@
 +
 +    def _write_pending_turn(self, manager, turn) -> None:
 +        rows, author, owner_session_key = turn
-         session_kwargs: dict[str, str] = {}
-         if author.get("is_bot"):
-             # A bot's turn never lands in the human's session: its own a2a session or nothing.
-@@ -891,9 +782,9 @@
-             if not author_id:
-                 logger.debug("Honcho sync skipped a bot-authored turn that named no author id")
-                 return
+@@ -894,3 +789,3 @@
 -            bot_peer_id = self._manager.resolve_author_peer_id(
 -                self._session_key, author_id, author.get("name"), is_bot=True)
 -            if not bot_peer_id or bot_peer_id == self._manager.assistant_peer_id():
 +            bot_peer_id = manager.resolve_author_peer_id(
 +                owner_session_key, author_id, author.get("name"), is_bot=True)
 +            if not bot_peer_id or bot_peer_id == manager.assistant_peer_id():
-                 logger.debug("Honcho sync skipped a bot-authored turn: author %s has no peer of its own", author_id)
-                 return
-             session_key = self._a2a_session_key({**author, "id": author_id})
-@@ -901,22 +792,50 @@
-             session_kwargs["user_peer_id"] = bot_peer_id
-             author_peer_id = None
-         else:
+@@ -904 +799 @@
 -            session_key = self._session_key
 +            session_key = owner_session_key
-             # Resolved before the thread starts so a following turn cannot retag a queued write.
+@@ -906 +801,20 @@
 -            author_peer_id = self._manager.resolve_author_peer_id(session_key, author.get("id"), author.get("name"))
 +            author_peer_id = manager.resolve_author_peer_id(session_key, author.get("id"), author.get("name"))
 +
@@ -394,7 +304,9 @@
 +            if author.get("is_bot"):
 +                row["metadata"].update(source_kind="assistant", scope="session")
 +                row["configuration"] = {"reasoning": {"enabled": False}}
-+            session.add_message(**row, author_peer_id=author_peer_id if human else None)
++            # The turn's resolved binding wins over a caller-supplied row field.
++            row["author_peer_id"] = author_peer_id if human else None
++            session.add_message(**row)
 +        # Appended rows now belong to the manager's retry queue. Never re-enqueue
 +        # after an uncertain send: that would duplicate already-accepted messages.
 +        return session
@@ -403,8 +315,7 @@
 +        if not self._session_ready():
 +            return
 +        manager = self._manager
- 
-         def _sync():
+@@ -909,11 +823,22 @@
 -            session = self._manager.get_or_create(session_key, **session_kwargs)
 -            for chunk in self._chunk_message(clean_user_content, msg_limit) if clean_user_content else ():
 -                session.add_message("user", chunk, author_peer_id=author_peer_id)
@@ -438,18 +349,15 @@
 +                return
 +            self._sync_active = True
 +            self._sync_thread = self._spawn_write(_sync, "honcho-sync", "Honcho sync_turn failed: %s")
- 
-     def _a2a_session_key(self, author: Dict[str, Any]) -> str:
-         """Honcho session for one sender bot's turns into this agent, named from core's ``a2a_key``.
-@@ -1133,7 +1052,7 @@
-     def shutdown(self) -> None:
-         """Join the write threads, flush and stop the manager, then join every other thread this provider or its
-         manager spawned, all within one budget. A daemon thread still blocked in httpx I/O at exit aborts the process."""
+@@ -953,2 +878,3 @@
+-        """Mirror built-in user-profile writes as Honcho conclusions (``metadata`` accepted
+-        for interface compatibility, not yet threaded into the conclusion payload)."""
++        """Mirror committed user facts, not typed machine/reasoning payload."""
++        from .egress import mirror_content
++        content = mirror_content(content, metadata)
+@@ -1136 +1062 @@
 -        self._recall_generation = object()
 +        self._recall_sync_generation = object()
-         budget = self._shutdown_join_budget()
-         deadline = time.monotonic() + budget
-         for t in (self._sync_thread, self._memwrite_thread):
 --- /dev/null
 +++ b/automatic_context.py
 @@ -0,0 +1,51 @@
@@ -698,76 +606,70 @@
 +
 --- /dev/null
 +++ b/capture.py
-@@ -0,0 +1,55 @@
-+"""Detached, chunk-safe provider capture inputs."""
+@@ -0,0 +1,58 @@
++"""Detached automatic-capture DTOs, scrubbed before chunking or queueing."""
++from copy import deepcopy
 +from typing import Any
-+from .recall_contracts import HUMAN_DERIVATION_INSTRUCTIONS, is_runtime_notification
++from .egress import _CaptureSlice, current_turn, safe_message
++from .recall_contracts import HUMAN_DERIVATION_INSTRUCTIONS
 +
-+def build_capture_turn(user: str, assistant: str, *, messages: list[dict[str, Any]] | None = None, max_chars: int = 25000) -> list[dict[str, Any]]:
-+    """Build detached native-message inputs before the provider queues a turn.
 +
-+    Authoritative current-turn spans come from MemoryManager, not a prefix.
-+    Existing unclosed async text remains human-supplied with derivation guards.
-+    Chunk by slicing, retaining whitespace and the original source on every part.
-+    """
-+    sources: list[dict[str, Any]] = [dict(message) for message in (messages or [])
-+               if message.get("capture_current_turn")]
-+    if not sources:
-+        # An explicitly attributed canonical current user message is supported
-+        # even when the call did not originate in the gateway span adapter.
-+        for message in reversed(messages or []):
-+            if message.get("role") == "user":
-+                if message.get("content") == user:
-+                    sources = [dict(message)]
-+                break
-+    if not sources:
-+        sources = [{"role": "user", "content": user,
-+                    "source_kind": "machine_notification" if is_runtime_notification(user) else "human"}]
-+    sources.append({"role": "assistant", "content": assistant, "source_kind": "assistant"})
-+    from agent.memory_manager import sanitize_context
++def native_row(message, *, legacy=False):
++    """SDK-ready allowlist, also used immediately before serialization."""
++    row = safe_message(message)
++    if row is None:
++        return None
++    role = row['role']
++    human = role == 'user'
++    row['metadata'] = {'source': f'{role}_turn', 'original_role': role,
++                       'source_kind': 'human' if human else 'assistant',
++                       'scope': 'human_statement' if human else 'session'}
++    row['configuration'] = ({'reasoning': {'custom_instructions': HUMAN_DERIVATION_INSTRUCTIONS}}
++                            if human else {'reasoning': {'enabled': False}})
++    if legacy and not message.get('_capture_final') and 'metadata' not in message and 'configuration' not in message:
++        row.pop('metadata')
++        row.pop('configuration')
++    return row
 +
++
++def _chunks(text, size):
++    # SDK rejects whitespace-only messages. Attach a whitespace-only slice to
++    # its neighbor without dropping bytes (the cap is soft for whitespace).
++    chunks = [text[i:i+size] for i in range(0, len(text), size)]
++    result, prefix = [], ''
++    for chunk in chunks:
++        if not chunk.strip():
++            if result:
++                result[-1] += chunk
++            else:
++                prefix += chunk
++        else:
++            result.append(prefix + chunk)
++            prefix = ''
++    return result
++
++
++def build_capture_turn(user: str, assistant: str, *, messages: list[dict[str, Any]] | None = None,
++                       max_chars: int = 25000) -> list[dict[str, Any]]:
 +    rows = []
-+    for message in sources:
-+        text = message.get("content") or ""
-+        if not isinstance(text, str) or not text:
++    for message in current_turn(user, assistant, messages):
++        row = native_row(message)
++        if row is None:
 +            continue
-+        # Scrub before slicing: fences can span message chunks. Keep clean
-+        # provenance spans byte-identical, including their boundary whitespace.
-+        cleaned = sanitize_context(text)
-+        if cleaned != text:
-+            text = cleaned.strip()
-+        if not text:
-+            continue
-+        metadata: dict[str, Any] = dict(message.get("metadata") or {})
-+        role = message.get("role", "user")
-+        kind = message.get("source_kind") or metadata.get("source_kind") or ("human" if role == "user" else "assistant")
-+        machine = kind in {"machine_notification", "machine", "runtime_notification", "task_assignment"}
-+        human = role == "user" and kind == "human"
-+        metadata.update(source="runtime_notification" if machine else f"{role}_turn",
-+                        original_role=role, source_kind=kind,
-+                        scope=message.get("scope") or metadata.get("scope") or ("human_statement" if human else "session"))
-+        configuration = {"reasoning": {"custom_instructions": HUMAN_DERIVATION_INSTRUCTIONS}} if human else {"reasoning": {"enabled": False}}
-+        size = max_chars if max_chars > 0 else len(text)
-+        for start in range(0, len(text), size):
-+            rows.append({"role": "assistant" if machine else role,
-+                         "content": text[start:start + size],
-+                         "metadata": dict(metadata), "configuration": configuration})
++        text = row.pop('content')
++        start = 0
++        for chunk in _chunks(text, max_chars if max_chars > 0 else len(text)):
++            captured = {**deepcopy(row), 'content': chunk, '_capture_final': True}
++            if row['role'] == 'assistant':
++                captured['_capture_slice'] = _CaptureSlice(text, start, start + len(chunk))
++            rows.append(captured)
++            start += len(chunk)
 +    return rows
-+
 --- a/dialectic.py
 +++ b/dialectic.py
-@@ -3,6 +3,7 @@
- from __future__ import annotations
- 
- import logging
+@@ -5,0 +6 @@
 +import json
- import re
- import threading
- import time
-@@ -168,37 +169,80 @@
-         structured = "\n" in result and bool("##" in result or "•" in result or _STRUCTURE_RE.search(result))
-         return structured or len(result.strip()) > 300
- 
+@@ -171,4 +172,21 @@
 -    def _run_dialectic_depth(self, query: str, *, use_query_rewrite: bool = True) -> str:
 -        """Run up to dialecticDepth .chat() passes, bailing early once a pass returns
 -        strong signal. Returns the last non-empty result."""
@@ -793,21 +695,15 @@
 +        """
 +        manager, session_key, generation = _owner or (self._manager, self._session_key, self._recall_generation)
 +        if not manager or not session_key:
-             return ""
+@@ -175,0 +194 @@
 +
-         is_cold = not self._base_context_cache
-         results: list[str] = []
-         rewritten_query = ""
-         if use_query_rewrite and self._query_rewrite_enabled and self._query_rewriter:
-             try:
+@@ -181 +200,4 @@
 -                rewritten_query = self._query_rewriter(query).strip()
 +                candidate = self._query_rewriter(query).strip()
 +                from .automatic_context import select_history
 +                # Rewriters may clarify but must not replace the actual topic.
 +                rewritten_query = candidate if select_history(candidate, query) else ""
-             except Exception as exc:
-                 logger.debug("Honcho query rewriter failed: %s", exc)
- 
+@@ -185,4 +207,4 @@
 -        depth = self._dialectic_depth
 -        for i in range(depth):
 -            # Dependent prompts require a non-empty prior result; without one, later
@@ -816,7 +712,7 @@
 +            if generation != self._recall_generation:
 +                return ""
 +            # Dependent prompts require a non-empty prior result.
-             prior_results = [r for r in results if r and r.strip()]
+@@ -190,5 +212,2 @@
 -            if prior_results and self._signal_sufficient(prior_results[-1]):
 -                logger.debug("Honcho dialectic depth %d: pass %d skipped, prior signal sufficient", depth, i)
 -                break
@@ -824,7 +720,7 @@
 -                prompt = self._build_dialectic_prompt(i, prior_results, is_cold)
 +            if i == 0:
 +                prompt = rewritten_query or self._automatic_dialectic_prompt(query)
-             else:
+@@ -196 +215,7 @@
 -                if i:
 +                # Skip further passes if prior pass delivered strong signal
 +                if prior_results and self._signal_sufficient(prior_results[-1]):
@@ -833,7 +729,7 @@
 +                    break
 +                if not prior_results:
 +                    # Retry the independent base prompt after empty passes.
-                     logger.debug("Honcho dialectic depth %d: pass %d has no non-empty prior — "
+@@ -198,2 +223,6 @@
 -                                 "falling back to base prompt", depth, i)
 -                prompt = rewritten_query or self._build_dialectic_prompt(0, [], is_cold)
 +                                 "falling back to base prompt", self._dialectic_depth, i)
@@ -842,7 +738,7 @@
 +                    prompt = (self._automatic_dialectic_prompt(query) + "\n\n"
 +                              + self._build_dialectic_prompt(i, prior_results, is_cold))
 +
-             level = self._resolve_pass_level(i, query=query)
+@@ -201,2 +230,12 @@
 -            logger.debug("Honcho dialectic depth %d: pass %d, level=%s, cold=%s", depth, i, level, is_cold)
 -            result = self._manager.dialectic_query(self._session_key, prompt, reasoning_level=level, peer="user")
 +            logger.debug("Honcho dialectic depth %d: pass %d, level=%s, cold=%s",
@@ -857,7 +753,7 @@
 +            )
 +            if generation != self._recall_generation:
 +                return ""
-             results.append(result or "")
+@@ -204 +243,6 @@
 -        return next((r for r in reversed(results) if r and r.strip()), "")
 +
 +        # Return the last non-empty result (deepest pass that ran)
@@ -865,6 +761,253 @@
 +            if r and r.strip():
 +                return r
 +        return ""
+--- /dev/null
++++ b/egress.py
+@@ -0,0 +1,244 @@
++"""Plugin-local automatic-capture boundary (no host-private imports).
++
++Only typed provenance establishes machine origin. Human text is never classified
++by marker words. Missing transcripts support legacy callers; supplied empty or
++unmatched transcripts are authoritative. This is not a semantic truth filter.
++"""
++from collections.abc import Mapping
++import json
++import re
++from typing import NamedTuple
++
++_TEXT_TYPES = frozenset({'text', 'input_text', 'output_text'})
++_REASON_TYPES = frozenset({'reasoning', 'thinking', 'redacted_thinking', 'analysis', 'reasoning_content', 'summary_text'})
++_HUMAN = frozenset({'', 'human', 'user', 'user_turn', 'human_statement'})
++_ASSISTANT = frozenset({'', 'assistant', 'assistant_turn'})
++_DISPLAY = frozenset({'', 'steer', 'skill_invocation'})
++_REASON_OPEN = re.compile(r'^ {0,3}<(think|thinking|analysis|reasoning)\b[^>]*>', re.I)
++
++
++class _CaptureSlice(NamedTuple):
++    """Logical assistant text and exact slice; revalidated, never a skip flag."""
++    text: str
++    start: int
++    end: int
++
++
++def _without_reasoning_envelopes(content):
++    """Strip raw line-boundary envelopes, not literal Markdown/code examples.
++
++    Re-scan every closing-tag suffix: adjacent envelopes share a boundary.
++    Untyped prose is not classified by keywords or by inline tag resemblance.
++    """
++    result, fence, hidden, ticks = [], None, None, None
++    for line in content.splitlines(keepends=True):
++        while line:
++            if hidden:
++                close = re.search(r'</' + hidden + r'\s*>', line, re.I)
++                if not close:
++                    break
++                line, hidden = line[close.end():], None
++                continue
++            marker = re.match(r'^ {0,3}(`{3,}|~{3,})', line) if ticks is None else None
++            if marker:
++                value = marker.group(1)
++                if fence is None:
++                    fence = value
++                elif (value[0] == fence[0] and len(value) >= len(fence)
++                      and not line[marker.end():].strip()):
++                    fence = None
++                result.append(line)
++                break
++            opening = _REASON_OPEN.match(line) if fence is None and ticks is None else None
++            if opening:
++                hidden = opening.group(1).lower()
++                line = line[opening.end():]
++                continue
++            if fence is None:
++                for tick in re.finditer(r'(?<!\\)`+', line):
++                    width = len(tick.group())
++                    if ticks is None:
++                        ticks = width
++                    elif width == ticks:
++                        ticks = None
++            result.append(line)
++            break
++    return ''.join(result)
++
++
++def visible_text(content, *, assistant=False):
++    if isinstance(content, str):
++        text = content
++    elif isinstance(content, (list, tuple)):
++        text = ''.join(part['text'] for part in content
++                         if isinstance(part, Mapping) and part.get('type') in _TEXT_TYPES
++                         and part.get('channel') in (None, '', 'final')
++                         and allowed_origin(part, 'assistant' if assistant else 'user')
++                         and isinstance(part.get('text'), str))
++    else:
++        return ''
++    return _without_reasoning_envelopes(text) if assistant else text
++
++
++def allowed_origin(message, role):
++    kinds = _HUMAN if role == 'user' else _ASSISTANT
++    for container in (message, message.get('metadata'), message.get('display_metadata')):
++        if not isinstance(container, Mapping):
++            continue
++        if container.get('source_kind', '') not in kinds:
++            return False
++        if container.get('channel') not in (None, '', 'final'):
++            return False
++        if container.get('message_kind') not in (None, '', 'chat', 'text'):
++            return False
++        if container.get('display_kind', '') not in (_DISPLAY if role == 'user' else {''}):
++            return False
++        if container.get('source') in {'runtime_notification', 'machine', 'service', 'reasoning', 'tool_transport'}:
++            return False
++        if container.get('_compressed_summary') or container.get('compaction_inflight_task_restatement'):
++            return False
++    return True
++
++
++def user_text(message):
++    metadata = message.get('display_metadata')
++    typed = metadata.get('typed_ask') if isinstance(metadata, Mapping) else None
++    return typed if isinstance(typed, str) else visible_text(message.get('content'))
++
++
++def safe_message(message):
++    if not isinstance(message, Mapping):
++        return None
++    role = message.get('role')
++    if role not in {'user', 'assistant'} or not allowed_origin(message, role):
++        return None
++    if role == 'assistant' and message.get('tool_calls'):
++        return None
++    proof = message.get('_capture_slice')
++    verified_slice = False
++    if role == 'assistant' and isinstance(proof, _CaptureSlice):
++        # Parse the complete logical message again, retaining fence/code-span
++        # context. Only an exact slice of that safe projection may use it.
++        whole = visible_text(proof.text, assistant=True)
++        verified_slice = (0 <= proof.start < proof.end <= len(whole)
++                          and message.get('content') == whole[proof.start:proof.end])
++    text = (message['content'] if verified_slice else user_text(message) if role == 'user'
++            else visible_text(message.get('content'), assistant=True))
++    if not text.strip():
++        return None
++    row = {'role': role, 'content': text}
++    if verified_slice:
++        row['_capture_slice'] = proof
++    # Internal routing/state only; never copy arbitrary caller metadata or config.
++    for key in ('_capture_final', '_capture_index'):
++        if key in message:
++            row[key] = message[key]
++    if isinstance(message.get('author_peer_id'), str):
++        row['author_peer_id'] = message['author_peer_id']
++    return row
++
++
++def project_messages(messages):
++    """Keep human spans and only their last final assistant, not tool-loop prose."""
++    result, pending = [], []
++    human_turn = False
++    previous_role = None
++    previous_span = False
++    previous_final_chunk = False
++    for message in messages or []:
++        if not isinstance(message, Mapping):
++            continue
++        role = message.get('role')
++        safe = safe_message(message)
++        if role == 'user':
++            span = message.get('capture_current_turn') is True
++            continuation = ((span and previous_span) or message.get('display_kind') == 'steer'
++                            or (previous_role == 'user' and safe is not None and human_turn))
++            if not continuation:
++                result.extend(pending)
++                pending, human_turn = [], False
++            previous_span = span
++            if safe:
++                result.append(safe)
++                human_turn = True
++        elif role == 'assistant':
++            if not (message.get('_capture_final') is True and previous_final_chunk):
++                pending = []
++            previous_span = False
++            if human_turn and safe:
++                pending.append(safe)
++        elif role == 'tool':
++            pending = []
++            previous_span = False
++        previous_role = role
++        previous_final_chunk = role == 'assistant' and message.get('_capture_final') is True
++    result.extend(pending)
++    return result
++
++
++def current_turn(user, assistant, messages):
++    if messages is None:
++        return project_messages([{'role': 'user', 'content': user}, {'role': 'assistant', 'content': assistant}])
++    rows = [message for message in messages if isinstance(message, Mapping)]
++    marked = [i for i, message in enumerate(rows) if message.get('capture_current_turn') is True]
++    if marked:
++        start = marked[0]
++        # A later unmarked user begins another turn, never extend into history.
++        end = next((i for i in range(marked[-1] + 1, len(rows)) if rows[i].get('role') == 'user'), len(rows))
++        return project_messages(rows[start:end])
++    last_user = next((i for i in range(len(rows)-1, -1, -1) if rows[i].get('role') == 'user'), None)
++    if last_user is None:
++        return []
++    start = last_user
++    while start > 0 and rows[start-1].get('role') == 'user':
++        start -= 1
++    # Core projections may contain several detached human spans with no markers.
++    group = rows[start:last_user+1]
++    # The host strips scalar boundary whitespace; it does not rewrite the
++    # authoritative transcript. Match that normalization, export original bytes.
++    expected = user.strip() if isinstance(user, str) else ''
++    if ''.join(user_text(row) for row in group).strip() != expected:
++        if user_text(rows[last_user]).strip() != expected:
++            return []
++        start = last_user
++    return project_messages(rows[start:])
++
++
++def mirror_content(content, metadata=None):
++    metadata = metadata if isinstance(metadata, Mapping) else {}
++    role = 'assistant' if metadata.get('source_kind') in {'assistant', 'assistant_turn'} else 'user'
++    row = safe_message({'role': role, 'content': content, **{key: metadata[key] for key in
++                        ('source_kind', 'source', 'channel', 'display_kind', 'display_metadata', '_compressed_summary') if key in metadata},
++                        'metadata': metadata})
++    if metadata.get('staged') is True or metadata.get('success') is False:
++        return ''
++    return row['content'] if row else ''
++
++
++def import_content(content):
++    """Curated prose is valid; serialized structural payload is not prose.
++
++    Do not guess origin from technical words or embedded human quotes. Standalone
++    reasoning envelopes and JSON message records can be recognized structurally;
++    untyped semantic paraphrases cannot be reliably classified here.
++    """
++    stripped = content.strip()
++    if not stripped:
++        return ''
++    try:
++        value = json.loads(stripped)
++    except (ValueError, TypeError):
++        value = None
++    if isinstance(value, Mapping) and isinstance(value.get('messages'), list):
++        # A native transcript envelope is structural, not a prose JSON example.
++        value = value['messages']
++    if isinstance(value, (dict, list)):
++        records = value if isinstance(value, list) else [value]
++        if any(isinstance(row, Mapping) and ('role' in row or 'source_kind' in row) for row in records):
++            return '\n'.join(row['content'] for row in project_messages(records))
++        if any(isinstance(row, Mapping) and isinstance(row.get('type'), str)
++               and row['type'] in _TEXT_TYPES | _REASON_TYPES for row in records):
++            # Bare typed blocks have no role. Only their visible text is eligible;
++            # thinking/reasoning and sidecar fields must never fall back to JSON.
++            return visible_text(records, assistant=True)
++    return _without_reasoning_envelopes(content)
 --- /dev/null
 +++ b/recall_contracts.py
 @@ -0,0 +1,108 @@
@@ -978,123 +1121,83 @@
 +    return "\n".join(selected)
 --- a/recall_sync.py
 +++ b/recall_sync.py
-@@ -27,7 +27,7 @@
-         worker = provider._recall_sync_thread
-         if worker is not None and worker.is_alive():
-             return ""
+@@ -30 +30 @@
 -        generation = provider._recall_generation = object()
 +        generation = provider._recall_sync_generation = object()
-         session, turn = provider._session_key, provider._turn_count
-         if not provider._session_ready():
-             provider._start_session_init_background(blocking=False)
-@@ -36,7 +36,7 @@
-             if not provider._session_ready():
-                 return provider._pop_auth_notice() or provider._pop_peer_notice()
-         manager = provider._manager
+@@ -39 +39 @@
 -        if (generation is not provider._recall_generation or session != provider._session_key
 +        if (generation is not provider._recall_sync_generation or session != provider._session_key
-                 or turn != provider._turn_count or time.monotonic() >= deadline):
-             return ""
- 
-@@ -54,7 +54,7 @@
-         holder = {}
- 
-         def expired() -> bool:
+@@ -57 +57 @@
 -            return (cancelled.is_set() or generation is not provider._recall_generation
 +            return (cancelled.is_set() or generation is not provider._recall_sync_generation
-                     or time.monotonic() >= deadline)
- 
-         def retrieve() -> None:
-@@ -84,7 +84,7 @@
-                                   rewritten or "Recall evidence relevant to the user's current request.")
-                         prompt = f"Current user request:\n{query}\n\n{prompt}"
-                         result = manager.dialectic_query(session, prompt, reasoning_level=level,
+@@ -87 +87 @@
 -                                                        peer="user", raise_errors=True)
 +                                                        peer="user", raise_errors=True, apply_injection_cap=False)
-                         if result and result.strip():
-                             results.append(result)
-                     dialectic = results[-1] if results else ""
-@@ -97,11 +97,13 @@
-         worker.start()
-         worker.join(timeout=max(0.0, deadline - time.monotonic()))
-         if (worker.is_alive() or time.monotonic() >= deadline or "result" not in holder
+@@ -100 +100 @@
 -                or generation is not provider._recall_generation
 +                or generation is not provider._recall_sync_generation
-                 or provider._manager is not manager or provider._session_key != session
-                 or provider._turn_count != turn):
-             return ""
-         base, dialectic = holder["result"]
+@@ -104,0 +105,2 @@
 +        from .automatic_context import select_history
 +        dialectic = select_history(dialectic, query)
-         if context_due:
-             provider._last_context_turn = turn
-         if dialectic_due:
 --- a/session.py
 +++ b/session.py
-@@ -52,6 +52,12 @@
- 
-     def add_message(self, role: str, content: str, **kwargs: Any) -> None:
-         """Add a message to the local cache."""
-+        metadata = dict(kwargs.get("metadata") or {})
-+        if metadata.get("source_kind") in {"machine_notification", "machine", "task_assignment", "runtime_notification"}:
-+            metadata.setdefault("original_role", role)
-+            metadata["source"] = "runtime_notification"
-+            kwargs.update(metadata=metadata, configuration={"reasoning": {"enabled": False}})
-+            role = "assistant"
-         self.messages.append({"role": role, "content": content, "timestamp": datetime.now().isoformat(), **kwargs})
-         self.updated_at = datetime.now()
- 
-@@ -448,12 +454,12 @@
-             honcho_messages = []
-             for m in new_messages:
-                 if m["role"] != "user":
+@@ -55 +55,9 @@
+-        self.messages.append({"role": role, "content": content, "timestamp": datetime.now().isoformat(), **kwargs})
++        from .capture import native_row
++        row = native_row({"role": role, "content": content, **kwargs}, legacy=True)
++        if row is None:
++            # Retain only a structural boundary, never the rejected raw body.
++            # Otherwise a following assistant could inherit an older human turn.
++            row = {"role": role, "content": "", "source_kind": "excluded", "_synced": True}
++        elif isinstance(kwargs.get("_synced"), bool):
++            row["_synced"] = kwargs["_synced"]
++        self.messages.append({**row, "timestamp": datetime.now().isoformat()})
+@@ -432,0 +441,2 @@
++        from .egress import project_messages
++        from .capture import native_row
+@@ -434,0 +445,18 @@
++            return True
++        # Include already-synced structural context, but send only the unsynced
++        # selected rows. Neither auth retries nor shutdown can bypass projection.
++        indexed = [{**m, "_capture_index": i} for i, m in enumerate(session.messages)]
++        safe_messages = []
++        for row in project_messages(indexed):
++            original = session.messages[row["_capture_index"]]
++            if original.get("_synced"):
++                continue
++            # Only field presence matters for the legacy calling convention;
++            # never restore raw metadata/configuration after projection.
++            row.update({key: {} for key in ("metadata", "configuration") if key in original})
++            native = native_row(row, legacy=True)
++            if native is not None:
++                safe_messages.append(native)
++        if not safe_messages:
++            for message in new_messages:
++                message["_synced"] = True
+@@ -449 +477 @@
+-            for m in new_messages:
++            for m in safe_messages:
+@@ -451 +479 @@
 -                    honcho_messages.append(assistant_peer.message(m["content"]))
 +                    honcho_messages.append(assistant_peer.message(m["content"], **{k: m[k] for k in ("metadata", "configuration") if k in m}))
-                     continue
-                 author_peer_id = m.get("author_peer_id")
-                 peer = (self._author_peer_for_session(honcho_session, session.honcho_session_id, author_peer_id)
-                         if author_peer_id else user_peer)
+@@ -456 +484 @@
 -                honcho_messages.append(peer.message(m["content"]))
 +                honcho_messages.append(peer.message(m["content"], **{k: m[k] for k in ("metadata", "configuration") if k in m}))
-             honcho_session.add_messages(honcho_messages)
-             return len(honcho_messages)
- 
 --- a/session_context.py
 +++ b/session_context.py
-@@ -4,6 +4,8 @@
- 
- import logging
- import re
+@@ -6,0 +7,2 @@
 +import json
 +from .recall_contracts import bounded_complete_text, relevant_representation
- from typing import Any, Callable
- 
- from .session_auth import HonchoAuthError
-@@ -92,9 +94,9 @@
-         """Fetch representation + peer card from a peer object; when peer.context() leaves either
-         empty, fall back to the dedicated representation / card getters. Raises HonchoAuthError when
-         auth is dead or a 401 survives the forced refresh; the fallback chain would just repeat it."""
+@@ -95 +97 @@
 -        context_kwargs: dict[str, Any] = self._target_kwargs(target)
 +        context_kwargs: dict[str, Any] = {**self._target_kwargs(target), "include_most_frequent": False, "max_conclusions": 12}
-         if search_query is not None:
+@@ -97 +99 @@
 -            context_kwargs["search_query"] = search_query
 +            context_kwargs.update(search_query=search_query[:4000], search_top_k=8)
-         peer = lambda: self._get_or_create_peer(peer_id)  # noqa: E731
-         failed = "Direct %s failed for '%%s': %%s"
-         ctx = self._guarded_authed(
-@@ -105,7 +107,7 @@
-         card = self._normalize_card(getattr(ctx, "peer_card", None))
-         if not representation:
-             representation = self._guarded_authed(
+@@ -108 +110 @@
 -                "peer representation fetch", lambda: peer().representation(**self._target_kwargs(target)),
 +                "peer representation fetch", lambda: peer().representation(**context_kwargs),
-                 "", logging.DEBUG, failed % "peer.representation()", peer_id,
-             ) or ""
-         if not card:
-@@ -113,7 +115,17 @@
-                 lambda: self._fetch_peer_card(peer_id, target=target), [], logging.DEBUG,
-                 failed % "peer card fetch", peer_id,
-             )
+@@ -116 +118,11 @@
 -        return {"representation": representation, "card": card}
 +        if not card and target:
 +            card = self._fetch_peer_card(target)
@@ -1107,13 +1210,7 @@
 +            if len(observations) > 1:
 +                chunks[index] = observations[0] + "\n".join(sorted((item.strip() for item in observations[1:]), reverse=True)) + "\n"
 +        return {"representation": "".join(chunks), "card": card}
- 
-     def _peer_context_strings(self, peer_id: str, search_query: str | None = None, *, target: str | None = None):
-         """``_fetch_peer_context`` flattened to ``(representation, newline-joined card)`` for prompt injection."""
-@@ -143,22 +155,13 @@
- 
-         def _user() -> None:
-             observer_peer_id, target_peer_id = self._resolve_observer_target(session, "user")
+@@ -146,9 +157,0 @@
 -            if current_query_only:
 -                # The legacy fallback getters do not accept search_query. An empty
 -                # or failed current-query lookup must not silently become generic recall.
@@ -1123,30 +1220,13 @@
 -                result["representation"] = getattr(ctx, "representation", None) or getattr(ctx, "peer_representation", None) or ""
 -                result["card"] = "\n".join(self._normalize_card(getattr(ctx, "peer_card", None)))
 -                return
-             result["representation"], result["card"] = self._peer_context_strings(
-                 observer_peer_id, search_query=user_message or None, target=target_peer_id or session.user_peer_id,
-             )
- 
-         def _ai() -> None:
-             result["ai_representation"], result["ai_card"] = self._peer_context_strings(
+@@ -161 +164 @@
 -                session.assistant_peer_id, target=session.assistant_peer_id,
 +                session.assistant_peer_id, search_query=user_message or None, target=session.assistant_peer_id,
-             )
-         for step, level, msg in (
-             (_summary, logging.DEBUG, "Failed to fetch session summary from Honcho: %s"),
-@@ -175,6 +178,8 @@
-                 if current_query_only:
-                     raise
-                 logger.log(level, msg, e)
+@@ -177,0 +181,2 @@
 +        for key in ("representation", "ai_representation", "summary"):
 +            result[key] = relevant_representation(result.get(key, ""), user_message)
-         return result
- 
-     def get_session_context(self, session_key: str, peer: str = "user") -> dict[str, Any]:
-@@ -221,53 +226,171 @@
-             return card or (self._fetch_peer_card(target_peer_id) if target_peer_id else [])
-         return self._guarded_session(session_key, _fetch, [], logging.DEBUG, "Failed to fetch peer card from Honcho: %s")
- 
+@@ -224,7 +229,25 @@
 -    def search_context(self, session_key: str, query: str, max_tokens: int = 800, peer: str = "user") -> str:
 -        """Hybrid search over raw messages visible from ``peer``'s perspective, all sessions. Snippets
 -        accumulate until ``max_tokens`` (~4 chars/token) is exhausted. Returns "" when nothing matches;
@@ -1179,10 +1259,10 @@
 +        """
 +        session = self._cached_session(session_key)
 +        if not session:
-             return ""
+@@ -231,0 +255,2 @@
 +
 +        # peer_perspective spans the target peer's sessions across all authors.
-         peer_id = self._resolve_peer_id(session, peer)
+@@ -232,0 +258,9 @@
 +
 +        # Honcho caps query length for the embedding model; keep well under it.
 +        q = (query or "").strip()
@@ -1192,8 +1272,7 @@
 +            q = q[:4000]
 +
 +        # Approximate four characters per token and a few hundred per result.
-         char_budget = max(200, int(max_tokens) * 4)
-         limit = max(3, min(20, char_budget // 300))
+@@ -235,13 +269,75 @@
 -        messages = self._guarded_authed(
 -            "message search", lambda: self.honcho.search(q, filters={"peer_perspective": peer_id}, limit=limit),
 -            _FAILED, logging.DEBUG, "Honcho message search failed (peer_perspective=%s): %s", peer_id,
@@ -1282,18 +1361,13 @@
 +            return (score(content), not machine)
 +
 +        messages = sorted(candidates.values(), key=rank, reverse=True)
-         if not messages:
-             return ""
+@@ -249,0 +346 @@
 +
-         # Author labels distinguish user-stated facts from assistant-derived ones.
+@@ -250,0 +348 @@
 +        assistant_id = session.assistant_peer_id
-         lines: list[str] = []
+@@ -251,0 +350 @@
 +        used = 0
-         for m in messages:
-             content = (getattr(m, "content", "") or "").strip()
-             if not content:
-                 continue
-             author = getattr(m, "peer_id", "") or "unknown"
+@@ -257 +356,11 @@
 -            who = "assistant" if author == session.assistant_peer_id else author
 +            metadata = getattr(m, "metadata", None)
 +            metadata = metadata if isinstance(metadata, dict) else {}
@@ -1306,7 +1380,7 @@
 +            # verified user statement (and do not relabel it machine either).
 +            if not machine and kind != "assistant" and not metadata.get("origin_verified") and content.startswith(("[ASYNC DELEGATION COMPLETE —", "[ASYNC DELEGATION BATCH COMPLETE —")):
 +                who = f"unverified · recorded_peer={author}"
-             sess = getattr(m, "session_id", "") or ""
+@@ -259,3 +368,14 @@
 -            entry = f"[{who}{f' · {sess}' if sess else ''}] {content[:1200]}"
 -            # Budget left after the joined snippets so far plus the separator this entry would need.
 -            remaining = char_budget - len("\n\n".join(lines)) - (2 if lines else 0)
@@ -1324,8 +1398,7 @@
 +            entry = f"[{who}{f' · {sess}' if sess else ''}] {snippet}"
 +            separator = "\n\n" if lines else ""
 +            remaining = char_budget - used - len(separator)
-             if remaining <= 0:
-                 break
+@@ -264,3 +384,6 @@
 -            truncated = len(entry) > remaining
 -            entry = entry[:remaining].rstrip()
 -            if not entry:
@@ -1335,41 +1408,22 @@
 +                    break
 +                lines.append(entry)
 +                used += len(separator) + len(entry)
-                 break
-             lines.append(entry)
+@@ -269,2 +392,2 @@
 -            if truncated:
 -                break
 +            used += len(separator) + len(entry)
 +
-         return "\n\n".join(lines)
- 
-     def _conclusions_scope(self, session: Any, target_peer_id: str) -> Any:
-@@ -355,9 +478,9 @@
- 
-         def _seed() -> bool:
-             assistant_peer = self._get_or_create_peer(session.assistant_peer_id)
+@@ -358,3 +481,3 @@
 -            self._sdk_session(session.honcho_session_id).add_messages([assistant_peer.message(wrapped)])
 -            logger.info("Seeded AI identity from '%s' into %s", source, session_key)
 -            return True
 +            return self._seed_once(assistant_peer, f"ai_identity_seed:{source}", content.strip(),
 +                lambda digest: self._sdk_session(session.honcho_session_id).add_messages([assistant_peer.message(
 +                    wrapped, metadata={"source": "ai_identity_seed", "origin": source, "author": "agent", "sha256": digest})]))
-         try:
-             return self._authed_call("identity seed", _seed)
-         except Exception as e:
-@@ -410,7 +533,7 @@
-         try:
-             result = self._authed_call("dialectic query", _chat_once)
-             cap = self._dialectic_max_chars if apply_injection_cap else 0
+@@ -413 +536 @@
 -            return result[:cap].rsplit(" ", 1)[0] + " …" if result and cap and len(result) > cap else result
 +            return bounded_complete_text(result, cap) if result and cap and len(result) > cap else result
-         except HonchoAuthError:
-             raise
-         except Exception as e:
-@@ -418,3 +541,44 @@
-             if raise_errors:
-                 raise
-             return ""
+@@ -420,0 +544,41 @@
 +
 +    def _retired_conclusion_context(
 +        self, observer: str, observed: str, query: str | None,
@@ -1413,10 +1467,7 @@
 +            return ""
 --- a/session_migration.py
 +++ b/session_migration.py
-@@ -3,6 +3,13 @@
- from __future__ import annotations
- 
- import logging
+@@ -5,0 +6,7 @@
 +import hashlib
 +import threading
 +import re
@@ -1424,39 +1475,32 @@
 +
 +_SEED_LOCK = threading.RLock()
 +_SEED_METADATA_KEY = "hermes_seed_sha256"
- from pathlib import Path
- 
- from .session_auth import HonchoAuthError
-@@ -55,17 +62,21 @@
-                        f"{description}. Treat as foundational context for this user.\n"
-                        f"</context>\n\n{content}\n</prior_memory_file>\n")
- 
+@@ -23,0 +31,3 @@
++        if not getattr(self._config, "save_messages", True):
++            return False
++        from .egress import import_content
+@@ -49,2 +59,2 @@
+-            content = filepath.read_text(encoding="utf-8").strip() if filepath.exists() else ""
+-            if not content:
++            content = import_content(filepath.read_text(encoding="utf-8")) if filepath.exists() else ""
++            if not content.strip():
+@@ -58 +68,3 @@
 -            def _upload() -> None:
 +            peer = self._get_or_create_peer(target_peer_id)
 +
 +            def _upload(digest: str) -> None:
-                 self._sdk_session(session.honcho_session_id).upload_file(
-                     file=(upload_name, wrapped.encode("utf-8"), "text/plain"),
-                     peer=self._get_or_create_peer(target_peer_id),
+@@ -62 +74,2 @@
 -                    metadata={"source": "local_memory", "original_file": filename, "target_peer": target_kind},
 +                    metadata={"source": "local_memory", "original_file": filename, "target_peer": target_kind,
 +                              "origin": "agent_memory_import", "author": "agent", "sha256": digest},
-                 )
- 
-             try:
+@@ -66 +79,2 @@
 -                self._authed_call("memory migration upload", _upload)
 +                did_upload = self._seed_once(peer, f"local_memory:{filename}", content,
 +                    lambda digest: self._authed_call("memory migration upload", lambda: _upload(digest)), legacy_file=filename)
-                 logger.info("Uploaded %s to Honcho for %s (%s peer)", filename, session_key, target_kind)
+@@ -68 +82 @@
 -                uploaded = True
 +                uploaded = did_upload or uploaded
-             except HonchoAuthError:
-                 logger.error("Honcho memory migration stopped after %s: auth failed", filename)
-                 break
-@@ -73,3 +84,49 @@
-                 logger.error("Failed to upload %s to Honcho: %s", filename, e)
- 
-         return uploaded
+@@ -75,0 +90,46 @@
 +
 +    def _seed_once(self, peer: Any, source_key: str, content: str, write: Any,
 +                   *, legacy_file: str | None = None) -> bool:

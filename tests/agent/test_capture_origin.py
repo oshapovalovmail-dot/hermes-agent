@@ -13,7 +13,7 @@ from agent.prompt_builder import steer_user_row
 
 @pytest.mark.parametrize("steers", [0, 1, 2])
 @pytest.mark.parametrize("scaffolded", [False, True])
-def test_manager_sync_retains_history_and_classifies_only_current_payload(scaffolded, steers):
+def test_manager_sync_projects_history_and_suppresses_only_current_payload(scaffolded, steers):
     """Exercise real background dispatch and egress, with only the external store replaced."""
     payload = "machine task finished"
     instruction = "human before\n" + payload + "\nhuman correction"
@@ -71,14 +71,17 @@ def test_manager_sync_retains_history_and_classifies_only_current_payload(scaffo
         assert done.wait(5), "external store never received the completed turn"
         assert len(received) == 1
         clean_user, reply, rows = received[0]
-        assert clean_user == instruction
+        assert clean_user == "human before\n\nhuman correction"
         assert reply == "current reply"
-        assert rows[:len(prior)] == prior
-        current = rows[len(prior):len(prior) + 3]
-        assert [row["source_kind"] for row in current] == ["human", "machine_notification", "human"]
-        assert [row["content"] for row in current] == ["human before\n", payload, "\nhuman correction"]
-        assert rows[len(prior) + 3:] == suffix
-        assert sum(row.get("source_kind") == "machine_notification" for row in rows) == 1
+        # The historical identical user quote has no runtime provenance. Keep it,
+        # but never forward tool history or this turn's producer-bound machine span.
+        expected = [{"role": "user", "content": instruction},
+                    {"role": "assistant", "content": "previous reply"},
+                    {"role": "user", "content": "human before\n"},
+                    {"role": "user", "content": "\nhuman correction"}]
+        expected += [{"role": "user", "content": f"human correction {index}"} for index in range(steers)]
+        expected.append({"role": "assistant", "content": "current reply"})
+        assert rows == expected
         assert history == canonical
     finally:
         manager.shutdown_all()
@@ -88,7 +91,7 @@ def test_manager_sync_retains_history_and_classifies_only_current_payload(scaffo
     "empty", "no-user", "historical-duplicate", "untyped-steer", "only-steer",
     "absent-payload", "repeated-payload", "no-origin", "none", "none-no-origin",
 ])
-def test_manager_sync_preserves_unmatched_transcript_without_historical_search(case):
+def test_manager_sync_preserves_canonical_transcript_and_skips_ambiguous_capture(case):
     payload = "machine task finished"
     user = "human before\n" + payload + "\nhuman correction"
     history = [{"role": "user", "content": user}, {"role": "assistant", "content": "old reply"}]
@@ -128,7 +131,7 @@ def test_manager_sync_preserves_unmatched_transcript_without_historical_search(c
             return None
 
         def sync_turn(self, user_content, assistant_content, *, messages=None, **kwargs):
-            received.append(messages)
+            received.append((user_content, assistant_content, messages))
             done.set()
 
     manager = MemoryManager()
@@ -136,15 +139,26 @@ def test_manager_sync_preserves_unmatched_transcript_without_historical_search(c
     try:
         with runtime_capture_origin("" if case in {"no-origin", "none-no-origin"} else payload):
             manager.sync_all(user, "reply", session_id="capture-mismatch", messages=history)
-        assert done.wait(5), "external store never received the completed turn"
+        assert manager.flush_pending(timeout=5)
+        if case in {"empty", "no-user", "absent-payload", "repeated-payload"}:
+            assert received == []  # All receiver arguments are absent, not just its messages list.
+            assert history == canonical
+            return
         assert len(received) == 1
-        if case == "none":
-            assert [row.get("source_kind") for row in received[0]] == [
-                "human", "machine_notification", "human", None]
-            assert "".join(row["content"] for row in received[0][:-1]) == user
-            assert received[0][-1] == {"role": "assistant", "content": "reply"}
-        else:
-            assert received[0] == canonical
+        expected = {
+            "none": [{"role": "user", "content": "human before\n"},
+                     {"role": "user", "content": "\nhuman correction"},
+                     {"role": "assistant", "content": "reply"}],
+            "only-steer": [{"role": "user", "content": "human correction"}],
+        }
+        if case == "historical-duplicate":
+            assert canonical is not None
+            expected[case] = canonical[:3] + [{"role": "user", "content": "human correction"}, canonical[3]]
+        assert received[0][2] == expected.get(case, canonical)
+        expected_user = {"no-origin": user, "none-no-origin": user, "only-steer": "human correction"}
+        expected_answer = {"no-origin": "old reply", "only-steer": "", "untyped-steer": "", "historical-duplicate": ""}
+        assert received[0][:2] == (expected_user.get(case, "human before\n\nhuman correction"),
+                                   expected_answer.get(case, "reply"))
         assert history == canonical
     finally:
         manager.shutdown_all()

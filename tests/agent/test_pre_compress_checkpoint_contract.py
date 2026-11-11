@@ -2,7 +2,7 @@
 
 The contract has three parts:
 - providers opt in by advertising ``pre_compress_checkpoint_api_version = 2``
-  (v1 is the implicit historical best-effort contract with raw messages);
+  (v1 is the implicit best-effort knowledge-extraction contract);
 - ``MemoryManager`` exposes capability probing and a ``require_checkpoint``
   mode whose failure must propagate instead of being swallowed;
 - the compression host normalizes messages to direct user/assistant evidence
@@ -81,8 +81,8 @@ class _FailingLegacyProvider(_BaseStubProvider):
 
 
 
-def test_v1_providers_receive_raw_messages_and_v2_receive_evidence():
-    """The historical (v1) contract is untouched: raw message list.
+def test_v1_providers_receive_knowledge_and_v2_receive_checkpoint_evidence():
+    """Knowledge capture no longer exports raw tools to best-effort v1 providers.
 
     Only providers that opted into checkpoint API v2 receive the
     host-normalized evidence handoff.
@@ -97,7 +97,7 @@ def test_v1_providers_receive_raw_messages_and_v2_receive_evidence():
     evidence = [{"role": "user", "content": "evidence"}]
 
     manager.on_pre_compress(raw, evidence_messages=evidence)
-    assert legacy.pre_compress_calls == [raw]
+    assert legacy.pre_compress_calls == [evidence]
 
     durable_manager = MemoryManager()
     durable = _CheckpointProvider("durable")

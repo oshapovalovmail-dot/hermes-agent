@@ -1031,6 +1031,7 @@ def _previous_user_message_text(conversation_history: Optional[list[Any]]) -> st
     the ``TYPED_ASK`` stamp; an older row without one has only the memory fence stripped."""
     from agent.context_compressor import user_originated_turn_view
     from agent.conversation_compression_scaffolding import has_scaffolding_flag, is_user_role_scaffolding
+    from agent.memory_capture import PreviousUserMessage
     from agent.prompt_builder import STEER_MARKER_OPEN
     from gateway.message_timestamps import strip_leading_message_timestamps
 
@@ -1039,6 +1040,7 @@ def _previous_user_message_text(conversation_history: Optional[list[Any]]) -> st
             continue
         if has_scaffolding_flag(message):
             continue
+        canonical_row = message
         content = message.get("content")
         if isinstance(content, str) and (clean := strip_leading_message_timestamps(content)[0]) != content:
             message = {**message, "content": clean}
@@ -1049,7 +1051,7 @@ def _previous_user_message_text(conversation_history: Optional[list[Any]]) -> st
             if ask is None:
                 ask = _memory_query_text(live_view.get("content"))
             # A gateway renders the timestamp into the live text, so a carrier's ask or the stamp can carry one.
-            return sanitize_context(strip_leading_message_timestamps(ask)[0]).strip()
+            return PreviousUserMessage(sanitize_context(strip_leading_message_timestamps(ask)[0]).strip(), canonical_row)
     return ""
 
 
