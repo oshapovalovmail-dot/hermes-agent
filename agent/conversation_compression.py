@@ -1378,6 +1378,7 @@ def run_compress_context_with_progress_timeout(
 
 from agent.conversation_compression_checkpoint import _checkpoint_blocked, _checkpoint_incapable
 from agent.conversation_compression_feasibility import lazy_compression_feasibility_check
+from agent.conversation_compression_eligibility import SummaryPhase, native_structural_no_op
 
 
 def _lock_api_is_absent_on_session_db(lock_db: Any) -> bool:
@@ -3733,24 +3734,12 @@ def _commit_compaction(
     )
 
 
-@dataclasses.dataclass
-class _SummaryPhase:
-    """Outcome of the summary phase; ``abort_prompt`` set means hand ``messages`` back."""
-
-    messages: list
-    compressed: Any = None
-    messages_before_compression: Optional[list] = None
-    approx_tokens: Optional[int] = None
-    pre_msg_count: int = 0
-    abort_prompt: Optional[str] = None
-
-
 def _run_summary_phase(
     agent: Any, messages: list, *, lease: _CompressionLease, in_place: bool, checkpoint_required: bool,
     approx_tokens: Optional[int], focus_topic: Optional[str], force: bool, bypass_cooldown: bool,
     commit_fence: Optional[CompressionCommitFence], hard_cancel_event: Any, system_message: str,
     attempt: _Attempt,
-) -> _SummaryPhase:
+) -> SummaryPhase:
     """Adopt a grown durable parent, gather memory context and run the summarizer.
     A hard cancel restores the compressor snapshot + live list, records a stall backoff while the lease is
     still held, and aborts; any other failure restores the live list, releases the lease and re-raises."""
@@ -3776,12 +3765,13 @@ def _run_summary_phase(
                 # Adopted list is fully durable: re-anchor persist idx at the end so the post-
                 # compression flush skips it; run_agent marker sync realigns _session_messages.
                 agent._persist_user_message_idx = len(messages)
-        memory_context = _pre_compress_memory_context(agent, messages, checkpoint_required)
+        structural_no_op = native_structural_no_op(agent.context_compressor, messages, force=force, focus_topic=focus_topic)
+        memory_context = "" if structural_no_op else _pre_compress_memory_context(agent, messages, checkpoint_required)
         compress_fn, compress_kwargs = _resolve_compress_call(
             agent, approx_tokens=approx_tokens, focus_topic=focus_topic, force=force, memory_context=memory_context,
             bypass_cooldown=bypass_cooldown,
         )
-        messages_before_compression = copy.deepcopy(messages)
+        messages_before_compression = messages if structural_no_op else copy.deepcopy(messages)
         _activity_heartbeat = _CompressionActivityHeartbeat(
             agent, commit_fence=commit_fence, emit_client_status=lease.status_emitted,
         ).start()
@@ -3794,6 +3784,11 @@ def _run_summary_phase(
             agent, messages, compress_fn, compress_kwargs, commit_fence=commit_fence,
             attempt_generation=attempt.generation, hard_cancel_event=hard_cancel_event,
         )
+        if structural_no_op and (agent.context_compressor._last_compression_telemetry or {}).get("failure_class") == "insufficient_messages":
+            _emit_aborted_attempt_telemetry(agent, attempt.started_at, "no_progress", attempt.seed)
+            _stop_heartbeat("context compression completed")
+            lease.release()
+            return SummaryPhase(messages=messages, abort_prompt=_existing_system_prompt(agent, system_message))
     except AuxiliaryExplicitCancellation:
         try:
             attempt.restore_compressor(agent.context_compressor)
@@ -3826,7 +3821,7 @@ def _run_summary_phase(
             STALL_INTERRUPTED_FAILURE_CLASS if _stall_backoff
             else "commit_fence_cancelled" if _host_cancel else "explicit_interrupt", attempt.seed,
         )
-        return _SummaryPhase(messages=messages, abort_prompt=_existing_system_prompt(agent, system_message))
+        return SummaryPhase(messages=messages, abort_prompt=_existing_system_prompt(agent, system_message))
     except BaseException as _compress_exc:
         _restore_messages_snapshot(messages, messages_before_compression)
         _stop_heartbeat("context compression failed")
@@ -3837,7 +3832,7 @@ def _run_summary_phase(
         raise
     finally:
         _stop_heartbeat("context compression completed")
-    return _SummaryPhase(
+    return SummaryPhase(
         messages=messages, compressed=compressed, messages_before_compression=messages_before_compression,
         approx_tokens=approx_tokens, pre_msg_count=pre_msg_count,
     )

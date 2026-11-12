@@ -1671,8 +1671,11 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
         logger.info("Restart deferred wait complete — active work drained; proceeding to stop()")
         return True
 
-    def request_restart(self, *, detached: bool = False, via_service: bool = False) -> bool:
+    def request_restart(self, *, detached: bool = False, via_service: bool = False, idle_only: bool = False) -> bool:
         if self._restart_task_started:
+            return False
+        from gateway.run_pause_idle import commit_idle_pause, run_requested_restart
+        if idle_only and not commit_idle_pause(self):
             return False
         self._restart_requested = True
         self._restart_detached = detached
@@ -1686,23 +1689,15 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
         # the boundary from the moment new turns are refused, not only once stop() begins (#115133).
         self._mark_api_runs_shutdown_requested()
 
-        async def _run_restart() -> None:
-            await self._await_active_work_before_restart()
-            # Detached helper only AFTER the after-turn wait, or its drain_timeout+5 deadline fires mid-turn.
-            if detached:
-                with _log_suppressed(logging.ERROR, "Failed to launch detached gateway restart helper: %s"):
-                    await self._launch_detached_restart_command()
-            await asyncio.sleep(0.05)
-            await self.stop(restart=True, detached_restart=detached, service_restart=via_service)
-
-        # NOT in _background_tasks: _stop_impl cancels those, which would cancel _run_restart while it
+        # NOT in _background_tasks: _stop_impl cancels those, which would cancel this restart while it
         # awaits _stop_task and skip _shutdown_event.set() / _exit_code = 75 (#12875). We still hold a strong reference in
         # self._restart_task: a bare asyncio.create_task() keeps only a weak reference, so the event loop
         # may garbage-collect a still-pending task mid-flight. The cancel loop in _stop_impl explicitly
         # skips _restart_task for the same reason it skips _stop_task.
         # Empty Context: /restart is handled inside the requester's profile scope, and a copied context
         # would run the HOST restart as that profile (watcher HERMES_HOME, stop()'s flushes).
-        self._restart_task = Context().run(lambda: asyncio.create_task(_run_restart()))
+        self._restart_task = Context().run(lambda: asyncio.create_task(
+            run_requested_restart(self, detached=detached, via_service=via_service, idle_only=idle_only)))
         return True
 
     def _start_systemd_watchdog(self) -> bool:

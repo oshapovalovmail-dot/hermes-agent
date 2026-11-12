@@ -359,62 +359,13 @@ class MemoryManager:
         if not clean_query or not self._owner_allows("prefetch"):
             return ""
         clean_query = _redact_for_provider(clean_query)
-        parts = self._each_provider(
-            "prefetch failed (non-fatal)", lambda p: self._prefetch_provider(p, clean_query, session_id=session_id),
-        )
-        return "\n\n".join(p for p in parts if p and p.strip())
+        from agent.memory_manager_prefetch import prefetch_providers
+        return prefetch_providers(self, clean_query, session_id=session_id)
 
     def _prefetch_provider(self, provider: MemoryProvider, query: str, *, session_id: str = "") -> str:
-        """Run one provider's prefetch; external providers are bounded by a timeout. A stuck external
-        call keeps running on its daemon thread; _PREFETCH_GATE decides whether later turns call again."""
-        if provider.name == "builtin":
-            return provider.prefetch(query, session_id=session_id)
-
-        result_box: dict[str, Any] = {}
-
-        key = self._registry_key(provider)
-
-        def _run() -> None:
-            try:
-                result_box["value"] = provider.prefetch(query, session_id=session_id) or ""
-            except Exception as exc:  # pragma: no cover - re-raised by caller
-                result_box["error"] = exc
-            finally:
-                self._PREFETCH_GATE.leave(key, thread, ok="error" not in result_box)
-
-        thread = spawn_context_thread(_run, name=f"memory-prefetch-{provider.name}")
-        skipped = self._PREFETCH_GATE.enter(key, thread, self._external_prefetch_timeout)
-        if skipped:
-            logger.debug("Memory provider '%s' prefetch skipped (%d stuck, %d in flight)",
-                         provider.name, *skipped[:2])
-            return ""
-        try:
-            thread.start()
-        except RuntimeError:
-            # Never started, so its finally never runs: drop the entry or it would count forever.
-            self._PREFETCH_GATE.leave(key, thread, ok=False)
-            raise
-
-        thread.join(self._external_prefetch_timeout)
-        if thread.is_alive():
-            logger.warning(
-                "Memory provider '%s' prefetch timed out after %.1fs; the call keeps running in the "
-                "background (later turns may skip it while the provider stays stuck)", provider.name,
-                self._external_prefetch_timeout,
-            )
-            return ""
-
-        if "error" in result_box:
-            raise result_box["error"]
-        result = result_box.get("value", "")
-        if result and result.strip():
-            # Opt-in spill limits recall replayed with the user turn's api_content;
-            # the registration snapshot leaves provider-ranked results intact by default.
-            result = spill_if_oversized(
-                result, session_id=session_id, source=f"{provider.name} memory prefetch",
-                config=self._external_prefetch_spill_config,
-            )
-        return result
+        """Compatibility entry point for a single bounded provider recall."""
+        from agent.memory_manager_prefetch import start_prefetch
+        return start_prefetch(self, provider, query, session_id=session_id)()
 
     def describe_recall(self) -> str:
         """Deterministic recall indicator line (e.g. ``"🧠 Provider — recalled 3 memories"``); ``""`` if none.
