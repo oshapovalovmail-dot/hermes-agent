@@ -1,0 +1,61 @@
+/* ПСиИИ — Color tokens
+   Яндекс Поисковые сервисы и ИИ · Брендбук 2026
+   Extracted from the brandbook Figma file. The system is overwhelmingly
+   white + ink, with Yandex red as the single hot accent and a small set of
+   pastels reserved for photo/3D treatments. */
+
+:root {
+  /* ── Neutrals (the spine of the system) ── */
+  --white:    #FFFFFF;
+  --gray-50:  #F4F4F4; /* hairline fills */
+  --gray-100: #EAEAEA; /* light surface */
+  --gray-200: #D9D9D9; /* dividers, muted fill */
+  --gray-600: #494949; /* body text on white */
+  --gray-900: #1F1F20; /* near-black — primary fill & text */
+  --black:    #000000;
+
+  /* ── Brand red (single accent — use sparingly) ── */
+  --red-yandex: #FC3F1D; /* the signature mark red */
+  --red:        #EE1E1C; /* pure red */
+  --coral:      #F66047; /* lighter coral tint */
+  --burgundy:   #600100; /* deep red */
+  --maroon:     #330001; /* near-black red — corner mark, dark surfaces */
+  --ink:        #1D0203; /* title text (a red-tinted black) */
+
+  /* ── Pastel accents (photo / 3D / data only) ── */
+  --peach: #FFA787;
+  --sky:   #ADD2E6;
+  --ice:   #B6DBEC;
+  --mint:  #DBE7E5;
+
+  /* ── Interface controls (from the Yandex UI-kit) ── */
+  --graphite:          #2C2C32;          /* primary control fill (buttons) */
+  --graphite-press:    #1F1F23;          /* primary pressed */
+  --control-secondary: rgba(0,0,0,0.06); /* secondary button fill */
+  --control-secondary-press: rgba(0,0,0,0.10);
+  --control-stroke:    rgba(0,0,0,0.12); /* stroke button / hairline border */
+  --control-ghost-press: rgba(0,0,0,0.06);
+  --link-blue:         #0077FF;          /* link button text+icon (UI only) */
+  --link-blue-press:   #0061CC;
+
+  /* ── Utility ── */
+  --grid-line: #B19494; /* the layout grid / safe-area guides */
+
+  /* ── Semantic aliases ── */
+  --text-title:   var(--ink);      /* big headings */
+  --text-primary: var(--gray-900); /* default text & fills */
+  --text-body:    var(--gray-600); /* paragraph / body copy */
+  --text-muted:   #909090;         /* captions, метаданные */
+  --text-footer:  rgba(19, 27, 33, 0.5); /* slide footer line */
+  --text-on-dark: var(--white);
+  --text-on-accent: var(--white);
+
+  --surface-page:  var(--white);   /* every slide is white by default */
+  --surface-dark:  var(--gray-900);
+  --surface-muted: var(--gray-100);
+
+  --accent:        #F66048;        /* the system accent (coral red) — Правила 14/73/74/75 */
+  --accent-press:  #E04A30;        /* accent pressed (darker coral) */
+  --border-subtle: var(--gray-200);
+  --grid:          var(--grid-line);
+}

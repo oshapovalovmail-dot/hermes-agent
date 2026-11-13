@@ -1,0 +1,49 @@
+# Атлас: действующий native-контур на QYP
+
+Один бот `@oleg_atlas_research_bot` обслуживается одним Mac Telegram edge. Основной Native Hermes, модель, private profiles, control, инструменты и Podman-песочница работают на QYP. На Mac нет второго основного LLM-агента. Конфигурация модели — `gpt-6.1-terra`, `openai-codex`, reasoning `medium`.
+
+## Проверенный живой сценарий, 13 ноября 2026
+
+- Настоящее сообщение владельца `429726` принято через Telegram SDK и проверку Staff username. Native admission `85` завершён с `completed`; приватная сессия `20261113_193508_b8ef9c9f` выполнила семь основных модельных вызовов и один вызов заголовка.
+- Модель получила настоящий результат `qyp_role`: owner, `isolated_auxiliary_only`.
+- `mcp__atlas_read__yt_read` выполнил read-only `exists` для `hahn://sys`: `exists=true`.
+- В действительной Linux Podman-песочнице с проверенным пределом 536870912 байт модель вычислила `sum(range(1, 101)) = 5050` и создала DOCX размером 36839 байт.
+- Файл прошёл immutable export, native signed egress, настоящий Telegram SDK и получен адресатом как сообщение `429728`. SHA-256 оригинала, экспорта и скачанного файла одинаков: `911e7f6a1c0fd29688902948f2b5240eda2dc0b511fc732e3da5fe1de40e8006`.
+- Родитель независимо открыл OOXML, проверил маркер, значения и целостность ZIP; LibreOffice отрисовал одну страницу без обрезки и перекрытий.
+- Повторный настоящий запрос `429764` получил документ уже с именем `atlas-export.docx` в сообщении `429766`, после исправления имени и повторного использования профиля. Это новый запрос, не replay прежней authority.
+- Две записи автоматического capture в действующем shared Honcho имеют статус `stored`. Это подтверждение записи, не отдельная проверка автоматического recall между новыми диалогами.
+
+Модель честно исправила свои два неудачных обращения к файловым инструментам: запись в read-only `/mnt/data` и первый неверный путь экспорта. Эти ошибки сохранены в операционных доказательствах, а не превращены в успешные вызовы.
+
+## Исправленные границы
+
+- Native SQLite используется из bootstrap- и transport-потоков под общим lock целой транзакции, курсора и закрытия.
+- Mac использует native request factory и реальный `ExtBot.bot`; повторяются только безопасные входные polling-операции, не неоднозначные отправки.
+- Свежий подписанный live-кадр допускает только одну целую секунду опережения часов. HMAC, epoch, role, recipient, TTL, expiry и reconciliation не ослаблены. Часы хостов не менялись.
+- Сбой reader завершает связанную операцию и CLI, а не превращается в немой receipt timeout.
+- Trusted provisioner имеет native profile-admin capability; это не инструмент модели и не обход permission check.
+- Имя экспорта — конечная безопасная метка из расширения broker-approved immutable path. Пользовательские basename/path/filename не становятся полномочиями. Имя входит в signed obligation; старые сообщения без нового поля сохраняют `.bin`.
+- После первого ответа native Hermes записывает `onboarding.seen`. Повторный профиль допускает только четыре известные boolean-квитанции native подсказок: `busy_input_prompt`, `tool_progress_prompt`, `openclaw_residue_cleanup`, `profile_build_offered`. Все настройки модели, reasoning, tools, ролей, прав и поведенческого onboarding сравниваются по-прежнему. Helper не переписывает config пользователя.
+
+## Каталоги и маршрутизация установки
+
+Общий `control` может получить managed-права от backend. Административные policy/state/template размещаются в отдельном принадлежащем установке каталоге `control/admission-private` с режимом 0700. Вместе с шаблоном обязательно сохраняется соседний **тот же одобренный** `SOUL.md` и, если он используется, `honcho-profile-template.json`. Проверка readiness не заменяет настоящий запуск profile helper.
+
+Перемещение admin metadata не перемещает канонический `control/template-stdio`. Ключ приложения хранится в отдельном приватном каталоге; ключи и credentials не входят в исходный пакет, модель или sandbox.
+
+При сбое рекурсивного DNS конкретной QYP VM Mac-конфигурация Атласа может содержать закрытый `ssh_peer_address` с проверенным authoritative IPv6 и исходным именем VM. Этот параметр разрешён только для роли Mac и уже доверенного `qyp-dev`; сохраняются исходный `HostKeyAlias`, `StrictHostKeyChecking=yes`, запрет forwardings и фиксированный app hub entrypoint. Это маршрут одного типизированного приложения, не исправление глобальных DNS/VPN/SSH и не proxy или reverse tunnel. Адрес проверяется заново при изменении VM; неизвестный host key не принимается автоматически.
+
+## Ресурсы и границы доказательств
+
+- Скрипт: до 24 часов; контейнер — до 512 MiB; storage и внутренний экспорт — до 2 GiB на пользователя. Requests/dialogs не ограничиваются прикладным счётчиком.
+- Внутренний экспорт 2 GiB не равен размеру отправки через используемый Telegram cloud Bot API: текущий streaming upload guard — 50000000 байт. Собственный Bot API server не устанавливался.
+- Почта, календарь, Telegram MCP и computer use не являются инструментами Атласа. Внешние бизнес-сервисы по умолчанию read-only; CDP, где разрешён, только task-scoped background read.
+- Квалификация Native8 с scripted model/SDK/Honcho — отдельное синтетическое доказательство. Она не выдаётся за весь новый production acceptance.
+- Фокусированные suite: actual clock/reader 18 на Mac и 18 на Linux; SDK carry-forward 13; route 6; filename SDK 7; known native hint reuse 9. Счётчики разных suite не складываются в число уникальных сценариев.
+- Живой второй сотрудник, группа с Tasha и её demotion, настоящий trace CDP и автоматический recall в новом диалоге не заявлены проверенными. Каталог 2121 операций/151 сервиса не означает исчерпывающего прогона каждой операции.
+
+## Исходники и поставка
+
+Native base: `3c43466900cb1a802d2ef1155c481b37d7d1063a`. Проверенный текущий core patch: `ef1dec6ba115ce0fee70ddf6f4f39cf23a1db797fd544ab0662d5fa6e608e3ed`, 67 изменённых native-файлов. Проект хранит portable payload, installer, core patch и source-level проверки. Права, секреты, target-native PM-generation и активация задаются отдельно конкретной установке; один только source archive не является развёртыванием.
+
+Публикация ведётся в существующий Arcadia PR `17115466`, без нового дубликата, force-push, отключения required checks или комментариев в PR. Merge подтверждается только live-состоянием сервера, не локальным commit или настройкой auto-merge.

@@ -1,0 +1,127 @@
+{
+  "state": "OWNER_LIVE_DOCX_PPTX_PASS_SCOPED_SOURCE_DELTA_QUALIFIED",
+  "qualification_basis": "Historical native17 and MCP proof remains bound to its predecessor. Ingress PM/route fixes are unchanged. Current scoped-Principal proof is an additional fresh native causal regression, not a rerun of all 17 scenarios or live recipient acceptance.",
+  "historical_native_source_binding": {
+    "package_manifest_sha256": "ebc6ca9bad1299d7ad1f4c8215c3bef4f33281435f5bf2f5f0758d60e1a581b2",
+    "admission_sha256": "cdfaf553a03b1b4c8388c5cdc1aa417130d5934400d6859e51ee43d4bc5f83a9",
+    "full_17_native_scenarios_rerun_on_current_admission": false
+  },
+  "ingress_delta": {
+    "admission_sha256": "e5a0fa49e3eb019e93e00f0a3da29f304144042f484bdb3994c6103fb45a2e75",
+    "portable_regression_command": "python -B scripts/verify_ingress.py --root <fresh-installed-root> --work <new-owned-fixture-directory>",
+    "causal_tests": 15,
+    "native_route_tests": 10,
+    "native_PM_helper_controls": 5,
+    "scope": "Real provision callback, native PM base-to-selected-helper boundary, native ProfileRoute and _runtime_profile; no external authentication, model request or Telegram send",
+    "PM_causal_RED": "Old bare-parent helper loses ruamel; the real native helper fails while the selected interpreter succeeds",
+    "route_causal_RED": "PM-only admission leaves differently named equivalent routes; actual native resolver raises admission_conflict",
+    "combined_GREEN": true,
+    "production_activation_permitted": false,
+    "live_acceptance": "Historical pre-LLM failure repaired by the later scoped plugin delta; parent accepted one owner private DOCX/PPTX delivery on the exact guard/admission hashes. Multi-user/group acceptance remains unqualified.",
+    "sandbox_image_evidence": "Inherited only for byte-identical sandbox/image/skill inputs; no new build or whole-package image qualification claimed"
+  },
+  "core_patch_sha256": "0fd8650b76652b3099655be30a8cda66bb17a298c614e239ebd2b5adfdc34299",
+  "upstream_commit": "3c43466900cb1a802d2ef1155c481b37d7d1063a",
+  "runtime_files": 24,
+  "qualification_receipt_sha256": "4858e3009ba92ed9bb61bc5e0477c405b33100b623724867a9d2f086693e5075",
+  "independent_closure_receipt_sha256": "b4ec47f929af20b215ee9b32e5caca6262cec5e7006be04426e677f6f017e2af",
+  "public_code": {
+    "helper_sha256": "f3c95d7ecd83169a1bbce63096f1a091491bb92abba63ea47deac6d902d1be2d",
+    "consent_boundary_sha256": "c031040d5ae79c3c1b30bcc7fda22a93dc88a27b4b44b9d5a187211dc9be8087",
+    "provider_sha256": "c3fc81a8ec934fd592853e78dcf3038c318c87b2b65da612e06a0b3bd256e7b1",
+    "provider_factory_sha256": "82cc637cc14722a71c1ffeb53cc7bb5c53e5c370bf29fc40d79c52bc45cda2df",
+    "approved_policy_sha256": "244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57"
+  },
+  "scopes": {
+    "fresh_distribution_tests": 35,
+    "packaged_fifo_SQLite_tests": 22,
+    "independent_F1_PORTABLE01_closure_tests": 36,
+    "native_protocol_cases": 17,
+    "native_model_http_requests": 18,
+    "main_model_requests": 12,
+    "bot_sdk_sendMessage": 15,
+    "model_consumed_native_MCP_calls": 2,
+    "native_proof_unit_tests": 9,
+    "counts_overlap_and_must_not_be_summed": true
+  },
+  "external_protocols": "Staff, Telegram and model endpoints were explicitly synthetic local fixtures. Native AIAgent, FIFO, SDK serializer, profile helper and MCP stdio were real.",
+  "model_MCP_tool": "mcp__atlas_read__service_catalog(service=wiki,max_chars=2000)",
+  "read_coverage": {
+    "tools": 10,
+    "reviewed_operations": 2121,
+    "services": 151,
+    "all_upstream_operations_live_tested": false
+  },
+  "closed_findings": [
+    "F1 exact redelivery after proof expiry/revocation",
+    "PORTABLE-01 concurrent native-profile consent lost update"
+  ],
+  "fixture_activation": {
+    "genuine_parent_permit_sha256": "d9d81a728f9b2561b7eab95a751eedabd3d61493a34714f1ed981655fe29eb84",
+    "fixture_only": true,
+    "public_production_activation_permitted": false,
+    "guards_disabled": false
+  },
+  "supplemental_observation": {
+    "status": "PARTIAL_BLOCKED",
+    "complete_second_native_cohort": false,
+    "actual_Docker_startup_selfchecks": 12,
+    "network": "none",
+    "containers_removed": 12
+  },
+  "teardown": {
+    "owned_processes_remaining": 0,
+    "owned_containers_remaining": 0,
+    "HTTP_port_closed": true,
+    "model_thread_stopped": true,
+    "bot_sdk_closed": true
+  },
+  "remaining_live_gates": [
+    "Second-human and group live Telegram delivery",
+    "Shared Honcho live multi-user E2E",
+    "Native full exhaustion auto-rotation (canonical owner unit control passed)",
+    "Per-installation native PM/auth/Docker qualification and explicit activation"
+  ],
+  "source_policy": "Production startup remains disabled by default; source qualification is separate from each installation and recipient delivery.",
+  "scoped_principal_delta": {
+    "source_hashes": {
+      "payload/home/plugins/qyp_guard/__init__.py": "24f39ed90ee12a6944376575a2168b25d8fb51db6a59e3da18356c583c193bf3",
+      "payload/home/plugins/qyp_guard/pending_media.py": "3848f1be6bc5de9e2e79a2666d8efe8aa0b41ceeffe4fce6a16416dd71c183d7",
+      "scripts/verify_scoped_principal.py": "df5d817ff97fa0aa361679e376acc86ddc15c7e2e3d24af1faf0d791c9fe8f61",
+      "tests/scoped/test_boundary.py": "ec63844a55ed552af92bfc800a57c28ae2198a07a6330843d16c4a616986dc7b"
+    },
+    "evidence": "manifests/scoped-principal-evidence.json",
+    "causal_RED_main_requests": 0,
+    "causal_GREEN_main_requests": 2,
+    "native_top_level_alias_or_plugin_path_shim": false,
+    "exact_private_home_profile_and_issued_binding": true,
+    "native_role_result_consumed": true,
+    "native_own_media_allow_foreign_deny": true,
+    "native_attachment_staging": true,
+    "staff_revocation_zero_new_model_requests": true,
+    "boundary_tests": 9,
+    "production_activation_permitted": false,
+    "live_R4": "OWNER_LIVE_DOCX_PPTX_PASS_PARENT_RECEIPTS",
+    "core23_admission_image_skill_policy_inputs_unchanged": true
+  },
+  "home_channel_prompt_delta": {
+    "evidence": "manifests/home-channel-prompt-evidence.json",
+    "core_file_sha256": "d9a6c4bc9cfec9c304465ecb879bef2baf3ad61e71557783740fb16a726f7d91",
+    "previous_23_core_files_byte_identical": true,
+    "fresh_physical_patch_hash_checks": 24,
+    "fresh_source_distribution_tests": 40,
+    "native_method_AST_fixture_tests": 5,
+    "live_fresh_thread_acceptance": "PENDING_PARENT",
+    "production_activation_permitted": false
+  },
+  "owner_live_delivery": {
+    "state": "OWNER_LIVE_DOCX_PPTX_PASS",
+    "evidence": "manifests/owner-live-delivery.json",
+    "owner_private_requests": 1,
+    "downloaded_binary_reopens": 2,
+    "all_three_file_chain_hashes_equal": true,
+    "catalog_operations": 2121,
+    "catalog_services": 151,
+    "catalog_result_truncated": false
+  }
+}

@@ -1,0 +1,698 @@
+<!-- @dsCard group="Guidelines" name="Свод правил презентаций" subtitle="Все 81 правило ПСиИИ — живой индекс из rules.md" viewport="2000x1750" -->
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Свод правил ПСиИИ</title><link rel="stylesheet" href="../styles.css"/>
+<style>
+  :root{color-scheme:light;} *{box-sizing:border-box;}
+  body{margin:0;background:#fff;color:#1f1f20;font-family:"YS Text",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:72px 88px 96px;}
+  .head{max-width:1100px;margin:0 0 64px;}
+  .head__kicker{font-size:17px;letter-spacing:0.04em;text-transform:uppercase;color:#F66048;margin:0 0 18px;font-weight:500;}
+  .head h1{font-family:"YS Display Cond","YS Text",sans-serif;font-weight:900;font-size:92px;line-height:0.82;letter-spacing:-0.02em;margin:0 0 24px;}
+  .head p{font-size:22px;line-height:1.4;color:#5c5c5e;margin:0;max-width:820px;}
+  .head .count{color:#1f1f20;font-weight:500;}
+  .sec{margin:0 0 56px;}
+  .sec__title{font-family:"YS Display Cond","YS Text",sans-serif;font-weight:700;font-size:36px;letter-spacing:-0.01em;margin:0 0 24px;padding-bottom:14px;border-bottom:2px solid #1f1f20;}
+  .sec__rules{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 56px;}
+  .rule{display:flex;gap:20px;padding:18px 0;border-bottom:1px solid #ececec;align-items:baseline;}
+  .rule__num{flex:none;width:50px;height:50px;border-radius:999px;background:#F66048;color:#fff;font-family:"YS Display Cond","YS Text",sans-serif;font-weight:700;font-size:23px;display:flex;align-items:center;justify-content:center;align-self:flex-start;}
+  .rule__title{font-size:21px;font-weight:600;line-height:1.2;margin:8px 0 7px;}
+  .rule__sum{font-size:16px;line-height:1.42;color:#6a6a6c;margin:0;text-wrap:pretty;}
+  @media (max-width:1500px){.sec__rules{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:1000px){.sec__rules{grid-template-columns:1fr;}}
+</style></head>
+<body>
+  <div class="head">
+    <p class="head__kicker">ПСиИИ · Design System</p>
+    <h1>Свод правил презентаций</h1>
+    <p><span class="count">81 правило</span> — типографика, слайды, логотипы и иконки, тема и экспорт, подача контента, композиция и таблицы, кнопки и интерфейсные контролы, графики, оформление и сборка слайдов. Полные формулировки и референсы — в <code>guidelines/rules.md</code>.</p>
+  </div>
+
+    <section class="sec">
+      <h2 class="sec__title">Типографика</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">1</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Висящие предлоги</h3>
+            <p class="rule__sum">Предлоги (и союзы), оказавшиеся в конце строки, переносятся на следующую строку вместе со словом, к которому относятся — неразрывным пробелом.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">51</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Точка в конце одиночного предложения не ставится</h3>
+            <p class="rule__sum">Если блок (заголовок, подзаголовок, подпись, пункт, лид) — одно предложение, точка в конце не ставится. Два и больше — пунктуация обычная. «?» и «!» сохраняются.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">16</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Интерлиньяж по кеглю</h3>
+            <p class="rule__sum">Чем крупнее кегль, тем плотнее интерлиньяж. Для каждого кегля берётся свой line-height по шкале (множитель от кегля), согласованной с tokens/typography.css.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">50</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Размер основного текста — фиксированная шкала</h3>
+            <p class="rule__sum">Основной текст — база 28px. Допустимы только 24 · 28 · 32 · 36 · 40 (крупнее при малом тексте; 24 — редкое исключение). Других размеров нет.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">77</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Цвет основного текста — серый #494949</h3>
+            <p class="rule__sum">Бегущий основной текст (абзацы, списки, поясняющие подписи, лейблы) — серый #494949 (--text-body) на белом. Ink #1F1F20 — для заголовков, крупных цифр, данных таблиц (Правило 74), шапок-карточек (Правило 66) и точечных выделений. Подписи/сноски — #909090; на красном/тёмном — белый.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">60</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Подписи — всегда YS Text Regular</h3>
+            <p class="rule__sum">Любая подпись (название под лого/иконкой, подпись плитки, лейбл оси/значения, подпись к фото) — YS Text Regular (вес 400), не Medium/Bold и не YS Display Cond. Размер — по шкале основного текста.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">70</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Крупная цифра/метрика — шкала 72 · 96 · 120 · 140</h3>
+            <p class="rule__sum">Большие дисплейные числа (стат-карточка, цифра-герой, ключевая метрика) — YS Display Cond Heavy по шкале 72 · 96 · 120 · 140px. Новых размеров не придумываем (не 108/128) — берём ближайший шаг. Отдельно от шкалы текста и подписей в графиках.</p>
+          </div>
+        </article>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Слайды</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">2</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Размер слайда</h3>
+            <p class="rule__sum">Все слайды и презентации — формат 67,73 × 38,1 см (2560×1440 px при 96 dpi, 16:9). Это размер фирменного шаблона ПСиИИ.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">3</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Направляющие</h3>
+            <p class="rule__sum">Фирменная сетка хранится как современные цветные направляющие PowerPoint (p15:guide, цвета C35EA4 / C6CBD2), встроенные в presentation.xml и мастер.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">4</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Положение заголовка</h3>
+            <p class="rule__sum">Заголовок content-слайда всегда стоит на месте титульного плейсхолдера шаблона: на канвасе 1920×1080 — position:absolute; left:115px; top:77px.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">5</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Примечание и номер страницы</h3>
+            <p class="rule__sum">Нижний колонтитул (примечание) и номер слайда всегда стоят на нижней линии плейсхолдеров шаблона: на канвасе 1920×1080 — top:979px.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">6</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Нижняя граница контента — строго 3 см воздуха</h3>
+            <p class="rule__sum">Строгое правило: перед примечанием и номером страницы всегда ≥ 3 см воздуха. На 1920×1080 (3 см ≈ 170px) нижняя граница любого контента — не ниже ≈809px (колонтитул на 979px). Не помещается — сжимай/перекомпонуй, зону 3 см не трогай.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">78</div>
+          <div class="rule__body">
+            <h3 class="rule__title">PPTX — только на мастере ПСиИИ (железобетонно)</h3>
+            <p class="rule__sum">Любой .pptx — исключительно на мастере фирменного шаблона (source.pptx → finalize-pptx.js): текст чроме — в плейсхолдерах, номер — авто-поле, 18 макетов, тема, направляющие, 67,73×38,1 см; гейт finalizePptx обязателен. Сырой DOM-захват/скриншот-экспорт отдавать запрещено. Действует для ВСЕХ и всех способов, включая кнопку Share→Export→PowerPoint. Перед выдачей — самопроверка assertBrandPptx ok=true; не вышло — файл не отдаётся вообще. Кнопка Share→Export скачивает сырой файл мимо ассистента — перехватить нельзя, поэтому НИКОГДА не предлагай её нажимать; единственный способ получить PPTX — попросить ассистента собрать на мастере.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">8</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Яркие слайды</h3>
+            <p class="rule__sum">Титул, разделы, слайды с крупной цифрой или ярким тезисом оформляются на фирменном красном фоне #F66048 с белым текстом. Исключение — финальный слайд (серый).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">45</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Финальный слайд — светло-серый</h3>
+            <p class="rule__sum">Финальный слайд оформляется не ярко-красным, а на светло-сером фоне #F2F2F2 (макет «1_Финальный слайд», slideLayout18) с тёмным заголовком и красным знаком.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">47</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Размер крупного заголовка — по длине</h3>
+            <p class="rule__sum">Титул/финал — эталон 220pt, при длинном заголовке понижай по шкале 220→180→140→120. Тезис/раздел — база 140pt, шкала 140→120→96→72. Берёшь наибольший влезающий шаг.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">49</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Размер контентного заголовка — по контексту</h3>
+            <p class="rule__sum">72pt по умолчанию; 96pt — короткий заголовок и лёгкий слайд; 60pt — слайд перегружен; 40pt — заголовок подчинён контенту (серый). Макеты slideLayout4/5/7/8.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">48</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Сборка: чроме — в плейсхолдеры, тело — свободное</h3>
+            <p class="rule__sum">Заголовок/подзаголовок/примечание/номер/имя — всегда в настоящих плейсхолдерах макета (зеркало ps-placeholders.css в превью); тело — свободная вёрстка нативными объектами.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">53</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Нет подходящего макета — «Пустой слайд»</h3>
+            <p class="rule__sum">Если контент не ложится ни в один заголовочный макет — бери «Пустой слайд» (slideLayout9): остаются только примечание и номер, заголовок/тезис — свободная композиция.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">71</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Тезис на красном — макет «Тезис», не «Раздел»</h3>
+            <p class="rule__sum">Полностью красный слайд: короткий заголовок-перебивка → «Раздел» (slideLayout3), целое утверждение-фраза → «Тезис» (slideLayout11). Авто-раскладка различает по длине текста; иначе пинуй layoutByIndex.</p>
+          </div>
+        </article>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">52</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Экспорт — 1:1 с превью</h3>
+            <p class="rule__sum">Выгруженный .pptx совпадает с превью пиксель в пиксель. Видимые элементы тела — только реальные DOM-узлы (не CSS ::before/list-style — они слетают). Любое расхождение — баг конвейера.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">59</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Презентер-вид превью деки</h3>
+            <p class="rule__sum">HTML-превью деки всегда показывается в режиме «презентер»: слева — рейл со всеми слайдами-миниатюрами (клик переключает, выбранная подсвечена), справа — крупно один выбранный слайд. Миниатюры не меняют вёрстку слайда.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Логотипы и фирменные знаки</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">7</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Никогда не перепридумывай логотипы</h3>
+            <p class="rule__sum">Логотипы и фирменные знаки берутся только из исходников, не рисуются и не воссоздаются по памяти, по скриншоту или вручную (SVG/код).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">9</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Логотип только на титульном и финальном</h3>
+            <p class="rule__sum">По умолчанию используется логотип Яндекса — текстовый (yandex-logo.svg) или знак (yandex-mark.svg / yandex-mark-white.svg), но никогда не оба сразу.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">73</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Иконки — только из фирменного набора, один размер, фирменный цвет</h3>
+            <p class="rule__sum">Иконки берутся только из набора ДС (компонент Icon), не рисуются и не берутся со стороны. Один размер на группу/слайд; цвет — только красный #F66048, чёрный #1F1F20, серый #CECECE или белый; без обводки. Уместны как маркеры пунктов и угловой акцент в карточке — точечно, не ради украшения. В презентациях: 40–48px, один размер на слайд, светло-серый #CECECE на белом / белый на красном, монтаж через x-import из бандла.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Тема и экспорт</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">10</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Фирменная тема в экспорте</h3>
+            <p class="rule__sum">В каждом PPTX тема файла (ppt/theme/theme1.xml) всегда содержит фирменную цветовую схему F2F2F2 и шрифтовую схему Custom 8 из шаблона — не дефолтную «Office».</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">11</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Макеты шаблона в экспорте</h3>
+            <p class="rule__sum">В шаблоне зашиты 18 именованных макетов (Титульный, Содержание, Раздел_красный, Заголовок 96/72/60/40 пт, Пустой слайд, Цифра, Тезис, Карточки, Мокап, Фото, Финальный); экспорт собирается на основе самого шаблона.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">46</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Гейт фирменности экспорта — без него файл не отдаётся</h3>
+            <p class="rule__sum">Сырой экспорт любого генератора PPTX всегда нефирменный; он никогда не отдаётся напрямую — путь по умолчанию buildBrandPptx, для готовых HTML-дек gen_pptx→finalizePptx→assertBrandPptx (только при ok:true).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">12</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Заголовки и колонтитулы — всегда в плейсхолдерах макета</h3>
+            <p class="rule__sum">Заголовок, подзаголовок, примечание и номер всегда вставляются как настоящие плейсхолдеры макета (&lt;p:ph&gt;), а не как свободные текст-боксы — finalizePptx авто-повышает заголовок.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Подача контента</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">13</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Не дублируй информацию на слайде</h3>
+            <p class="rule__sum">Один и тот же набор данных показывается одним способом — либо списком/числами, либо графиком, но не двумя сразу.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">14</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Карточки — точечно</h3>
+            <p class="rule__sum">Карточки используются только там, где нужно выделить или разделить информацию (одна акцентная карточка-герой на слайд), а не как обёртка для всего подряд. Один яркий акцент на слайд.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">55</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Карточки — оформление и вариативность</h3>
+            <p class="rule__sum">У карточек фирменный язык: размер по роли; четыре заливки — серая #F2F2F2, белая с обводкой 2px #DADADA, красная #F66048, редко тёмная #494949 (ярких и тёмных — минимум); радиус 1,6 см (~45px) у всех карточек; много внутреннего воздуха; нестандартное расположение; интерфейсные детали.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">62</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Интерфейсные элементы и диалоговое облако</h3>
+            <p class="rule__sum">Аккуратный «интерфейсный» язык точечно: круглые иконки-стрелки, pill-чипы, бейджи (из assets/icons, серые). Важную мысль/вывод подавай как диалоговое облако-сообщение с хвостиком, направленным на то, к чему она относится — точечно, одно на слайд.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">66</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Шапка карточки и подпись-вывод графика — YS Text Medium 32 / #1F1F20</h3>
+            <p class="rule__sum">Заголовок-шапка контентной карточки и подпись-вывод над графиком оформляются как подзаголовок ДС: YS Text Medium 32px (в узкой карточке 28px), цвет ink #1F1F20, без капса и разрядки. Не мелкий капс-лейбл.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">67</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Интерфейсные приёмы — один смысл = один знак</h3>
+            <p class="rule__sum">Не дублируй сигналы: рост — либо «+», либо стрелка; выделение — либо плашка, либо маркер. Не выделяй одно дважды; без мнимой интерактивности (нет табов в никуда — нужны две категории, покажи обе). Выделение самоочевидно.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">69</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Иконки/логотипы сервисов рядом с пунктами</h3>
+            <p class="rule__sum">Где пункт ссылается на конкретный сервис (Такси, Алиса, Маркет…), рядом ставят его логотип/иконку из фирменных ассетов — единый размер и место, дозированно по смыслу. Разбавляет текст и помогает быстро узнать сервис.</p>
+          </div>
+        </article>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">15</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Точки в конце</h3>
+            <p class="rule__sum">В заголовках и одиночных предложениях точка в конце не ставится. Если предложений больше одного — точки везде, кроме последнего. Исключение — нумерованный список.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Композиция</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">54</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Композиция (зонтичное правило)</h3>
+            <p class="rule__sum">Элементы расположены так, чтобы информация была понятной, а слайд — красивым. Площадь делится на зоны размещения; работают все принципы: доминанта, якоря, близость, равновесие, контраст, воздух, единообразие, оптимизация.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">17</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Доминанта</h3>
+            <p class="rule__sum">На каждом слайде ровно один элемент явно «громче» остальных — доминанта (кеглем, цветом, размером, положением). 1 слайд = 1 доминанта.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">18</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Якорные объекты</h3>
+            <p class="rule__sum">Важное тяготеет к углам и центру — сильным точкам композиции. Внутри карточек и блоков ключевой объект прижимается к углу, а не к центру.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">72</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Контент в карточке — по верхнему краю, не по центру</h3>
+            <p class="rule__sum">Содержимое карточки всегда прижато к верхнему краю и идёт стопкой сверху вниз; не центрируй по вертикали (ломает опору и выравнивание с соседями). «Постамент»-воздух копится снизу. Прижать один элемент к низу — локально margin-top:auto, а не центрированием всего.</p>
+          </div>
+        </article>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">19</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Внутреннее ≤ внешнее (близость)</h3>
+            <p class="rule__sum">Внутренние отступы всегда меньше внешних: зазор внутри объекта меньше зазора до соседнего. Иначе непонятно, к чему относится элемент.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">20</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Без наложений</h3>
+            <p class="rule__sum">Элементы не налезают друг на друга. После любых сдвигов, замены контента или смены кегля — проверяй рендером (скриншот превью).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">57</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Выравнивай блоки по сетке</h3>
+            <p class="rule__sum">Верхние края и первые строки соседних колонок лежат на одной линии; низ блоков тоже выровнен (без «дыр»); между колонками — достаточный средник-воздух.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">58</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Таблицы — ужимай под содержание</h3>
+            <p class="rule__sum">Если таблица оставляет много пустоты, сократи её по ширине/высоте под реальный контент, а место отдай соседним блокам. Не растягивай на всю ширину ради заполнения.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">74</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Оформление таблиц — читаемость, а не «сетка с границами»</h3>
+            <p class="rule__sum">Палитра ПСиИИ (ink на белом, серые шапки/линии, красный — точечный акцент); заголовок-вывод; тихие короткие шапки столбцов; единицы — в название колонки; выравнивание текст/числа/дроби по своим правилам; границы — либо горизонтальные, либо вертикальные, без зебры; ключевую цифру выноси крупным каллаутом; сортируй и чисти данные. <strong>Эталон — карточка «Таблицы: было / стало», всегда сверяйся с колонкой «Стало».</strong></p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">21</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Вертикальный баланс, а не растягивание</h3>
+            <p class="rule__sum">Если внизу образовалась пустота — не растягивай блоки на всю высоту, а сдвигай блок ниже и давай воздух под заголовком, выравнивая массу по вертикали.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">22</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Динамика между слайдами</h3>
+            <p class="rule__sum">Соседние слайды не должны иметь одинаковую вёрстку. Чередуй раскладки (полноширинный / колонки / карточки / цифра-герой), чтобы при перелистывании был ритм.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">61</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Нетипичная вёрстка приветствуется</h3>
+            <p class="rule__sum">От монотонной стопки одинаковых блоков стоит осознанно отходить — смелые композиции (диагональ, вертикальная ось, асимметрия) в рамках системы. Эталон — вертикальный таймлайн: ось-линия с красными точками, иерархия текста, интерфейсная стрелка, много воздуха без «дыры».</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Кнопки и интерфейсные элементы</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">75</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Кнопки и интерфейсные контролы — по UI-киту Яндекса</h3>
+            <p class="rule__sum">Кнопки — пилюли, плоские, YS Text Regular 14/20; размеры по высоте 24·28·36·64 (на слайдах ≥36). Шесть типов: primary (графит #2C2C32), secondary (чёрный 6%), stroke (обводка), ghost, link (синий #0077FF — только UI-ссылка), accent (красный #F66048 — один CTA на экран). Одна доминирующая кнопка на экран; контролы (Input, Tabs, Switcher…) — на тех же токенах. <strong>Всегда сначала ищи готовый элемент в ките и не верстай свой с нуля; нет нужного — остановись и попроси исходник.</strong></p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">76</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Подключение UI-кита и иконок — единый доступ (работает и у потребителя)</h3>
+            <p class="rule__sum">Компоненты и иконки берутся из самой ДС, а не «по памяти». У потребителя ДС лежит под <code>_ds/&lt;папка&gt;/</code> — все пути резолвятся относительно неё, абсолютные пути запрещены. Компоненты (Button, Input, Tabs, Icon…) — с <code>window.DesignSystem_132e64</code> после загрузки <code>_ds_bundle.js</code> (в DC — через <code>x-import</code>/<code>ds-base.js</code>, в React-HTML — через бандл). Иконки — <code>&lt;Icon name="search" /&gt;</code>; в статике копируй <code>assets/icons/</code> к себе.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Контент при создании слайдов</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">23</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Не менять контент без запроса</h3>
+            <p class="rule__sum">При создании слайдов используй только тот контент, который дал пользователь — не редактируй, не переписывай и не дополняй по своей инициативе.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Источник истины</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">44</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Дизайн-система — источник истины; референсы — только стиль</h3>
+            <p class="rule__sum">В любом дизайне всегда придерживаемся дизайн-системы ПСиИИ: цвета, шрифты, токены, логотипы, компоненты, размеры — из неё (styles.css, tokens/*, assets/*).</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Референсы стиля</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">24</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Референсы воздушных светлых слайдов</h3>
+            <p class="rule__sum">Ориентир оформления — референсы в guidelines/references/. Берём только приёмы (воздушность, светлые слайды, UI-детали, контраст масштабов), не контент и не чужой брендинг.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Назначение презентации</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">25</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Презентация для чтения ≠ для выступления</h3>
+            <p class="rule__sum">Прежде чем верстать, определи режим: для чтения (самодостаточна, больше текста) или для выступления (минимум текста, крупные тезисы). Если неизвестно — спроси.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">26</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Один слайд = одна мысль</h3>
+            <p class="rule__sum">Если контент пришёл сплошным текстом без деления на слайды — сначала раздели его. На одном слайде — одна мысль и визуалы, которые её иллюстрируют.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">27</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Структура презентации</h3>
+            <p class="rule__sum">Стандартный каркас: титул → оглавление → смысловые слайды → слайд с выводами → финальный слайд. Титул и финал нужны всегда, остальное — по объёму.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Визуализация</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">28</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Визуализация иллюстрирует мысль</h3>
+            <p class="rule__sum">Сама по себе картинка ценности не несёт. Любое изображение, схема или график должны иллюстрировать конкретную мысль и делать её проще, понятнее и убедительнее.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Графики и диаграммы</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">29</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Линейный график — динамика во времени</h3>
+            <p class="rule__sum">Линейный график показывает изменение во времени и общую тенденцию (рост/падение), не заостряя внимания на конкретных значениях.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">30</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Столбчатая диаграмма — сравнение значений</h3>
+            <p class="rule__sum">Столбчатая (столбиковая) диаграмма нужна, когда важна не только динамика, но и сравнение конкретных значений между собой. Длинные подписи — горизонтально.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">31</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Круговая диаграмма — доли, только при явной разнице</h3>
+            <p class="rule__sum">Круговая диаграмма показывает долю сегмента от целого. Применяй осторожно: только при явной разнице долей и когда их немного, иначе бери столбчатую.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">32</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Цвет в графиках не врёт</h3>
+            <p class="rule__sum">Цвет легко наводит на ошибочные выводы. Тёмные сектора кажутся больше светлых; не кодируй цветом смысл, которого в данных нет. Акцент — один #F66048 на слайд.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">33</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Общие правила наглядности графиков</h3>
+            <p class="rule__sum">Пять приёмов: одно свойство на единицу информации, убирай декоративность, подписывай значения и мысль, убирай лишнее, не визуализируй данные, которых нет.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">56</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Фирменное оформление графиков ПСиИИ</h3>
+            <p class="rule__sum">На белом фоне без карточек-обёрток, без легенды (подписи прямо на графике), один красный акцент #F66048, минимальная сетка, фирменный шрифт. Столбцы — прямые углы, ось 1,5–2px #1F1F20.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">79</div>
+          <div class="rule__body">
+            <h3 class="rule__title">График — никогда не картинкой</h3>
+            <p class="rule__sum">Любой график в PPTX — нативные редактируемые объекты (столбцы-div, линии, точки, текст), не растр. В деке строится из реальных DOM-элементов; без data-om-raster, без рисования в SVG/canvas (экспортёр их растрирует). В готовом файле числа и столбцы выделяются по отдельности.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">80</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Один цвет на текстовый объект</h3>
+            <p class="rule__sum">Одно слово, число, заголовок, метрика — одним цветом. Нельзя красить части одного числа/слова разными цветами (как «6 МЛН+» с красным «+» — так нельзя). Исключение: смысловое выделение одного ключевого слова/фразы красным в бегущем тексте (слово целиком, не часть).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">81</div>
+          <div class="rule__body">
+            <h3 class="rule__title">WYSIWYG: выгрузка ровно как превью</h3>
+            <p class="rule__sum">Шрифт, кегль, цвет и расположение в .pptx совпадают с превью деки. Главный риск — шрифт заголовков: они наследуют мажор темы, поэтому мажор темы выгрузки = шрифт заголовков в превью (после finalizePptx патчим theme1.xml). Заголовок YS Text Bold в превью → и в файле YS Text Bold. Расхождение — дефект, чинится перед выдачей.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">65</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Подписи в графиках — YS Text Regular 24 / #494949</h3>
+            <p class="rule__sum">Любая подпись внутри графика/диаграммы (лейблы осей, категории, легенда, доли) — YS Text Regular 24px (при тесноте 20px, не мельче), цвет #494949. Крупные значения-числа над столбцом — исключение (своя шкала цифр).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">68</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Ось графика симметрична</h3>
+            <p class="rule__sum">Базовая ось начинается и заканчивается на одинаковом расстоянии от крайних значений: зазор слева до первого столбца = зазор справа после последнего. Прижимай контейнер к содержимому (inline-flex / fit-content), а не растягивай на всю ширину.</p>
+          </div>
+        </article>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">34</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Схема — наглядное упрощение процесса</h3>
+            <p class="rule__sum">Схему используют, когда нужно показать процесс или структуру связей. Главный критерий — мысль считывается издалека. Собирай из простых примитивов по типу из памятки.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Оформление и шрифт</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">35</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Оформление создаёт целостность и читаемость</h3>
+            <p class="rule__sum">К оформлению переходят, когда визуальные материалы собраны, а структура продумана. Держи достаточный размер шрифта и явный контраст текста с фоном.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">36</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Минимум три цвета</h3>
+            <p class="rule__sum">Минимум три роли цвета: основной для фона, цвет текста и акцентный. В ПСиИИ — белый фон, ink-текст и красный #F66048 как акцент (один на слайд).</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">37</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Контраст фона и акцентов</h3>
+            <p class="rule__sum">Главный принцип сочетания цветов — контрастность: цвета фона и акцентов должны заметно отличаться друг от друга. Не ставь акцент, близкий по светлоте к фону.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec__title">Сборка слайда</h2>
+      <div class="sec__rules">
+        <article class="rule">
+          <div class="rule__num">38</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Порядок чтения</h3>
+            <p class="rule__sum">У каждого слайда есть естественный порядок чтения: от большего к меньшему и слева направо (сверху вниз). Доминанта = первый по очереди чтения.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">39</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Единообразие (консистентность)</h3>
+            <p class="rule__sum">Однотипные элементы по всей презентации должны быть согласованы: один размер заголовков, одни позиции, один акцентный цвет, один стиль графики.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">63</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Единая обводка карточек и отступ заголовок→контент</h3>
+            <p class="rule__sum">Обводка контурных карточек — один цвет и ширина на всю деку (2px #DADADA). На соседних однотипных слайдах контент начинается на одной линии — отступ заголовок→контент одинаковый, чтобы при перелистывании ничего не «прыгало».</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">64</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Карточки на похожих слайдах совпадают по верхней границе</h3>
+            <p class="rule__sum">На соседних/похожих по оформлению слайдах верхняя граница карточек стоит на одной линии (один top), чтобы при перелистывании они не «дёргались». Линию задаёт слайд, которому нужно больше места (с подзаголовком).</p>
+          </div>
+        </article>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">40</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Вариативность вёрстки в общих рамках</h3>
+            <p class="rule__sum">Варьируй способ вёрстки одного и того же, не нарушая консистентность. Сначала задай общие рамки (позиция заголовка, поля, подписи) — внутри них свобода.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">41</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Масштаб как акцент</h3>
+            <p class="rule__sum">Увеличение масштаба одного элемента — сильный способ выделить мысль и присобрать композицию. Укрупняй то, что несёт смысл, а не декорацию.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">42</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Выделение формой</h3>
+            <p class="rule__sum">Элемент выделяется, если ему придать форму, отличную от других на слайде: акцентной плашкой-бейджем, обводкой, иной заливкой. В ПСиИИ плашка — красный #F66048.</p>
+          </div>
+        </article>
+        <article class="rule">
+          <div class="rule__num">43</div>
+          <div class="rule__body">
+            <h3 class="rule__title">Цветной акцент работает только на спокойном фоне</h3>
+            <p class="rule__sum">Цвет срабатывает как акцент, только если сама презентация не разноцветная. Держи деку цветово сдержанной, а акцент береги для редких ключевых элементов.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+</body></html>

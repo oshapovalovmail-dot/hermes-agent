@@ -1,0 +1,95 @@
+<!-- @dsCard group="Components" viewport="940x680" name="UI kit — формы и контролы" subtitle="Правило 75 · Input · Select · Checkbox · Radio · Switcher · Tabs · Tooltip · Divider — значения из кита Яндекса" -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: var(--white); font-family: var(--font-text); font-weight: var(--fw-regular); color: var(--text-primary); }
+  #root { padding: 34px 40px 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px 44px; align-items: start; }
+  .full { grid-column: 1 / -1; }
+  h1 { font-family: var(--font-display); font-weight: 900; font-size: 32px; line-height: 1; margin: 0; letter-spacing: -0.01em; }
+  .lbl { font-size: 12px; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 12px; }
+  .block { display: flex; flex-direction: column; }
+  .row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Input, Select, Checkbox, RadioButton, Switcher, Tabs, Tooltip, Divider, TextArea, Trobber, Icon } = window.DesignSystem_132e64;
+  function Demo() {
+    const [tab, setTab] = React.useState("all");
+    const [on, setOn] = React.useState(true);
+    const [chk, setChk] = React.useState(true);
+    const [radio, setRadio] = React.useState("a");
+    return (
+      <>
+        <div className="full"><h1>UI-кит — формы и контролы</h1></div>
+
+        <div className="block">
+          <div className="lbl">Input · Select</div>
+          <div className="col" style={{ gap: 16, width: "100%" }}>
+            <Input label="Запрос" placeholder="Найти в Яндексе" iconLeft={<Icon name="search" size={16} color="#909090" />} style={{ width: "100%" }} />
+            <Select label="Сервис" value="Поиск" style={{ width: "100%" }} />
+          </div>
+        </div>
+
+        <div className="block">
+          <div className="lbl">Checkbox · Radio</div>
+          <div className="col">
+            <Checkbox checked={chk} onChange={() => setChk(!chk)} label="Запоминать запросы" />
+            <Checkbox checked={false} label="Безопасный поиск" />
+            <RadioButton checked={radio === "a"} onChange={() => setRadio("a")} name="r" label="Везде" />
+            <RadioButton checked={radio === "b"} onChange={() => setRadio("b")} name="r" label="Только картинки" />
+          </div>
+        </div>
+
+        <div className="block">
+          <div className="lbl">Switcher</div>
+          <div className="row">
+            <Switcher checked={on} onChange={setOn} />
+            <Switcher checked={false} onChange={() => {}} />
+            <Switcher checked={true} size="small" onChange={() => {}} />
+          </div>
+        </div>
+
+        <div className="block">
+          <div className="lbl">Tabs</div>
+          <Tabs
+            active={tab}
+            onChange={setTab}
+            items={[{ id: "all", label: "Всё" }, { id: "img", label: "Картинки" }, { id: "vid", label: "Видео" }]}
+          />
+        </div>
+
+        <div className="block">
+          <div className="lbl">TextArea</div>
+          <TextArea label="Описание" required placeholder="Введите текст" defaultValue="YandexGPT — генеративная языковая модель, которая создаёт тексты." style={{ width: "100%" }} />
+        </div>
+
+        <div className="block">
+          <div className="lbl">Trobber · Tooltip</div>
+          <div className="row" style={{ gap: 28 }}>
+            <Trobber size={24} />
+            <Trobber size={64} />
+            <Tooltip arrow="bottom">Подсказка по интерфейсу</Tooltip>
+          </div>
+        </div>
+
+        <div className="block full">
+          <div className="lbl">Divider</div>
+          <Divider />
+        </div>
+      </>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

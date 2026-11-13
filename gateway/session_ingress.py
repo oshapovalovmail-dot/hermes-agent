@@ -220,13 +220,18 @@ async def fire_post_delivery(authority, admission_id):
         _hand_back_post_delivery(authority, admission_id)
         return
     taken = _registry(authority, 'post_delivery').pop(admission_id, None)
-    if taken is None:
-        return
-    from gateway.platforms.base import _POST_DELIVERY_CALLBACK_TIMEOUT_SECONDS, _split_post_delivery_entry
-    from gateway.platforms.base_post_delivery import run_post_delivery_callback
-    callback = _split_post_delivery_entry(taken[2])[1]
-    with await _execution_scope(authority, None):  # off-turn: the owning profile's scope
-        await run_post_delivery_callback(callback, _POST_DELIVERY_CALLBACK_TIMEOUT_SECONDS)
+    try:
+        if taken is not None:
+            from gateway.platforms.base import _POST_DELIVERY_CALLBACK_TIMEOUT_SECONDS, _split_post_delivery_entry
+            from gateway.platforms.base_post_delivery import run_post_delivery_callback
+            callback = _split_post_delivery_entry(taken[2])[1]
+            with await _execution_scope(authority, None):  # off-turn: the owning profile's scope
+                await run_post_delivery_callback(callback, _POST_DELIVERY_CALLBACK_TIMEOUT_SECONDS)
+    finally:
+        source = _registry(authority, 'native_retire_sources').pop(admission_id, None)
+        if source is not None:
+            from gateway.session_native_proofs import complete_source
+            complete_source(source)
 
 
 async def _release_turn_marker(authority, event):
@@ -297,6 +302,10 @@ async def execute_admission(authority, ref, row):
     authority.native_waiters.discard(row['admission_id'])
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
+        from gateway.session_native_proofs import restore
+        restore(authority, ref, row, event)
+        if not native:
+            _registry(authority, 'native_retire_sources')[row['admission_id']] = event.source
     else:
         from gateway.session_ingress_media import restore_attachments
         event = MessageEvent(text=row['payload']['text'], source=live.source,
@@ -345,7 +354,9 @@ async def execute_admission(authority, ref, row):
                     event.text = '\n'.join(part['text'] for part in prepared['content'] if part.get('type') == 'text')
                 event.allow_gateway_control = False
                 event.internal = True  # trust comes from the private binding and preclaim, never client JSON
-            response = await authority.runner._handle_message(event)
+            from atlas_work_read.native import canonical_execution
+            with canonical_execution(authority, ref, row, event):
+                response = await authority.runner._handle_message(event)
             result = captured.get('terminal_result', captured.get('result'))
             if result is None:
                 # No TurnRunner result means the handler answered without executing the turn.
@@ -529,6 +540,9 @@ async def dispatch_shared_busy(adapter, event, session_key, *, durable=False):
             # which listens on the adopter (``event``).
             await adapter._release_turn_marker(delivery_event)
             await adapter._release_turn_marker(event)
+
+            from gateway.session_native_proofs import complete_source
+            complete_source(delivery_event.source)
 
     token, commit_token = busy_acceptance.set(accepted), busy_commit.set(committed)
     try:

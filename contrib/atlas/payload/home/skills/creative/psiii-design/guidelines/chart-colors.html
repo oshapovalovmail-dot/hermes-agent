@@ -1,0 +1,62 @@
+<!-- @dsCard group="Colors" name="Цвета графиков и диаграмм" subtitle="Градация красного для диаграмм · категориальная палитра для графиков" viewport="1200x900" -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Цвета графиков и диаграмм</title>
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: #1f1f20; padding: 56px 64px 64px;
+    font-family: "YS Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  .kicker { font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: #F66048; margin: 0 0 14px; font-weight: 500; }
+  h1 { font-family: "YS Display Cond","YS Text",sans-serif; font-weight: 900; font-size: 56px; line-height: 0.88; letter-spacing: -0.02em; margin: 0 0 14px; }
+  .lede { font-size: 18px; color: #5c5c5e; margin: 0 0 44px; max-width: 640px; line-height: 1.4; }
+  h2 { font-family: "YS Display Cond","YS Text",sans-serif; font-weight: 700; font-size: 24px; margin: 0 0 6px; }
+  .note { font-size: 15px; color: #6a6a6c; margin: 0 0 18px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; margin: 0 0 40px; }
+  .sw { width: 150px; }
+  .sw__chip { height: 92px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.08); }
+  .sw__name { font-size: 14px; font-weight: 500; margin: 10px 0 2px; }
+  .sw__hex { font-size: 13px; color: #6a6a6c; font-variant-numeric: tabular-nums; text-transform: uppercase; }
+  .sw__var { font-size: 12px; color: #9a9a9c; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <p class="kicker">ПСиИИ · Data</p>
+  <h1>Цвета графиков и диаграмм</h1>
+  <p class="lede">Палитра данных из фирменного шаблона. Цвета берём только отсюда (<code>tokens/charts.css</code>) — не из сине-фиолетовых референсов.</p>
+
+  <h2>Диаграммы — градация красного</h2>
+  <p class="note">Круговые и столбчатые: главная доля — насыщенный красный, далее светлее; «другое / прочие» — серым.</p>
+  <div class="row">
+    <div class="sw"><div class="sw__chip" style="background:#C80000"></div><div class="sw__name">Тёмно-красный</div><div class="sw__hex">#C80000</div><div class="sw__var">--chart-red-1</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#F66048"></div><div class="sw__name">Фирменный красный</div><div class="sw__hex">#F66048</div><div class="sw__var">--chart-red-2</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#FFA787"></div><div class="sw__name">Коралловый</div><div class="sw__hex">#FFA787</div><div class="sw__var">--chart-red-3</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#FFD2C2"></div><div class="sw__name">Светлый красный</div><div class="sw__hex">#FFD2C2</div><div class="sw__var">--chart-red-4</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#CECECE"></div><div class="sw__name">Нейтраль 1</div><div class="sw__hex">#CECECE</div><div class="sw__var">--chart-neutral-1</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#DBDBDB"></div><div class="sw__name">Нейтраль 2</div><div class="sw__hex">#DBDBDB</div><div class="sw__var">--chart-neutral-2</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#EAEAEA"></div><div class="sw__name">Нейтраль 3</div><div class="sw__hex">#EAEAEA</div><div class="sw__var">--chart-neutral-3</div></div>
+  </div>
+
+  <h2>Графики — категориальная палитра</h2>
+  <p class="note">Линейные и многосерийные: до 5 рядов, назначаются по порядку.</p>
+  <div class="row">
+    <div class="sw"><div class="sw__chip" style="background:#C80000"></div><div class="sw__name">Серия 1</div><div class="sw__hex">#C80000</div><div class="sw__var">--chart-series-1</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#F66048"></div><div class="sw__name">Серия 2</div><div class="sw__hex">#F66048</div><div class="sw__var">--chart-series-2</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#FFA787"></div><div class="sw__name">Серия 3</div><div class="sw__hex">#FFA787</div><div class="sw__var">--chart-series-3</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#37373A"></div><div class="sw__name">Серия 4</div><div class="sw__hex">#37373A</div><div class="sw__var">--chart-series-4</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#B6B6B6"></div><div class="sw__name">Серия 5</div><div class="sw__hex">#B6B6B6</div><div class="sw__var">--chart-series-5</div></div>
+  </div>
+
+  <h2>Оси, сетка, подписи</h2>
+  <div class="row">
+    <div class="sw"><div class="sw__chip" style="background:#494949"></div><div class="sw__name">Подписи осей</div><div class="sw__hex">#494949</div><div class="sw__var">--chart-axis</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#DBDBDB"></div><div class="sw__name">Сетка</div><div class="sw__hex">#DBDBDB</div><div class="sw__var">--chart-grid</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#CECECE"></div><div class="sw__name">Засечки</div><div class="sw__hex">#CECECE</div><div class="sw__var">--chart-tick</div></div>
+    <div class="sw"><div class="sw__chip" style="background:#1F1F20"></div><div class="sw__name">Значения</div><div class="sw__hex">#1F1F20</div><div class="sw__var">--chart-label</div></div>
+  </div>
+</body>
+</html>

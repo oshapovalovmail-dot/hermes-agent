@@ -1,0 +1,28 @@
+{
+  "node": {
+    "version": "v24.22.3",
+    "filename": "node-v24.22.3-linux-x64.tar.xz",
+    "sha256": "4f2b175a6d53a5c617a80dba2676238a0688cef28c6da4eba35c7d844e66fcfb",
+    "url": "https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.xz"
+  },
+  "fonts": [
+    {
+      "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+      "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5",
+      "filename": "NotoSans-Regular.ttf",
+      "bytes": 569208
+    },
+    {
+      "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSans/NotoSans-Bold.ttf",
+      "sha256": "c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a",
+      "filename": "NotoSans-Bold.ttf",
+      "bytes": 575740
+    },
+    {
+      "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/LICENSE",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+      "filename": "Noto-LICENSE",
+      "bytes": 4377
+    }
+  ]
+}

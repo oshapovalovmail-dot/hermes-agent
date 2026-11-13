@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="styles.css">
+<style>
+  html, body { margin: 0; padding: 0; }
+  .tile {
+    width: 1280px; height: 854px;
+    display: flex;
+    overflow: hidden;
+  }
+  .main {
+    flex: 0 0 75%;
+    background: var(--accent, #F66048);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 60px;
+  }
+  .mark {
+    font-family: var(--font-display, sans-serif);
+    font-weight: var(--fw-heavy, 800);
+    color: #FFFFFF;
+    font-size: 240px;
+    line-height: 0.9;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  .strip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .strip > div { flex: 1; }
+</style>
+</head>
+<body>
+  <div class="tile">
+    <div class="main">
+      <div class="mark">ПСиИИ</div>
+    </div>
+    <div class="strip">
+      <div style="background:#FFA787;"></div>
+      <div style="background:#FC3F1D;"></div>
+      <div style="background:#EE1E1C;"></div>
+      <div style="background:#600100;"></div>
+    </div>
+  </div>
+</body>
+</html>

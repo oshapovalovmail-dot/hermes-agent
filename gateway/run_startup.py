@@ -1710,6 +1710,8 @@ class GatewayStartupMixin:
 
     async def _start_impl(self) -> bool:
         logger.info("Starting Hermes Gateway...")
+        from gateway.required_policies import verify_required_gateway_policies
+        await asyncio.to_thread(verify_required_gateway_policies)
         self._start_install_faulthandler()
         await self._start_log_startup_environment()
         if await self._abort_startup_if_shutdown_requested():

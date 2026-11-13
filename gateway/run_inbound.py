@@ -1303,6 +1303,24 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         return True, await admit_message(authority, event)
 
     async def _handle_message(self, event: MessageEvent) -> Optional[str]:
+        from gateway.atlas_admission import installed_gate, binding_scope
+        gate=installed_gate()
+        if gate is not None and event.source.platform==Platform.TELEGRAM:
+            from gateway.session_ingress import executing_admission
+            from gateway.session_native_proofs import NativeAdmissionDenied
+            if not gate.source_authorized(event.source):
+                if executing_admission.get():raise NativeAdmissionDenied('native_source_rejected')
+                return None
+            binding=event.source._atlas_binding
+            try:await gate.recheck(binding,gate._issued[id(binding)][1])
+            except (Exception,SystemExit):
+                if executing_admission.get():raise NativeAdmissionDenied('native_source_revoked') from None
+                return None
+            with binding_scope(binding):
+                return await self._atlas_handle_message(event)
+        return await self._atlas_handle_message(event)
+
+    async def _atlas_handle_message(self, event: MessageEvent) -> Optional[str]:
         """Handle an incoming message from any platform: auth → command check → running-agent
         interrupt → get/create session → build context → run agent → return response."""
         from gateway.run import _AGENT_PENDING_SENTINEL

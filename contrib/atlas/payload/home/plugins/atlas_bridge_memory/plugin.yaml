@@ -1,0 +1,5 @@
+name: atlas_bridge_memory
+version: 0.1.0
+manifest_version: 2
+description: Native automatic recall and safe capture over the fixed Atlas Mac memory channel
+kind: exclusive

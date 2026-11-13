@@ -1042,6 +1042,10 @@ class RelayAdapter(RelayDiscordInteractionMixin, BasePlatformAdapter):
         adapter presents inbound media as LOCAL FILE PATHS (vision/file tools consume
         paths). Best-effort per entry: a failed download drops that entry, never the
         message; with no client only re-host URLs are dropped (they'd 401 downstream)."""
+        prepare_stream = getattr(self._transport, 'local_media_ready', None)
+        if callable(prepare_stream):
+            await prepare_stream(event)
+            return
         try:
             urls = list(getattr(event, "media_urls", None) or [])
             if not urls:
@@ -1395,7 +1399,7 @@ class RelayAdapter(RelayDiscordInteractionMixin, BasePlatformAdapter):
         waiter = self._auto_thread_waiters.get(str(chat_id))
         if waiter is not None:
             waiter.set()
-        return _send_result(result)
+        return _send_result(result, raw_response=result)
 
     def auto_thread_info_for_chat(self, chat_id: str) -> Optional[tuple[str, str]]:
         """(thread_id, initial_name) of the connector-created auto-thread for the most
@@ -1706,6 +1710,13 @@ class RelayAdapter(RelayDiscordInteractionMixin, BasePlatformAdapter):
         there but a LOCAL file never reached the platform (upload failed after its
         retries, connector decline/transport failure): the caller still falls back, but
         reports the send failed (``_send_local_media``)."""
+        export_stream = getattr(self._transport, 'send_export', None)
+        if callable(export_stream):
+            # Fixed Atlas transport owns immutable export IDs and bounded signed
+            # chunks. Never upload a path/URL through the stock HTTP media plane.
+            return await export_stream(chat_id=chat_id, media_kind=media_kind,
+                source=source, source_is_path=source_is_path, caption=caption,
+                filename=filename, reply_to=reply_to, metadata=metadata)
         if self._transport is None or not self.descriptor.supports_op("send_media"):
             return None
         source_url = source

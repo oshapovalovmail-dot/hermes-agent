@@ -1,0 +1,78 @@
+{
+  "source_manifest_sha256": "1201d8c5d851a24ab6eef4d12659b440348d99355eec5a4ec28eae90b9ca7a58",
+  "scope": "six independent review findings only; immutable original source/review",
+  "protected_instruction_exclusions": [
+    "payload/home/skills/creative/psiii-design/CLAUDE.md"
+  ],
+  "protected_instruction_content_read": false,
+  "core_patch_changed": false,
+  "resources": [
+    {
+      "source": "Marvin shared docx/scripts/office/validators/docx.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/validators/docx.py",
+      "sha256": "93d3444c0ef3f043d21a2285c46d2cda478426b930dc33dcf3b11265935517b5"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/validators/__init__.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/validators/__init__.py",
+      "sha256": "83e0f035c5abea238d3f2c3968afbd511ed022b527b7c9cb60a9434cc34ff987"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/validators/redlining.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/validators/redlining.py",
+      "sha256": "f2f86ddef982923bc802bcbe9ec2815ce84a59f6a7f5148927b8a91b941ccbd3"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/validators/pptx.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/validators/pptx.py",
+      "sha256": "17eadad2b7a8374ccbe4cda45693bcd6a36f9d61a7d60f9c9ceef9464dec8299"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/validators/base.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/validators/base.py",
+      "sha256": "44a7a11d8cdfc019f7f6896650964ffe3737fd5777f751ce936aaccd901ea43b"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/helpers/__init__.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/helpers/__init__.py",
+      "sha256": "678e42456d9e10923c8b9a93691cdd993de3433448a184fa72a0c31f4ae086d5"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/helpers/pptx_chart.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/helpers/pptx_chart.py",
+      "sha256": "47ac266f7d39d11ede6bb0d1f3a19d801394fd2964636f1b48beb701f1832964"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/helpers/pptx_slide.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/helpers/pptx_slide.py",
+      "sha256": "7b9f69b4a5bd6a2d9eabf9e0e3e796d7a421373145f6a8cd11f60b7ba2d6a5d0"
+    },
+    {
+      "source": "Marvin shared docx/scripts/office/helpers/pptx_theme.py",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/helpers/pptx_theme.py",
+      "sha256": "ebb54c56e9c13807f5f98f0cae22d47cdd0162da8525eaa664e3f2c8c8d6bb03"
+    },
+    {
+      "source": "new portable adapter; no private operational recipes",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/unpack.py",
+      "sha256": "8fecb0467c741c066674eb8d23dcd215c24d45c47aad5c3f533a832b48de3696"
+    },
+    {
+      "source": "new portable adapter; no private operational recipes",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/office/soffice.py",
+      "sha256": "f56dcd3da89fa5d1f0cc5f85a9f3c4a22b9296302da1b89de2a26a72b96ba4d4"
+    },
+    {
+      "source": "new portable adapter; no private operational recipes",
+      "target": "payload/home/skills/productivity/powerpoint/scripts/thumbnail.py",
+      "sha256": "e040d773770b9eced4d693c2f46433c7c9f7b72bdc897ee3ffa61af29204017e"
+    }
+  ],
+  "gates": {
+    "native_skills": "BLOCKED pending approved SOUL and explicit native initialization consent",
+    "Staff_Tasha": "BLOCKED parent owned; activation_permitted=false",
+    "new_Docker": "not built",
+    "native_PM": "not exercised",
+    "latest_read_release_and_group_candidate": "not merged"
+  }
+}

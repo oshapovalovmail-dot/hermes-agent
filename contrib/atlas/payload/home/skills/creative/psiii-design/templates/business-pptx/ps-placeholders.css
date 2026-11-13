@@ -1,0 +1,73 @@
+/* ps-placeholders.css — ТОЧНОЕ зеркало плейсхолдеров шаблона ПСиИИ.
+   Значения сняты из templates/business-pptx (мастер + макеты + тема).
+   На холсте 1920×1080: 1pt = 1px. Цвета темы разрешены через clrMap:
+     bg1→#1F1F20 (ink), tx1→#494949 (gray), tx2→#FFFFFF (white), bg2→#F2F2F2.
+   Используй эти классы для «чроме» (заголовок/подзаголовок/примечание/номер/
+   имя/должность) — тогда превью совпадает с выгрузкой, где они станут <p:ph>.
+   Тело слайда верстай свободно (оно переносится в выгрузку как есть). */
+
+:root{
+  --ps-ink:#1F1F20;     /* bg1 — заголовок на светлом */
+  --ps-gray:#494949;    /* tx1 — подзаголовок/должность/примечание */
+  --ps-white:#FFFFFF;   /* tx2 — текст на красном */
+  --ps-disp:"YS Display Cond","YS Text",Arial,sans-serif;  /* +mj-lt: YS Display Cond Heavy */
+  --ps-text:"YS Text",Arial,sans-serif;                    /* +mn-lt: YS Text */
+}
+
+/* Контентный заголовок — ПО УМОЛЧАНИЮ 72pt (макеты «72пт» / «72пт+подзаголовок»):
+   ink, lnSpc 84%. Размер заголовка по контексту — модификаторы ниже (Правило 49):
+   .s96 короткий заголовок + лёгкий слайд · .s60 перегруженный контентом слайд ·
+   .s40 заголовок подчинён контенту (крупный график) — он серый. */
+.ps-title{
+  position:absolute; left:114px; top:77px; width:1692px;
+  font-family:var(--ps-disp); font-weight:900; font-size:72px;
+  line-height:0.84; color:var(--ps-ink); margin:0;
+}
+.ps-title.s96{ top:74px; font-size:96px; line-height:0.82; }   /* slideLayout4 */
+.ps-title.s60{ top:78px; font-size:60px; line-height:0.89; }   /* slideLayout7 */
+.ps-title.s40{ top:78px; font-size:40px; line-height:1.0; color:var(--ps-gray); } /* slideLayout8 — серый */
+/* Крупный заголовок титула/финала — ЭТАЛОННЫЙ размер шаблона: 220pt, lnSpc 79%.
+   Это размер плейсхолдера макета (220pt). Длинные заголовки переноси по словам;
+   если совсем не влезает — формулируй короче (правило титульного заголовка). */
+.ps-title-xl{
+  position:absolute; left:115px; top:103px; width:1453px;
+  font-family:var(--ps-disp); font-weight:900; font-size:220px;
+  line-height:0.79; color:var(--ps-white); margin:0;
+}
+.ps-title-xl.on-light{ color:var(--ps-ink); width:1691px; }
+
+/* Подзаголовок (body11): 40pt, tx1 gray, YS Text, lnSpc 100% (bodyStyle) */
+.ps-subtitle{
+  position:absolute; left:115px; top:155px; width:1692px;
+  font-family:var(--ps-text); font-weight:400; font-size:40px;
+  line-height:1.0; color:var(--ps-gray); margin:0;
+}
+
+/* Примечание (body10): 20pt, gray, lnSpc 110% */
+.ps-note{
+  position:absolute; left:115px; top:979px; width:1405px;
+  font-family:var(--ps-text); font-weight:400; font-size:20px;
+  line-height:1.1; color:var(--ps-gray); margin:0;
+}
+/* Номер слайда (sldNum idx4): 20pt, gray, у правого поля */
+.ps-num{
+  position:absolute; left:1779px; top:979px; width:26px;
+  font-family:var(--ps-text); font-weight:400; font-size:20px;
+  line-height:1.1; color:var(--ps-gray); margin:0;
+}
+
+/* Имя (body12): 40pt, YS Text Medium */
+.ps-name{
+  position:absolute; left:114px; top:898px; width:1453px;
+  font-family:var(--ps-text); font-weight:500; font-size:40px;
+  line-height:1.1; color:var(--ps-white); margin:0;
+}
+/* Должность/контакт (body13): 40pt, YS Text */
+.ps-role{
+  position:absolute; left:114px; top:945px; width:1453px;
+  font-family:var(--ps-text); font-weight:400; font-size:40px;
+  line-height:1.1; color:var(--ps-white); margin:0;
+}
+/* На светлом финале имя — ink, должность — gray */
+.on-light .ps-name, .ps-name.on-light{ color:var(--ps-ink); }
+.on-light .ps-role, .ps-role.on-light{ color:var(--ps-gray); }

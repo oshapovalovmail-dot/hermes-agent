@@ -1338,10 +1338,44 @@ def _bootstrap_profile_dir(profile_dir: Path, source_dir: Optional[Path],
         _clone_file(source_dir, profile_dir, "import-sync.json")
 
 
+def _publish_initialized_profile(staging: Path, profile_dir: Path) -> None:
+    """Publish without replacing even an empty directory or a dangling symlink.
+
+    The kernel, not a check-then-rename window, owns the collision decision.
+    Unsupported hosts fail closed; ordinary callers keep the existing path.
+    """
+    if os.name == "nt":  # Windows rename already refuses an occupied destination.
+        os.rename(staging, profile_dir)
+        return
+    import ctypes
+    import errno
+    libc = ctypes.CDLL(None, use_errno=True)
+    if sys.platform == "darwin":
+        rename = getattr(libc, "renamex_np", None)
+        if rename is not None:
+            rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+            rename.restype = ctypes.c_int
+            result = rename(os.fsencode(staging), os.fsencode(profile_dir), 4)  # RENAME_EXCL
+    elif sys.platform.startswith("linux"):
+        rename = getattr(libc, "renameat2", None)
+        if rename is not None:
+            rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+            rename.restype = ctypes.c_int
+            result = rename(-100, os.fsencode(staging), -100, os.fsencode(profile_dir), 1)  # RENAME_NOREPLACE
+    else:
+        rename = None
+    if rename is None:
+        raise OSError(errno.ENOTSUP, "Exclusive profile publication unavailable", str(profile_dir))
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), str(profile_dir))
+
+
 def create_profile(
     name: str, clone_from: Optional[str] = None, clone_all: bool = False, clone_config: bool = False,
     no_alias: bool = False, no_skills: bool = False, description: Optional[str] = None,
     clone_channels: bool = False, sync_imports: bool = False, soul: Optional[str] = None,
+    *, _pre_publish_initializer=None,
 ) -> Path:
     """Create a new profile directory and return its path.
 
@@ -1354,7 +1388,25 @@ def create_profile(
     ``no_skills`` creates an empty profile and writes a marker so ``hermes update`` skips
     re-seeding its skills; it is mutually exclusive with the clone options, which copy skills.
     ``sync_imports`` (``--clone`` only; ``--clone-all`` copies the file anyway) also copies the
-    ``import-agent`` sync manifest so the clone can keep pulling the same external agent trees."""
+    ``import-agent`` sync manifest so the clone can keep pulling the same external agent trees.
+
+    ``_pre_publish_initializer`` is a trusted host-Python-only synchronous callback.
+    It receives the complete unpublished staging home and the final semantic home,
+    must return None, and runs before any profile-created notification. It is never
+    resolved from config, a CLI argument, an import string or a model tool schema.
+    """
+    if _pre_publish_initializer is not None:
+        import inspect
+        initializer = _pre_publish_initializer
+        if (not callable(initializer) or inspect.iscoroutinefunction(initializer)
+                or inspect.isasyncgenfunction(initializer)
+                or inspect.iscoroutinefunction(getattr(initializer, "__call__", None))
+                or inspect.isasyncgenfunction(getattr(initializer, "__call__", None))):
+            raise TypeError("_pre_publish_initializer must be a synchronous callable")
+        try:
+            inspect.signature(initializer).bind(Path("stage"), Path("final"))
+        except (TypeError, ValueError) as exc:
+            raise TypeError("_pre_publish_initializer must accept (stage_home, final_home)") from exc
     if no_skills and (clone_from is not None or clone_config or clone_all):
         raise ValueError(
             "--no-skills is mutually exclusive with --clone / --clone-from / --clone-all "
@@ -1370,6 +1422,9 @@ def create_profile(
     if canon == "default":
         raise ValueError("Cannot create a profile named 'default' — it is the built-in profile (~/.hermes).")
     profile_dir = get_profile_dir(canon)
+    if _pre_publish_initializer is not None and os.path.lexists(profile_dir):
+        # The initializer never owns an existing shell, tombstone or symlink.
+        raise _profile_exists_error(canon)
     if profile_dir.exists() and not named_profile_has_identity(profile_dir):
         if named_profile_is_deleted(profile_dir):
             # Empty shell left by a post-delete mkdir: invisible to ``profile list``, safe to replace
@@ -1392,16 +1447,32 @@ def create_profile(
         refusal = clone_channels_refusal(source_dir, clone_from or get_active_profile_name() or "default")
         if refusal:
             raise ValueError(refusal)
-    clear_named_profile_deleted(profile_dir)
+    if _pre_publish_initializer is None:
+        clear_named_profile_deleted(profile_dir)
     # Build in a hidden sibling and publish with one rename: a running multiplexer rescans profiles/
     # on every create and every 30 s, and ``_iter_named_profile_dirs`` only lists valid ids (no leading
     # dot), so it can never adopt the half-copied tree and start adapters on credentials the strip
     # below has not removed yet.
     from hermes_cli.profiles_initialization import clone_staging_dir, discard_unpublished_vault_key, finish_profile_layout
-    staging = clone_staging_dir(profile_dir)
+    if _pre_publish_initializer is None:
+        staging = clone_staging_dir(profile_dir)
+    else:
+        # Numeric unique suffix retains the native hidden-stage vocabulary used
+        # by the consent scanner, but never discards another thread's stage.
+        import secrets
+        profile_dir.parent.mkdir(parents=True, exist_ok=True)
+        while True:
+            staging = profile_dir.parent / f".{canon}.staging-{os.getpid()}{secrets.randbits(128)}"
+            try:
+                staging.mkdir(mode=0o700)
+                break
+            except FileExistsError:
+                continue
     clone_key = None  # the keychain entry made for this clone's vault, if any
     try:
         if clone_all and source_dir:
+            if _pre_publish_initializer is not None:
+                staging.rmdir()  # copytree requires a new destination; name was privately reserved.
             clone_key = _clone_all_into(source_dir, staging, canon)
         else:
             _bootstrap_profile_dir(staging, source_dir, sync_imports=sync_imports)
@@ -1411,11 +1482,21 @@ def create_profile(
             if stripped:
                 logger.info("profile %s: cloned without messaging channels %s", canon, stripped)
         finish_profile_layout(staging, no_skills=no_skills, clone_all=clone_all, description=description, soul=soul)
-        os.rename(staging, profile_dir)
+        if _pre_publish_initializer is None:
+            os.rename(staging, profile_dir)
+        else:
+            result = _pre_publish_initializer(staging, profile_dir)
+            if result is not None:
+                if inspect.iscoroutine(result):
+                    result.close()  # reject without executing or leaking an unawaited coroutine
+                raise TypeError("_pre_publish_initializer must return None (no awaitable/result)")
+            _publish_initialized_profile(staging, profile_dir)
     except BaseException:
         discard_unpublished_vault_key(clone_key)
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    if _pre_publish_initializer is not None:
+        clear_named_profile_deleted(profile_dir)
     from hermes_cli.profile_memory_config import notify_memory_provider
     notify_memory_provider(profile_dir, lambda p: p.on_profile_created(canon, str(profile_dir)))
 

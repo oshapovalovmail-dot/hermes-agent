@@ -213,6 +213,8 @@ def _check_circuit_breaker(server_name: str) -> Optional[str]:
     half-open: the next call probes; success resets, failure re-bumps and re-arms the cooldown."""
     from tools.mcp_tool_scope import _resolve_server_key
     key = _resolve_server_key(server_name)
+    if not _core._circuit_breaker_enabled(server_name):
+        return None
     failures = _core._server_error_counts.get(key, 0)
     age = time.monotonic() - _core._server_breaker_opened_at.get(key, 0.0)
     if failures < _core._CIRCUIT_BREAKER_THRESHOLD or age >= _core._CIRCUIT_BREAKER_COOLDOWN_SEC:
@@ -273,6 +275,8 @@ def _result_is_error(result) -> bool:
 def _record_call_outcome(server_name: str, result) -> Any:
     """Breaker bookkeeping: an error payload from the tool itself still counts as a strike (#10447),
     flagged as an application error so the open-breaker message stays truthful."""
+    if not _core._circuit_breaker_enabled(server_name):
+        return result
     if _result_is_error(result):
         _core._bump_server_error(server_name, application=True)
     else:
@@ -502,7 +506,7 @@ async def _track_inflight_rpc(server: Any, server_name: str, op: str, *, retry_s
             inflight.discard(task)
 
 
-async def _call_tool_racing_stdio_death(server, server_name: str, tool_name: str, args: dict, progress_callback=None):
+async def _call_tool_racing_stdio_death(server, server_name: str, tool_name: str, args: dict, progress_callback=None, *, native_read_lease=None):
     """``session.call_tool`` that fails fast when the stdio child is/gets dead: pre-call (a dead
     child must not hold the slot for the full timeout) and mid-call (race against
     ``_watch_stdio_children``). Both raise :class:`_StdioChildExited` for the respawn path, which
@@ -519,6 +523,7 @@ async def _call_tool_racing_stdio_death(server, server_name: str, tool_name: str
     # A progress callback makes the SDK send ``_meta.progressToken``, the spec's opt-in for
     # ``notifications/progress``; without one the server must stay silent.
     extra = {"progress_callback": progress_callback} if progress_callback is not None else {}
+    if native_read_lease is not None:extra['meta']=native_read_lease.meta()
     _call_coro = server.session.call_tool(tool_name, arguments=args, **extra)
     _watch_children = getattr(server, "_watch_stdio_children", None)
     if not (inspect.iscoroutinefunction(_watch_children) and asyncio.iscoroutine(_call_coro)):
@@ -690,6 +695,11 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float, *,
     op = f"tools/call {tool_name}"
 
     def _handler(args: dict, **kwargs) -> Any:
+        # Capture issued canonical source on the actual native tool thread.
+        native_read_lease=None
+        if server_name=='atlas_read':
+            from atlas_work_read.native import prepare_native_call
+            native_read_lease=prepare_native_call(server_name,tool_name,args)
         # Security boundary: untrusted-server write tools need approval before ANY transport work (incl. lazy spawn).
         booked: list = []  # a costed call's charge; refunded when the call never reaches the server
         error = _trust_gate_check(server_name, tool_name, booked, args)
@@ -718,8 +728,10 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float, *,
             async with server._rpc_lock, _track_inflight_rpc(server, server_name, op, retry_safe=read_only):
                 server._pending_call_context = contextvars.copy_context()  # for the elicitation callback
                 try:
+                    lease_options={'native_read_lease':native_read_lease} if native_read_lease is not None else {}
                     result = await _call_tool_racing_stdio_death(
-                        server, server_name, tool_name, args, _on_progress if report is not None else None)
+                        server, server_name, tool_name, args, _on_progress if report is not None else None, **lease_options)
+                    if native_read_lease is not None:native_read_lease.after()
                 finally:
                     server._pending_call_context = None
             if getattr(server, "_mark_session_proven", None) is not None:  # round-trip done: transport healthy

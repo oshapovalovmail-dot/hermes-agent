@@ -1,0 +1,99 @@
+<!-- @dsCard group="Brand" viewport="820x620" name="Icon set (225)" subtitle="Yandex line icons — русские подписи, категории, поиск (имя/подпись/ключевые слова)" -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: var(--white); font-family: var(--font-text); color: var(--gray-900); }
+  #root { padding: 20px 24px 40px; }
+  .bar { position: sticky; top: 0; background: var(--white); display: flex; align-items: baseline;
+    gap: 12px; padding: 4px 0 14px; margin-bottom: 8px; box-shadow: inset 0 -1px 0 rgba(0,0,0,0.09); z-index: 2; }
+  .bar h1 { font-size: 15px; font-weight: var(--fw-medium); margin: 0; }
+  .bar .n { font-size: 13px; color: var(--gray-600); }
+  .bar input { margin-left: auto; height: 30px; border: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12);
+    border-radius: 999px; padding: 0 16px; font: inherit; font-size: 13px; width: 240px; outline: none; }
+  .bar input:focus { box-shadow: inset 0 0 0 2px var(--graphite); }
+  .grp { font-size: 12px; font-weight: var(--fw-medium); color: var(--gray-600); text-transform: uppercase;
+    letter-spacing: 0.04em; margin: 22px 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, 96px); gap: 8px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 96px;
+    padding: 14px 6px 10px; border-radius: 12px; cursor: pointer; }
+  .cell:hover { background: var(--control-secondary); }
+  .cell .ru { font-size: 11px; line-height: 1.25; text-align: center; color: var(--gray-900); }
+  .cell .id { font-size: 9.5px; line-height: 1.1; color: var(--gray-600); font-family: ui-monospace, monospace; word-break: break-all; }
+  .empty { color: var(--gray-600); font-size: 14px; padding: 40px 0; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--graphite);
+    color: #fff; font-size: 13px; padding: 9px 16px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Icon, ICON_NAMES, ICON_META, ICON_GROUPS } = window.DesignSystem_132e64;
+  const GROUP_ORDER = ["nav","act","ui","doc","fold","comm","media","dev","user","map","nat","shop","misc"];
+
+  function Gallery() {
+    const [q, setQ] = React.useState("");
+    const [toast, setToast] = React.useState("");
+    React.useEffect(() => {
+      if (!toast) return;
+      const t = setTimeout(() => setToast(""), 1400);
+      return () => clearTimeout(t);
+    }, [toast]);
+
+    const needle = q.toLowerCase().trim();
+    const match = (n) => {
+      if (!needle) return true;
+      const [ru, , kw] = ICON_META[n] || ["", "", ""];
+      return (n + " " + ru.toLowerCase() + " " + kw).includes(needle);
+    };
+    const hits = ICON_NAMES.filter(match);
+
+    const copy = (n) => {
+      const snippet = `<Icon name="${n}" size={24} />`;
+      navigator.clipboard && navigator.clipboard.writeText(snippet);
+      setToast("Скопировано: " + snippet);
+    };
+
+    const byGroup = {};
+    for (const n of hits) {
+      const g = (ICON_META[n] && ICON_META[n][1]) || "misc";
+      (byGroup[g] = byGroup[g] || []).push(n);
+    }
+
+    return (
+      <div>
+        <div className="bar">
+          <h1>Иконки</h1>
+          <span className="n">{hits.length} / {ICON_NAMES.length}</span>
+          <input placeholder="Поиск: «поиск», «корзина», bell…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        {hits.length === 0 && <div className="empty">Ничего не найдено по запросу «{q}».</div>}
+        {GROUP_ORDER.filter((g) => byGroup[g]).map((g) => (
+          <div key={g}>
+            <div className="grp">{ICON_GROUPS[g]} · {byGroup[g].length}</div>
+            <div className="grid">
+              {byGroup[g].map((n) => (
+                <div className="cell" key={n} title={"Клик — копировать <Icon name=\"" + n + "\" />"} onClick={() => copy(n)}>
+                  <Icon name={n} size={26} />
+                  <span className="ru">{ICON_META[n][0]}</span>
+                  <span className="id">{n}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div className={"toast" + (toast ? " on" : "")}>{toast}</div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Gallery />);
+</script>
+</body>
+</html>

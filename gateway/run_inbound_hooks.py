@@ -81,6 +81,7 @@ class GatewayInboundHooksMixin:
             from hermes_cli.lifecycle import ainvoke_hook as _ainvoke_hook
             _hook_results = await _ainvoke_hook(
                 "pre_gateway_dispatch", event=event, gateway=self,
+                session_key=self._session_key_for_source(source),
                 # getattr: bare-runner tests build GatewayRunner via object.__new__ without __init__.
                 session_store=getattr(self, "session_store", None),
             )

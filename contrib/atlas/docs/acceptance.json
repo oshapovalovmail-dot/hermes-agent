@@ -1,0 +1,29 @@
+{
+  "status": "SOURCE_ONLY_V2_FIXED_NATIVE_ACCEPTANCE_BLOCKED",
+  "source_only": true,
+  "source_test": {
+    "unit_tests_executed": 19,
+    "unit_exit": 0,
+    "interpreter": "CPython 3.14.9; isolated receipts/test-venv",
+    "tests_receipt": "../receipts/fresh-proof-v2-final2/unit-tests.txt",
+    "native_skill_loader": "BLOCKED: approved SOUL and explicit initialization consent missing",
+    "native_SDK_check": "BLOCKED before native imports; prior historical result is not v2 acceptance",
+    "skill_metadata": "checked separately, never native-loader proof",
+    "core_commit": "3c43466900cb1a802d2ef1155c481b37d7d1063a",
+    "core_patch_files": 15,
+    "core_changes_from_reviewed_source": false,
+    "tamper_test": "real hash-verified patched core; exact read_bundle_hash_mismatch before policy initialization",
+    "launcher_test": "exact pinned native launcher generated; absent/foreign HERMES_HOME and foreign runtime/profile refused before native execution; full PM not exercised",
+    "helpers": "packaged --help plus real minimal PPTX unpack, schema-validated pack and LibreOffice thumbnail exercised on host; no new Docker qualification",
+    "document_generation_and_reopen": ["DOCX", "PPTX", "XLSX", "PDF"]
+  },
+  "publication": {"status": "not_performed_parent_owned"},
+  "disk_installation": {"status": "owned_fixtures_only", "production_native_pm": "not_performed"},
+  "process_activation": {"status": "BLOCKED", "reason": "approved SOUL/initialization consent and parent Staff/Tasha provider missing"},
+  "live_behavior": {"status": "not_performed", "human_telegram": "not_performed", "shared_honcho_backend_e2e": "not_performed"},
+  "final_delivery": {"status": "source_handoff_for_independent_re_review"},
+  "continuation_owner": {"owner": "parent publication/auth-integration coordinator", "task_id": "not supplied to child"},
+  "instruction_file_boundary": "SOUL.md/AGENTS.md/CLAUDE.md were not created/read/copied/modified/deleted/renamed; excluded by filename before source copying/archive extraction; old review fixture untouched",
+  "fresh_sandbox_image_build": "not_performed",
+  "late_read_release_and_group_candidate": "not merged into this package"
+}

@@ -819,6 +819,14 @@ def register_relay_adapter(force: bool = False, url: Optional[str] = None) -> bo
             len_unit="chars",
         )
         transport = None
+        atlas_bridge = (getattr(config, 'extra', None) or {}).get('atlas_bridge')
+        if atlas_bridge is not None:
+            # Fixed, reviewed transport only. No dynamic imports or JSON authority.
+            from atlas_native_bridge.factory import build_transport
+            if not resolved_url:
+                raise PermissionError('atlas_loopback_hub_required')
+            transport = build_transport(atlas_bridge, resolved_url)
+            return RelayAdapter(config, placeholder, transport=transport)
         if resolved_url:
             from gateway.relay.ws_transport import WebSocketRelayTransport
 

@@ -61,6 +61,7 @@ DEFAULT_CONFIG = {
         "storage": "hermes-home",
     },
     "agent": {
+        "allowed_tools": None,  # optional exact tool-name ceiling; [] denies all, no deferred wrappers
         # Turn cap. null = unlimited (default; caps caused silent mid-task truncation). Positive int
         # caps; "none"/"unlimited"/"inf"/0/-1 also mean unlimited (resolve_turn_limit).
         "max_turns": None,
@@ -2088,7 +2089,9 @@ DEFAULT_CONFIG = {
             "max_messages": 10,
         },
     },
+    "media_delivery": {"required_policy": None},  # optional mandatory plugin snapshot policy
     "gateway": {  # Gateway settings (messaging platforms: Telegram, Discord, Slack, ...).
+        "required_policies": [],  # plugin policy ids: absent/error/ambiguous readiness aborts before connect
         "unmanaged_idle_exit_seconds": 600,  # client-auto-started gateway only; 0 disables
         # Seconds a SIGTERM-interrupted agent unwinds before teardown (short: service stop budgets).
         "signal_interrupt_grace_timeout": 1,

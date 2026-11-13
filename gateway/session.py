@@ -105,6 +105,9 @@ class SessionSource:
     # (gateway/session_detached.py). It replaces the chat's key, so nothing keyed by route reaches
     # the chat's current conversation, and delivery goes nowhere.
     detached_route: Optional[str] = field(default=None, repr=False, compare=False)
+    # In-process transport authority, deliberately absent from to_dict/from_dict.
+    # dataclasses.replace must keep it for shared-chat topic/source projections.
+    _atlas_binding: Any = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         # Mirror scope_id/guild_id onto each other (scope_id wins) so readers of EITHER agree.

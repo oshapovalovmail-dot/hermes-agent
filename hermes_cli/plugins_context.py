@@ -271,6 +271,7 @@ class PluginContext(PluginCapabilityCtxMixin):
         self, name: str, toolset: str, schema: dict, handler: Callable,
         check_fn: Callable | None = None, requires_env: list | None = None, is_async: bool = False,
         description: str = "", emoji: str = "", override: bool = False,
+        execution_timeout: float | None = None,
     ) -> Optional[PluginRegistration]:
         """Register a tool in the global registry and track it as plugin-provided. ``override=True``
         replaces a same-named built-in (without it a name claimed by another toolset is rejected) and
@@ -292,7 +293,7 @@ class PluginContext(PluginCapabilityCtxMixin):
         registry.register(
             name=name, toolset=toolset, schema=schema, handler=handler, check_fn=check_fn,
             requires_env=requires_env, is_async=is_async, description=description, emoji=emoji,
-            override=override, scope=scope,
+            override=override, scope=scope, execution_timeout=execution_timeout,
         )
         registered = registry.snapshot_registration(name, scope=scope)
         handle = None
@@ -479,6 +480,20 @@ class PluginContext(PluginCapabilityCtxMixin):
         }
         return self._register_entry("command", clean, self._manager._plugin_commands, entry,
                                     "Plugin %s registered command: /%s", clean)
+
+    async def refresh_gateway_profiles(self) -> dict:
+        """Capability-gated native profile reconcile + operator route reload.
+
+        Requires ``plugins.entries.<id>.allow_profile_admin: true``. No routes,
+        profile paths, identities or credentials are accepted from the caller.
+        Runs on the gateway loop; refusal leaves existing runtime routes intact.
+        """
+        entry = _facade()._plugin_settings_entry(_facade().load_config_readonly() or {}, self.plugin_id) or {}
+        if entry.get('allow_profile_admin') is not True:
+            raise PermissionError('profile_admin_capability_required')
+        from hermes_constants import get_routing_process_hermes_home
+        from hermes_cli.plugins_profile_admin import refresh_gateway_profiles
+        return await refresh_gateway_profiles(get_routing_process_hermes_home())
 
     def dispatch_tool(self, tool_name: str, args: dict, **kwargs) -> str:
         """Dispatch a tool call through the registry with the parent agent (when available)

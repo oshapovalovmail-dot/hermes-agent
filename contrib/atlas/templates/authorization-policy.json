@@ -1,0 +1,25 @@
+{
+  "$schema": "../schema/authorization-policy.schema.json",
+  "version": 1,
+  "state": "username_provider_native_group_integrated_pending_peer_acceptance",
+  "provider": {
+    "mode": "telegram_username_exact",
+    "module": "qyp_guard.staff_provider",
+    "factory": "build_staff_provider",
+    "numeric_staff_binding": false,
+    "identity_owner": "telegram_uid"
+  },
+  "direct_messages": {
+    "require_verified_employee": true
+  },
+  "groups": {
+    "require_tasha_present": true,
+    "require_tasha_admin": true,
+    "trusted_tasha_identity": 793835103,
+    "private_dm_memory_access": false,
+    "group_context_namespace": "group-specific",
+    "enabled": true
+  },
+  "fail_closed": true,
+  "activation_permitted": false
+}

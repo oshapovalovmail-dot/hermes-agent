@@ -1,0 +1,65 @@
+{
+  "state": "OWNER_LIVE_DOCX_PPTX_PASS",
+  "qualification_owner": "Parent live-rollout acceptance owner; source-publication worker did not send or restart anything",
+  "date_UTC": "2026-11-12",
+  "scope": "One genuine owner private-chat request; real model-consumed catalog, container generation, immutable export and downloaded Telegram documents. Not a two-human or group pilot.",
+  "source_hashes": {
+    "payload/home/plugins/qyp_guard/__init__.py": "24f39ed90ee12a6944376575a2168b25d8fb51db6a59e3da18356c583c193bf3",
+    "payload/home/plugins/qyp_guard/pending_media.py": "3848f1be6bc5de9e2e79a2666d8efe8aa0b41ceeffe4fce6a16416dd71c183d7",
+    "payload/home/plugins/qyp_guard/admission.py": "e5a0fa49e3eb019e93e00f0a3da29f304144042f484bdb3994c6103fb45a2e75",
+    "core/atlas-core.patch": "b65ff99ad74beb9048571c4c12e5713682ae9487bc9b8315be599b91c82ba3ab",
+    "templates/SOUL.md": "244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57"
+  },
+  "owner_private_requests": 1,
+  "delivered_reopened_files": [
+    {
+      "format": ".docx",
+      "sha256": "8d5ba8aee5ee32afc4649df2c876f3291fb866682c4ebe829af25771f5b17934",
+      "bytes": 37106,
+      "sandbox_export_download_all_equal": true,
+      "download_library_reopen": true,
+      "marker_catalog_counts_and_table_pass": true,
+      "table_count": 1
+    },
+    {
+      "format": ".pptx",
+      "sha256": "5a1444cf4836e00fa6cc4e24de6050818995c0af8eb4528c8c3274a825233ac4",
+      "bytes": 29018,
+      "sandbox_export_download_all_equal": true,
+      "download_library_reopen": true,
+      "marker_catalog_counts_and_table_pass": true,
+      "table_count": 1,
+      "slide_count": 1
+    }
+  ],
+  "actual_model_consumed_catalog": {
+    "operation_count": 2121,
+    "service_count": 151,
+    "listed_unique_services": 151,
+    "truncated": false,
+    "tool_result_chars": 4407
+  },
+  "sandbox_observed_by_parent": {
+    "network": "none",
+    "read_only_root": true,
+    "drop_all_capabilities": true,
+    "no_new_privileges": true,
+    "only_owned_work_bind": true,
+    "removed_after_execution": true
+  },
+  "parent_receipt_sha256": {
+    "r4-session-receipt.json": "0b6514940440297b312e2fb911f2f055e8b8a7d37917bd7ce4d5854f98937e05",
+    "r4-source-and-chain-receipt.json": "3dcd7baa3f818a54b42e7f30a0a3025f2deed313523d43fca41e1af32f73d9d1",
+    "binary-delivery-r4.json": "d5acdcf0131858a599a6d9b2c685600588387353075bcffef8d1bbfb8323dc3f",
+    "received-history-r4.json": "aa456784d87b43f5c8f98c718269ccf26249e607b91ede34edd67e625dd38a03"
+  },
+  "separate_visual_QA": "Parent-owned; not counted as an Atlas rendering capability or completed rendering acceptance",
+  "unqualified": [
+    "Two-human and group delivery",
+    "Trace/CDP behavior",
+    "Shared Honcho automatic recall E2E",
+    "Usability of every one of the 2121 reviewed operations"
+  ],
+  "public_activation_permitted": false,
+  "source_publication_worker_live_writes": false
+}

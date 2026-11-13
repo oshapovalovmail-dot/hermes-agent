@@ -603,12 +603,21 @@ class SessionAuthority:
         if (scope := _lease_scope.get()) is not None:
             scope.write_started = True
         native_write_started.set(True)  # shielded from here: a cancelled caller may still commit
-        return await tracked_write(self, partial(
-            self._admit_native_write, principal_id='messaging:' + identity, session_id=ref.session_id,
-            request_id=request_id, payload=payload,
-            authorize=session_retry_admission.compose(rewrite, self._admission_gate(fence)),
-            raw=getattr(event, 'raw_message', None)),
-            then=admitted, ordered=True, after=lambda _receipt: self._schedule_admitted(committed[0]))
+        from gateway.session_native_proofs import handoff
+        proof_lock = handoff(self)
+        async def commit_with_proof():
+            # The tracked operation owns this lock, not its cancellable caller.
+            async with proof_lock:
+                return await tracked_write(self, partial(
+                    self._admit_native_write, principal_id='messaging:' + identity, session_id=ref.session_id,
+                    request_id=request_id, payload=payload,
+                    authorize=session_retry_admission.compose(rewrite, self._admission_gate(fence)),
+                    raw=getattr(event, 'raw_message', None)),
+                    then=admitted, ordered=True, after=lambda _receipt: self._schedule_admitted(committed[0]))
+        if isinstance(proof_lock, asyncio.Lock):
+            from gateway.session_runtime_workers import track_mutation
+            return await asyncio.shield(track_mutation(self, commit_with_proof()))
+        return await commit_with_proof()  # generic runtime retains its caller-side scheduling
 
     def _admit_native_write(self, *, principal_id, session_id, request_id, payload, authorize, raw=None):
         # Off the loop and in admission order: the redelivery reconcile reads the ledger it decides
@@ -616,11 +625,19 @@ class SessionAuthority:
         from gateway.session_ingress_media import drop_capture_lease, reconcile_native_retry, release_unheld_media
         fresh = payload.get('native_text_v1', {}).get('media', [])
         session_id = self._current_owner(session_id)
+        replayed = False
+        def replay_guard(conn):
+            # Sticky across SQLite retries: an observed replay can never mint a proof.
+            nonlocal replayed
+            replayed = True
         try:
             payload = reconcile_native_retry(self.db, principal_id=principal_id, session_id=session_id,
                                              request_id=request_id, payload=payload, raw=raw)
-            return admit_session_input(self.db, epoch=self.epoch, principal_id=principal_id, session_id=session_id,
-                                       request_id=request_id, payload=payload, _authorize_write=authorize)
+            row = admit_session_input(self.db, epoch=self.epoch, principal_id=principal_id, session_id=session_id,
+                                      request_id=request_id, payload=payload, _authorize_write=authorize,
+                                      _replay_guard=replay_guard)
+            # Ephemeral callback disposition, never persisted or part of a public receipt.
+            return {**row, '_native_first_insert': not replayed and row['status'] == 'queued'}
         except Exception:
             # A refused admission owns nothing it captured (unless another admission holds the same bytes).
             drop_capture_lease()
@@ -638,7 +655,10 @@ class SessionAuthority:
         return current if current in self.sessions else session_id
 
     def _admitted(self, ref, event, row):
+        first_insert = row.pop('_native_first_insert', False) is True
         if event is not None:
+            from gateway.session_native_proofs import retain
+            retain(self, event, row, first_insert=first_insert)
             event._gateway_accepted = True
             if row['status'] == 'queued' and (committed := getattr(event, '_on_commit', None)) is not None:
                 committed()  # a queued slash command's ack follows its commit (``_queue_command_turn``)
@@ -839,6 +859,8 @@ class SessionAuthority:
         return row
 
     def _settle_cancelled(self, ref, admission_id, outcome='cancelled'):
+        from gateway.session_native_proofs import drop
+        drop(self, admission_id)
         # The only place a queued row becomes terminal: every observer kind that waits on
         # the admission (native delivery, API/webhook/hosted waiters, ACP and viewer streams)
         # settles here, or a cancelled row that never reaches _drain blocks them forever.
@@ -1152,10 +1174,12 @@ class SessionAuthority:
             live.rescan = False  # a _schedule from here on may not be visible to this claim's read
             # The row these checks validated, never whichever is first when the write runs: a
             # cancellation commits from a worker thread and can advance the FIFO at any point.
-            row = await tracked_write(self, partial(claim_session_input, self.db, epoch=self.epoch,
-                                                    session_id=ref.session_id, _guard=self._admission_gate(),
-                                                    head=first['admission_id'] if first is not None else None),
-                                      then=partial(self._stamp_claim, ref, live))
+            from gateway.session_native_proofs import handoff
+            async with handoff(self):
+                row = await tracked_write(self, partial(claim_session_input, self.db, epoch=self.epoch,
+                                                        session_id=ref.session_id, _guard=self._admission_gate(),
+                                                        head=first['admission_id'] if first is not None else None),
+                                          then=partial(self._stamp_claim, ref, live))
             # Input scheduled while this claim's transaction ran may postdate its read: re-read
             # instead of letting the drain exit idle over a committed admission.
             return (False if row is None and live.rescan else row), first
@@ -1274,6 +1298,7 @@ class SessionAuthority:
         execution returns; a lost managed worker settles an automation turn (``settled_unknown``) or pauses
         the FIFO and re-raises ManagedExecutionUnknown."""
         from gateway.session_finite import execute_finite_admission
+        from gateway.session_native_proofs import NativeAdmissionDenied, drop
         from gateway.session_managed_worker import ManagedExecutionUnknown
         review = getattr(live.review, '_background_review_run', None)
         if review is not None and not review.request_done.is_set():
@@ -1285,8 +1310,15 @@ class SessionAuthority:
             try:
                 return await execute_finite_admission(self, ref, row), 'completed'
             finally:
+                drop(self, row['admission_id'])
                 with live.event_stream.lock:
                     self.executing.pop(ref.session_id, None)
+        except NativeAdmissionDenied:
+            # No generation and no notice/fallback delivery to a now unauthorized chat.
+            self.pending_results[row['admission_id']] = {'result': {
+                'final_response': '', 'messages': [], 'failed': True,
+                'completed': False, 'error': 'Native admission authority unavailable.'}, 'usage': {}}
+            return None, 'failed'
         except ManagedExecutionUnknown:
             with live.event_stream.lock:
                 live.event_stream.execution = {}

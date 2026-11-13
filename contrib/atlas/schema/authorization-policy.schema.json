@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "atlas.authorization-policy.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "state",
+    "provider",
+    "direct_messages",
+    "groups",
+    "fail_closed",
+    "activation_permitted"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "state": {
+      "enum": [
+        "blocked_pending_parent_verified_provider",
+        "parent_verified_provider_integrated",
+        "username_provider_native_group_integrated_pending_peer_acceptance"
+      ]
+    },
+    "provider": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "direct_messages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "require_verified_employee"
+      ],
+      "properties": {
+        "require_verified_employee": {
+          "const": true
+        }
+      }
+    },
+    "groups": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "require_tasha_present",
+        "require_tasha_admin",
+        "trusted_tasha_identity",
+        "private_dm_memory_access",
+        "group_context_namespace",
+        "enabled"
+      ],
+      "properties": {
+        "require_tasha_present": {
+          "const": true
+        },
+        "require_tasha_admin": {
+          "const": true
+        },
+        "trusted_tasha_identity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "enum": [
+            793835103,
+            null
+          ]
+        },
+        "private_dm_memory_access": {
+          "const": false
+        },
+        "group_context_namespace": {
+          "const": "group-specific"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fail_closed": {
+      "const": true
+    },
+    "activation_permitted": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "blocked_pending_parent_verified_provider"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "provider": {
+            "type": "null"
+          },
+          "activation_permitted": {
+            "const": false
+          },
+          "groups": {
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "username_provider_native_group_integrated_pending_peer_acceptance"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "activation_permitted": {
+            "const": false
+          },
+          "provider": {
+            "type": "object",
+            "required": [
+              "mode",
+              "numeric_staff_binding"
+            ],
+            "properties": {
+              "mode": {
+                "const": "telegram_username_exact"
+              },
+              "numeric_staff_binding": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

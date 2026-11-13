@@ -1,0 +1,79 @@
+{
+  "state": "SCOPED_PRINCIPAL_NATIVE_CAUSAL_PASS_PARENT_OWNER_LIVE_DOCX_PPTX_PASS",
+  "source_hashes": {
+    "payload/home/plugins/qyp_guard/__init__.py": "24f39ed90ee12a6944376575a2168b25d8fb51db6a59e3da18356c583c193bf3",
+    "payload/home/plugins/qyp_guard/pending_media.py": "3848f1be6bc5de9e2e79a2666d8efe8aa0b41ceeffe4fce6a16416dd71c183d7",
+    "scripts/verify_scoped_principal.py": "df5d817ff97fa0aa361679e376acc86ddc15c7e2e3d24af1faf0d791c9fe8f61",
+    "tests/scoped/test_boundary.py": "ec63844a55ed552af92bfc800a57c28ae2198a07a6330843d16c4a616986dc7b"
+  },
+  "unchanged_admission_sha256": "e5a0fa49e3eb019e93e00f0a3da29f304144042f484bdb3994c6103fb45a2e75",
+  "unchanged_core_patch_sha256": "b65ff99ad74beb9048571c4c12e5713682ae9487bc9b8315be599b91c82ba3ab",
+  "policy_sha256": "244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57",
+  "protocols": "Local scripted model HTTP, Staff verifier and Telegram SDK transport; no external LLM/Telegram acceptance",
+  "causal_RED": {
+    "exit": 1,
+    "main_model_requests": 0,
+    "failure": "ModuleNotFoundError in unchanged gateway.atlas_admission.principal at line 180",
+    "valid_binding_exact_private_home_and_profile": true,
+    "global_guard_alias": false,
+    "only_expected_native_assertion": true
+  },
+  "causal_GREEN": {
+    "model_requests": 3,
+    "main_model_requests": 2,
+    "native_full_producer": true,
+    "manual_binding_or_ctx_profile": false,
+    "qyp_global_alias_present": false,
+    "guard_modules_home_scoped": true,
+    "scoped_media_own_pass_foreign_denied": true,
+    "native_inbound_attachment_staged": true,
+    "unissued_binding_denied": true,
+    "negative_staff_revocation_zero_requests": true,
+    "actual_tool_result_consumed": true,
+    "teardown": {
+      "model_thread_stopped": true,
+      "bot_sdk_closed": true,
+      "owned_profile_reservations_released": true
+    },
+    "completed": true
+  },
+  "native_scope": "Real PluginManager discovery, home-scoped guard modules, native multiplexed private profile, FIFO, AIAgent HTTP request, qyp_role result consumed by model and exact SDK reply. Media resolve and attachment staging are separately invoked loaded hooks, not a Telegram upload/download test. Full startup/readiness and sandbox execution are not claimed.",
+  "pure_boundary_tests": {
+    "principal_mapping": 5,
+    "redacted_bounded_diagnostics": 4,
+    "total": 9,
+    "run_explicitly_not_in_distribution_discovery": true
+  },
+  "affected_suites": {
+    "fresh_distribution": 35,
+    "username_provider_native": 71,
+    "native_role_media_subset_of_username": 9,
+    "ingress_causal": 15,
+    "fifo_sqlite": 22,
+    "native_proof_subset_of_fifo": 9,
+    "counts_overlap_must_not_be_summed": true
+  },
+  "receipt_hashes": {
+    "native-red02/result.json": "2bb5ef3e17a58d6c5c3a736d6052cfd20ec3adf836e4d5c14ad92709c4e2b23f",
+    "native-red02-execution.json": "3129765ef02cec86815eb9254035cafa53773b605cf4c733a1ee5a6f10a85718",
+    "native-green03/result.json": "8882e0f2518dbd93b166cd36cab02115b3e4d35d54972ac0b7da1f061eeece1d",
+    "native-green03-execution.json": "c0b9432e5d0cd818afe1d717b0d609199f43ff41e03af084c9c6c41f81e42a7d",
+    "boundary02.log": "208c6b162aa3d1bdb70135c3158acabbe8e51f6dc9f5cf8368513ac07f206f09",
+    "ingress/receipt.json": "2b1136b7c7f52758870f8c96043bff529fd592da318e827e20d9057e8bb1c38e",
+    "username/receipt.json": "d46ccf50cfac579e6d1b0cbd235990c7094d3038f98cc188a34d4fa9bc7a9828",
+    "fifo/result.json": "6991b3cc4259dc5ae5d17a3cf75eaa42c5eec758ca5b3482afef3d2c7ab0ac6c",
+    "fresh02/verification.json": "1d8089f51fdc23ae51a66c8a461b156df46c465411d874f7a965f59f298e221f"
+  },
+  "sandbox_image_carry_forward": {
+    "inputs_equal_previous_published_source": true,
+    "input_file_count": 464,
+    "canonical_input_ledger_sha256": "4b50d8f66f776c74e671691fc269de8ef30a169bae0f4028a6a522d711b7f525",
+    "inherited_qualification_receipt_sha256": "4858e3009ba92ed9bb61bc5e0477c405b33100b623724867a9d2f086693e5075",
+    "new_image_build": false,
+    "whole_current_package_image_qualification": false
+  },
+  "production_activation_permitted": false,
+  "live_runtime_or_configuration_writes": false,
+  "live_R4": "OWNER_LIVE_DOCX_PPTX_PASS; parent evidence in manifests/owner-live-delivery.json; one owner private request only",
+  "historical_install_manifest": "Qualified base plus two-file overlay; not evidence that a historical installed manifest equals this new source package"
+}

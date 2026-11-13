@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тестовая дека ПСиИИ</title>
+<style>
+@font-face { font-family:"YS Display Cond"; src:url("../assets/fonts/YSDisplayCond-Heavy.ttf") format("truetype"); font-weight:900; font-display:swap; }
+@font-face { font-family:"YS Display Cond"; src:url("../assets/fonts/YSDisplayCond-Medium.ttf") format("truetype"); font-weight:500; font-display:swap; }
+@font-face { font-family:"YS Text"; src:url("../assets/fonts/YSText-Regular.ttf") format("truetype"); font-weight:400; font-display:swap; }
+@font-face { font-family:"YS Text"; src:url("../assets/fonts/YSText-Medium.ttf") format("truetype"); font-weight:500; font-display:swap; }
+@font-face { font-family:"YS Text"; src:url("../assets/fonts/YSText-Light.ttf") format("truetype"); font-weight:300; font-display:swap; }
+
+:root{
+  --ink:#1D0203; --coral:#F66047; --gray-900:#1F1F20; --gray-600:#494949;
+  --gray-50:#F2F2F2; --white:#FFFFFF;
+  --font-display:"YS Display Cond","YS Text",Arial,sans-serif;
+  --font-text:"YS Text",Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:#0a0a0a;overflow:hidden;}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+#canvas{width:1920px;height:1080px;position:relative;transform-origin:center center;background:#fff;}
+.slide{position:absolute;inset:0;width:1920px;height:1080px;display:none;padding:115px;}
+.slide[data-active]{display:block;}
+
+/* shared */
+.kicker{font-family:var(--font-text);font-weight:500;font-size:24px;letter-spacing:0.02em;text-transform:uppercase;}
+.footer{position:absolute;left:115px;top:979px;font-family:var(--font-text);font-weight:400;font-size:24px;color:rgba(19,27,33,0.5);}
+.pagenum{position:absolute;right:115px;top:979px;font-family:var(--font-text);font-weight:400;font-size:24px;color:rgba(19,27,33,0.5);}
+
+/* 1 — title, red */
+.s-title{background:var(--coral);color:#fff;}
+.s-title .brand{font-family:var(--font-text);font-weight:500;font-size:28px;}
+.s-title h1{position:absolute;left:115px;top:380px;width:1500px;font-family:var(--font-display);font-weight:900;font-size:140px;line-height:0.9;letter-spacing:-0.02em;}
+.s-title .sub{position:absolute;left:115px;top:760px;font-family:var(--font-text);font-weight:400;font-size:36px;}
+
+/* content, white */
+.s-content{background:#fff;color:var(--gray-900);}
+.s-content h2{position:absolute;left:115px;top:77px;width:1690px;font-family:var(--font-display);font-weight:900;font-size:96px;line-height:0.9;letter-spacing:-0.02em;color:var(--ink);}
+.s-content .lead{position:absolute;left:115px;top:300px;width:1400px;font-family:var(--font-text);font-weight:400;font-size:40px;line-height:1.2;color:var(--gray-600);}
+.cards{position:absolute;left:115px;top:480px;display:flex;gap:40px;}
+.card{width:540px;background:var(--gray-50);padding:48px;}
+.card .n{font-family:var(--font-display);font-weight:900;font-size:120px;line-height:0.85;color:var(--coral);}
+.card p{margin-top:24px;font-family:var(--font-text);font-weight:400;font-size:32px;line-height:1.2;color:var(--gray-900);}
+
+/* number slide */
+.s-stat{background:#fff;color:var(--gray-900);}
+.s-stat .big{position:absolute;left:115px;top:280px;font-family:var(--font-display);font-weight:900;font-size:420px;line-height:0.82;letter-spacing:-0.02em;color:var(--ink);}
+.s-stat .label{position:absolute;left:120px;top:760px;width:1200px;font-family:var(--font-text);font-weight:400;font-size:44px;line-height:1.15;color:var(--gray-600);}
+
+/* final, gray */
+.s-final{background:var(--gray-50);color:var(--gray-900);}
+.s-final h2{position:absolute;left:115px;top:420px;width:1500px;font-family:var(--font-display);font-weight:900;font-size:120px;line-height:0.9;letter-spacing:-0.02em;color:var(--ink);}
+.s-final .meta{position:absolute;left:115px;top:720px;font-family:var(--font-text);font-weight:400;font-size:32px;color:var(--gray-600);}
+
+#nav{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;}
+#nav button{font-family:Arial,sans-serif;font-size:14px;padding:8px 16px;border:none;border-radius:6px;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="canvas">
+    <!-- 1 -->
+    <section class="slide s-title" data-screen-label="01" data-active>
+      <div class="brand">Яндекс · Поисковые сервисы и ИИ</div>
+      <h1>Тестовая презентация для проверки экспорта</h1>
+      <div class="sub">Проверка выгрузки через кнопку Share → Export</div>
+      <div class="footer" style="color:rgba(255,255,255,.7)">Внутренний документ</div>
+    </section>
+    <!-- 2 -->
+    <section class="slide s-content" data-screen-label="02">
+      <h2>Что проверяем</h2>
+      <div class="lead">Сравним, что отдаёт кнопка экспорта, с фирменным стандартом: размер, тема, шрифты, макеты.</div>
+      <div class="cards">
+        <div class="card"><div class="n">01</div><p>Размер слайда и пропорции канваса</p></div>
+        <div class="card"><div class="n">02</div><p>Шрифты YS Display Cond и YS Text</p></div>
+      </div>
+      <div class="footer">Тестовая дека ПСиИИ</div>
+      <div class="pagenum">02</div>
+    </section>
+    <!-- 3 -->
+    <section class="slide s-stat" data-screen-label="03">
+      <div class="big">86%</div>
+      <div class="label">условный показатель — проверяем крупную цифру в YS Display Cond</div>
+      <div class="footer">Тестовая дека ПСиИИ</div>
+      <div class="pagenum">03</div>
+    </section>
+    <!-- 4 -->
+    <section class="slide s-final" data-screen-label="04">
+      <h2>Спасибо</h2>
+      <div class="meta">Финальный слайд — в фирменном стандарте он серый, не красный</div>
+    </section>
+  </div>
+</div>
+<div id="nav">
+  <button onclick="go(-1)">‹ Назад</button>
+  <button onclick="go(1)">Вперёд ›</button>
+</div>
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+let i=0;
+function show(n){slides.forEach((s,k)=>k===n?s.setAttribute('data-active',''):s.removeAttribute('data-active'));i=n;}
+function go(d){show(Math.max(0,Math.min(slides.length-1,i+d)));}
+addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')go(1);if(e.key==='ArrowLeft')go(-1);});
+function fit(){const c=document.getElementById('canvas');const s=Math.min(innerWidth/1920,innerHeight/1080);c.style.transform='scale('+s+')';}
+addEventListener('resize',fit);fit();
+</script>
+</body>
+</html>

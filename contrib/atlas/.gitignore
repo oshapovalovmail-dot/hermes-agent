@@ -1,0 +1,15 @@
+.verification-venv/
+.venv/
+__pycache__/
+*.pyc
+receipts/
+runtime/
+.env
+.env.*
+auth.json
+*.db
+*.sqlite*
+*.tar
+*.tar.gz
+node_modules/
+.DS_Store

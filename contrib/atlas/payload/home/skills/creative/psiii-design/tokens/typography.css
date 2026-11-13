@@ -1,0 +1,102 @@
+/* ПСиИИ — Typography tokens
+   Two families only: YS Display Cond (condensed, titles + numerals) and
+   YS Text (everything else). Tight tracking and tight leading are the
+   signature — display leading is 0.85, tracking −0.02em. */
+
+:root {
+  /* ── Families ── */
+  --font-display: "YS Display Cond", "YS Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-text:    "YS Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* ── Weights ── */
+  --fw-light: 300;   /* @kind font */
+  --fw-regular: 400; /* @kind font */
+  --fw-medium: 500;  /* @kind font */
+  --fw-bold: 700;    /* @kind font */
+  --fw-heavy: 900;   /* @kind font */ /* YS Display Cond Heavy — the title weight */
+
+  /* ── Tracking & leading ── */
+  --tracking-display: -0.02em; /* titles, headings */
+  --tracking-text: 0;
+  --tracking-caption: 0.02em;  /* small UI labels / footer */
+  --leading-display: 0.85;     /* the signature ultra-tight display leading */
+  --leading-tight: 0.95;
+  --leading-snug: 1.1;
+  --leading-body: 1.2;
+
+  /* ── Display scale (YS Display Cond Heavy) — title & section slides ──
+        Sizes are slide-px on a 1920×1080 canvas. */
+  --type-display-xxl: 220px;
+  --type-display-xl:  180px;
+  --type-display-l:   140px;
+  --type-display-m:   120px;
+
+  /* ── Headings (YS Text) ── */
+  --type-h1-l: 96px;
+  --type-h1-m: 72px;
+  --type-h1-s: 60px;
+  --type-h2:   40px;
+
+  /* ── Subtitle (YS Text Medium) ── */
+  --type-subtitle-l: 40px;
+  --type-subtitle-m: 36px;
+  --type-subtitle-s: 32px;
+
+  /* ── Body (YS Text Regular, --text-body color) ── */
+  --type-body-xl: 40px;
+  --type-body-l:  36px;
+  --type-body-m:  32px;
+  --type-body-s:  28px;
+
+  /* ── Caption / meta (YS Text, --text-muted) ── */
+  --type-caption-l: 24px;
+  --type-caption-s: 20px;
+  --type-footer:    15px;
+}
+
+/* ── Ready-made type classes (optional helpers) ── */
+.ps-display {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
+  font-size: var(--type-display-m);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--text-title);
+}
+.ps-h1 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
+  font-size: var(--type-h1-m);
+  line-height: 0.9;
+  letter-spacing: var(--tracking-display);
+  color: var(--text-title);
+}
+.ps-h2 {
+  font-family: var(--font-text);
+  font-weight: var(--fw-regular);
+  font-size: var(--type-h2);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-display);
+  color: var(--text-body);
+}
+.ps-subtitle {
+  font-family: var(--font-text);
+  font-weight: var(--fw-medium);
+  font-size: var(--type-subtitle-m);
+  line-height: var(--leading-body);
+  color: var(--text-primary);
+}
+.ps-body {
+  font-family: var(--font-text);
+  font-weight: var(--fw-regular);
+  font-size: var(--type-body-m);
+  line-height: var(--leading-body);
+  color: var(--text-body);
+}
+.ps-caption {
+  font-family: var(--font-text);
+  font-weight: var(--fw-regular);
+  font-size: var(--type-caption-l);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}

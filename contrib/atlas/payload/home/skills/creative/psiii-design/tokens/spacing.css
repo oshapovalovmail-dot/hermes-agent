@@ -1,0 +1,57 @@
+/* ПСиИИ — Spacing, layout & shape tokens
+   The brandbook is a slide system on a fixed 1920×1080 canvas with a strict
+   grid. Margins, header/footer placement and the column grid are all fixed. */
+
+:root {
+  /* ── Slide canvas ── */
+  --slide-w: 1920px;
+  --slide-h: 1080px;
+
+  /* ── Margins & safe area ── */
+  --safe: 20px;        /* outer safe-area margin (header / footer / corner mark) */
+  --margin-x: 40px;    /* content left/right margin */
+  --content-top: 172px;/* y where slide title block begins */
+  --content-w: 1840px; /* 1920 − 2×40 */
+
+  /* ── Column grid (the «сетка» — always on) ── */
+  --grid-cols: 12; /* @kind other */
+  --grid-gap: 20px;
+  --grid-line-w: 1px;
+
+  /* ── Spacing scale (4-based) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ── Radii — the system is overwhelmingly sharp ── */
+  --radius-0: 0px;      /* default: swatches, panels, image frames */
+  --radius-sm: 8px;     /* small UI chips / inputs */
+  --radius-md: 16px;    /* cards */
+  --radius-lg: 28px;    /* large panels */
+  --radius-full: 999px; /* marks, avatars, pills */
+
+  /* ── Borders & strokes ── */
+  --stroke: 1px;
+  --stroke-2: 2px;      /* icon stroke weight */
+
+  /* ── Shadows — used very rarely; the look is flat ── */
+  --shadow-none: none;
+  --shadow-soft: 0 8px 32px rgba(31, 31, 32, 0.10);
+  --shadow-card: 0 2px 12px rgba(31, 31, 32, 0.08);
+
+  /* ── Motion ── */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --dur-fast: 120ms; /* @kind other */
+  --dur-base: 200ms; /* @kind other */
+  --dur-slow: 360ms; /* @kind other */
+}

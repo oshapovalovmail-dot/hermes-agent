@@ -1,0 +1,104 @@
+{
+  "_template_only": true,
+  "_render_with": "python -m atlas_dist.install --root NEW_ROOT --owner-telegram-id CANONICAL_ID",
+  "telegram": {
+    "enabled": false,
+    "dm_policy": "open",
+    "allow_from": [
+      "*"
+    ],
+    "group_policy": "open",
+    "group_allow_from": [
+      "*"
+    ],
+    "unauthorized_dm_behavior": "ignore",
+    "extra": {
+      "atlas_admission": true,
+      "dm_policy": "open",
+      "allow_from": [
+        "*"
+      ],
+      "group_policy": "open",
+      "group_allow_from": [
+        "*"
+      ],
+      "require_mention": true,
+      "guest_mode": false,
+      "observe_unmentioned_group_messages": false
+    },
+    "require_mention": true,
+    "guest_mode": false,
+    "observe_unmentioned_group_messages": false
+  },
+  "unauthorized_dm_behavior": "ignore",
+  "gateway": {
+    "multiplex_profiles": true,
+    "required_policies": [
+      "qyp_guard"
+    ],
+    "profile_routes": [],
+    "home_channel_prompt": false,
+    "max_concurrent_sessions": null
+  },
+  "media_delivery": {
+    "required_policy": "qyp_guard"
+  },
+  "agent": {
+    "allowed_tools": [
+      "memory",
+      "skills_list",
+      "skill_view",
+      "qyp_exec",
+      "qyp_read",
+      "qyp_export",
+      "qyp_role"
+    ],
+    "reasoning_effort": "medium",
+    "gateway_timeout": 86580
+  },
+  "tools": {
+    "tool_search": {
+      "enabled": "off"
+    }
+  },
+  "plugins": {
+    "enabled": [
+      "qyp_guard"
+    ],
+    "isolation": "in_process",
+    "entries": {
+      "qyp_guard": {
+        "enabled": true,
+        "settings": {
+          "root": "<INSTALL_ROOT>/sandbox",
+          "sandbox_backend": "docker",
+          "docker_bin": "<TRUSTED_DOCKER_BIN>",
+          "docker_host": "<OPERATOR_LOCAL_UNIX_SOCKET>",
+          "docker_image": "<VERIFIED_SHA256_IMAGE_ID>",
+          "container_python": "/opt/atlas/bin/python3",
+          "container_node": "/usr/local/bin/node",
+          "media_policy_integrated": true,
+          "required_read_tools": [],
+          "reviewed_read_tools": {},
+          "reviewed_service_files": {},
+          "reviewed_stdio_servers": {},
+          "reviewed_mutation_tools": {},
+          "reviewed_trace_tools": {},
+          "admission_mode": "verified_staff_or_official_tasha_administrator",
+          "tasha_bot_id": 793835103
+        }
+      }
+    }
+  },
+  "mcp_servers": {
+    "atlas_read": {
+      "circuit_breaker": false
+    }
+  },
+  "_warning": "Incomplete reference only. Installer emits exact 10 read pins. Native FIFO guard pending parent queue patch; activation forbidden.",
+  "model": {
+    "default": "gpt-6.1-terra",
+    "provider": "openai-codex"
+  },
+  "max_concurrent_sessions": null
+}

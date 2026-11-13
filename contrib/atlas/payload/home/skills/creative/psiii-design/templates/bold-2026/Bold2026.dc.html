@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Яндекс 2026: смелые макеты (тест)" description="Экспериментальный шаблон нестандартных композиций по Правилу 61: титул с гигантским ghost-числом, hero+сетка, цифра-герой с наслоением, левый рейл + ранжированные горизонтальные бары, вертикальный путь + вывод-герой, тезис с оверсайз-кавычкой, стена продуктов с логотипами, финал. Каркас сохранён: 1920×1080, поля 115, data-layout/data-ph/data-screen-label, колонтитул note+num — экспорт в фирменный PPTX детерминирован." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #111; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+  <!-- ════ 1 · ТИТУЛ (красный) — гигантское ghost-число, заголовок слева ════ -->
+  <section data-label="Титул" data-layout="title" data-screen-label="01" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F66048;">
+    <div style="position:absolute;right:-130px;top:70px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:940px;line-height:0.78;letter-spacing:-0.04em;color:rgba(255,255,255,0.13);user-select:none;">26</div>
+    <div data-ph="title" style="position:absolute;left:115px;top:158px;width:1230px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:180px;line-height:0.82;letter-spacing:-0.02em;color:#FFFFFF;">Продукты Яндекса в цифрах</div>
+    <div style="position:absolute;left:118px;top:632px;font-size:40px;color:rgba(255,255,255,0.92);">Экосистема одним взглядом · 2026</div>
+    <div data-ph="name" style="position:absolute;left:114px;top:898px;width:1453px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#FFFFFF;">Иванов Иван</div>
+    <div data-ph="role" style="position:absolute;left:114px;top:945px;width:1453px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.1;color:rgba(255,255,255,0.92);">Спикер</div>
+    <img src="../../assets/logos/yandex-mark-white.svg" alt="" style="position:absolute;right:115px;bottom:96px;width:92px;height:92px;">
+  </section>
+
+  <!-- ════ 2 · ЭКОСИСТЕМА — hero + сетка 2×2 (асимметрия 33/66) ════ -->
+  <section data-label="Экосистема" data-layout="content" data-screen-label="02" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Экосистема одним взглядом</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1500px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Один аккаунт — десятки сервисов на&nbsp;каждый день</div>
+
+    <!-- hero-карточка слева (доминанта, единственный красный) -->
+    <div style="position:absolute;left:115px;top:300px;width:560px;min-height:556px;background:#F66048;border-radius:45px;padding:48px 46px;display:flex;flex-direction:column;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:24px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Сервисов</div>
+      <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:140px;line-height:0.82;letter-spacing:-0.02em;color:#fff;margin-top:6px;">90+</div>
+      <div style="font-size:34px;color:#fff;line-height:1.16;margin-top:auto;">в единой экосистеме — от&nbsp;поиска до&nbsp;доставки</div>
+    </div>
+
+    <!-- сетка 2×2 справа -->
+    <div style="position:absolute;left:715px;top:300px;width:1090px;display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:40px 40px 44px 40px;display:flex;flex-direction:column;min-height:266px;">
+        <x-import component-from-global-scope="DesignSystem_132e64.Icon" name="social_outline" size="44" color="#CECECE" hint-size="44px,44px" style="position:absolute;top:32px;right:34px;"></x-import>
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:96px;line-height:0.84;letter-spacing:-0.01em;color:#1F1F20;">100 млн</div>
+        <div style="font-size:28px;color:#494949;line-height:1.12;margin-top:auto;">активных пользователей в&nbsp;месяц</div>
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:40px 40px 44px 40px;display:flex;flex-direction:column;min-height:266px;">
+        <x-import component-from-global-scope="DesignSystem_132e64.Icon" name="car" size="44" color="#CECECE" hint-size="44px,44px" style="position:absolute;top:32px;right:34px;"></x-import>
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:96px;line-height:0.84;letter-spacing:-0.01em;color:#1F1F20;">1 млн+</div>
+        <div style="font-size:28px;color:#494949;line-height:1.12;margin-top:auto;">поездок и&nbsp;доставок в&nbsp;день</div>
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:40px 40px 44px 40px;display:flex;flex-direction:column;min-height:266px;">
+        <x-import component-from-global-scope="DesignSystem_132e64.Icon" name="app" size="44" color="#CECECE" hint-size="44px,44px" style="position:absolute;top:32px;right:34px;"></x-import>
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:96px;line-height:0.84;letter-spacing:-0.01em;color:#1F1F20;">30+</div>
+        <div style="font-size:28px;color:#494949;line-height:1.12;margin-top:auto;">категорий продуктов и&nbsp;сервисов</div>
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:40px 40px 44px 40px;display:flex;flex-direction:column;min-height:266px;">
+        <x-import component-from-global-scope="DesignSystem_132e64.Icon" name="apps_media" size="44" color="#CECECE" hint-size="44px,44px" style="position:absolute;top:32px;right:34px;"></x-import>
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:96px;line-height:0.84;letter-spacing:-0.01em;color:#1F1F20;">10+</div>
+        <div style="font-size:28px;color:#494949;line-height:1.12;margin-top:auto;">лет голосовому помощнику Алисе</div>
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Продукты Яндекса в&nbsp;цифрах · оценочные показатели</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">02</div>
+  </section>
+
+  <!-- ════ 3 · АУДИТОРИЯ — цифра-герой + наслоение ════ -->
+  <section data-label="Аудитория" data-layout="content" data-screen-label="03" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1000px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Аудитория</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1600px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Сколько людей пользуются сервисами каждый месяц</div>
+
+    <!-- интерфейсный чип-якорь над числом: красный акцент живёт ЗДЕСЬ, не в числе (Правило 80). Верхняя линия = верх правой карточки (Правило 57) -->
+    <div style="position:absolute;left:118px;top:300px;display:inline-flex;align-items:center;gap:12px;background:#F66048;border-radius:999px;padding:13px 26px;">
+      <span style="width:11px;height:11px;border-radius:50%;background:#fff;flex:none;"></span>
+      <span style="font-family:'YS Text';font-weight:500;font-size:24px;color:#fff;">MAU · каждый месяц</span>
+    </div>
+    <!-- цифра-герой (доминанта) — ОДИН цвет ink (Правило 80); единица крупнее и по базовой линии числа -->
+    <div style="position:absolute;left:96px;top:372px;display:flex;align-items:baseline;">
+      <span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:380px;line-height:0.78;letter-spacing:-0.03em;color:#1F1F20;">100</span>
+      <span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:200px;line-height:0.78;letter-spacing:-0.02em;color:#1F1F20;margin-left:26px;">млн+</span>
+    </div>
+    <div style="position:absolute;left:115px;top:700px;width:1040px;font-size:40px;color:#494949;line-height:1.08;">человек заходят в&nbsp;сервисы Яндекса каждый месяц</div>
+
+    <!-- карточка-разбивка справа: верх и низ на одной высоте с левой частью (Правило 57) -->
+    <div style="position:absolute;left:1185px;top:300px;width:620px;min-height:443px;background:#F5F4F2;border-radius:45px;padding:40px 46px 38px 46px;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#1F1F20;line-height:1.0;">Где живёт аудитория</div>
+      <div style="display:flex;flex-direction:column;margin-top:28px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:24px;padding:24px 0;border-bottom:2px solid #E3E1DD;"><span style="font-size:30px;color:#494949;">Поиск и&nbsp;Браузер</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;letter-spacing:-0.01em;">78 млн</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:24px;padding:24px 0;border-bottom:2px solid #E3E1DD;"><span style="font-size:30px;color:#494949;">Карты и&nbsp;Go</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;letter-spacing:-0.01em;">52 млн</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:24px;padding:24px 0;border-bottom:2px solid #E3E1DD;"><span style="font-size:30px;color:#494949;">Маркет и&nbsp;Еда</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;letter-spacing:-0.01em;">41 млн</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:24px;padding:24px 0;"><span style="font-size:30px;color:#494949;">Музыка и&nbsp;медиа</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;letter-spacing:-0.01em;">30 млн</span></div>
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Продукты Яндекса в&nbsp;цифрах · MAU, оценочно</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">03</div>
+  </section>
+
+  <!-- ════ 4 · ВЫРУЧКА — левый рейл + ранжированные горизонтальные бары ════ -->
+  <section data-label="Выручка по направлениям" data-layout="content" data-screen-label="04" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:560px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Выручка по направлениям</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:300px;width:540px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Доля в&nbsp;выручке экосистемы, % — поиск всё ещё ядро бизнеса</div>
+
+    <!-- ранжированные горизонтальные бары (Правило 30): лидер красный -->
+    <div style="position:absolute;left:760px;top:300px;width:1045px;display:flex;flex-direction:column;gap:34px;">
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;"><span style="font-size:30px;color:#1F1F20;font-family:'YS Text';font-weight:500;">Поиск и&nbsp;портал</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:40px;color:#F66048;letter-spacing:-0.01em;">44%</span></div>
+        <div style="height:34px;border-radius:999px;background:#EFEFEF;overflow:hidden;"><div style="width:100%;height:100%;border-radius:999px;background:#F66048;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;"><span style="font-size:30px;color:#494949;">Райдтех: Такси и&nbsp;Go</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:40px;color:#1F1F20;letter-spacing:-0.01em;">26%</span></div>
+        <div style="height:34px;border-radius:999px;background:#EFEFEF;overflow:hidden;"><div style="width:59%;height:100%;border-radius:999px;background:#CECECE;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;"><span style="font-size:30px;color:#494949;">Электронная коммерция</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:40px;color:#1F1F20;letter-spacing:-0.01em;">17%</span></div>
+        <div style="height:34px;border-radius:999px;background:#EFEFEF;overflow:hidden;"><div style="width:39%;height:100%;border-radius:999px;background:#CECECE;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;"><span style="font-size:30px;color:#494949;">Плюс и&nbsp;развлечения</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:40px;color:#1F1F20;letter-spacing:-0.01em;">9%</span></div>
+        <div style="height:34px;border-radius:999px;background:#EFEFEF;overflow:hidden;"><div style="width:21%;height:100%;border-radius:999px;background:#CECECE;"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;"><span style="font-size:30px;color:#494949;">Облако и&nbsp;B2B</span><span style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:40px;color:#1F1F20;letter-spacing:-0.01em;">4%</span></div>
+        <div style="height:34px;border-radius:999px;background:#EFEFEF;overflow:hidden;"><div style="width:10%;height:100%;border-radius:999px;background:#CECECE;"></div></div>
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Продукты Яндекса в&nbsp;цифрах · доли иллюстративные</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">04</div>
+  </section>
+
+  <!-- ════ 5 · ПУТЬ ПОЛЬЗОВАТЕЛЯ — вертикальная ось + вывод-герой ════ -->
+  <section data-label="Путь пользователя" data-layout="content" data-screen-label="05" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1040px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Путь пользователя</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1000px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Один запрос проходит через всю экосистему</div>
+
+    <!-- слева: связанная вертикальная ось из 4 шагов -->
+    <div style="position:absolute;left:115px;top:300px;width:980px;">
+      <div style="position:relative;padding-left:66px;">
+        <div style="position:absolute;left:13px;top:18px;bottom:18px;width:3px;background:#DADADA;"></div>
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          <div style="position:relative;">
+            <span style="position:absolute;left:-66px;top:8px;width:28px;height:28px;border-radius:50%;background:#1F1F20;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Шаг 1</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;line-height:0.9;color:#1F1F20;margin-top:4px;">Запрос</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:6px;">поиск, голос Алисе или строка Браузера</div>
+          </div>
+          <div style="position:relative;">
+            <span style="position:absolute;left:-66px;top:8px;width:28px;height:28px;border-radius:50%;background:#1F1F20;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Шаг 2</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;line-height:0.9;color:#1F1F20;margin-top:4px;">AI-слой</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:6px;">Алиса понимает контекст и&nbsp;выбирает сервис</div>
+          </div>
+          <div style="position:relative;">
+            <span style="position:absolute;left:-66px;top:8px;width:28px;height:28px;border-radius:50%;background:#1F1F20;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Шаг 3</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;line-height:0.9;color:#1F1F20;margin-top:4px;">Сервис</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:6px;">Go, Маркет, Музыка или Карты выполняют задачу</div>
+          </div>
+          <div style="position:relative;">
+            <span style="position:absolute;left:-67px;top:7px;width:30px;height:30px;border-radius:50%;background:#F66048;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Готово</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;line-height:0.9;color:#1F1F20;margin-top:4px;">Результат</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:6px;">ответ, поездка или заказ — без переключений</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- справа: вывод-герой -->
+    <div style="position:absolute;left:1175px;top:300px;width:630px;min-height:556px;background:#F5F4F2;border-radius:45px;padding:54px 50px 48px 50px;display:flex;flex-direction:column;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:#909090;">Вывод</div>
+      <div style="font-size:46px;line-height:1.18;color:#1F1F20;margin-top:26px;">Экосистема убирает швы: пользователь не&nbsp;выходит из&nbsp;одного контура</div>
+      <div style="margin-top:auto;display:flex;align-items:center;gap:16px;padding-top:36px;"><span style="width:14px;height:14px;border-radius:50%;background:#F66048;flex:none;"></span><span style="font-size:26px;color:#494949;">один аккаунт на&nbsp;весь путь</span></div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Продукты Яндекса в&nbsp;цифрах</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">05</div>
+  </section>
+
+  <!-- ════ 6 · ЦИТАТА — спич-бабл с аватаром (дизайн из шаблона цит4.pptx) ════ -->
+  <section data-label="Цитата" data-layout="content" data-screen-label="06" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F2F2F2;">
+    <!-- спич-бабл из шаблона: белый (tx2=#FFFFFF), хвостик — точная кривая из цит4.pptx; единая тень на силуэт -->
+    <div style="position:absolute;left:0;top:0;width:1920px;height:1080px;filter:drop-shadow(0 12px 34px rgba(31,31,32,0.10));">
+      <div style="position:absolute;left:302px;top:186px;width:1363px;height:657px;background:#FFFFFF;border-radius:45px;"></div>
+      <svg viewBox="0 0 572438 573276" width="207" height="207" style="position:absolute;left:203px;top:636px;display:block;"><path d="M272670 0 L284706 21944 C303486 65883 313870 114192 313870 164901 C313870 342384 186658 490461 17546 524708 L0 526458 L56866 550530 C101266 565177 150080 573276 201322 573276 C406284 573276 572438 443688 572438 283833 C572438 143960 445226 27260 276114 271 Z" fill="#FFFFFF"/></svg>
+    </div>
+    <!-- цитата: дисплейный конденс, тёмная (bg1=#1F1F20); одна ключевая фраза — красным (исключение Правила 80) -->
+    <div data-ph="title" style="position:absolute;left:412px;top:312px;width:1160px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:84px;line-height:0.9;letter-spacing:-0.01em;color:#1F1F20;z-index:1;">Экосистема — это не&nbsp;набор сервисов, а&nbsp;<span style="color:#F66048;">один интеллект</span>, который каждый день работает на&nbsp;человека</div>
+    <!-- автор: имя — ink, должность — серый (bg2 lumMod 50% ≈ #797979) -->
+    <div data-ph="name" style="position:absolute;left:412px;top:650px;width:1000px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#1F1F20;z-index:1;">Самый важный человек</div>
+    <div data-ph="role" style="position:absolute;left:412px;top:708px;width:1000px;font-family:'YS Text',sans-serif;font-weight:400;font-size:32px;line-height:1.1;color:#797979;z-index:1;">Яндекс</div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Продукты Яндекса в&nbsp;цифрах</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">06</div>
+  </section>
+
+  <!-- ════ 7 · ПРОДУКТЫ — стена сервисов с логотипами (сетка 4×2, Алиса — акцент) ════ -->
+  <section data-label="Продукты" data-layout="content" data-screen-label="07" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Продукты на каждый день</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1500px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Сервисы, которыми пользуются миллионы</div>
+
+    <!-- интерфейсный ряд-якорь: поиск + сегментные фильтры (Правило 24/75) -->
+    <div style="position:absolute;left:115px;top:300px;width:1690px;display:flex;align-items:center;gap:20px;">
+      <div style="flex:1;display:flex;align-items:center;gap:16px;background:#F5F4F2;border-radius:999px;padding:20px 32px;">
+        <x-import component-from-global-scope="DesignSystem_132e64.Icon" name="search" size="34" color="#909090" hint-size="34px,34px"></x-import>
+        <span style="font-family:'YS Text';font-weight:400;font-size:30px;color:#909090;">Найти сервис в&nbsp;экосистеме</span>
+      </div>
+      <span style="display:inline-flex;align-items:center;font-family:'YS Text';font-weight:500;font-size:26px;color:#fff;background:#1F1F20;border-radius:999px;padding:18px 32px;">Все</span>
+      <span style="display:inline-flex;align-items:center;font-family:'YS Text';font-weight:400;font-size:26px;color:#1F1F20;background:rgba(0,0,0,0.06);border-radius:999px;padding:18px 32px;">Сервисы</span>
+      <span style="display:inline-flex;align-items:center;font-family:'YS Text';font-weight:400;font-size:26px;color:#1F1F20;background:rgba(0,0,0,0.06);border-radius:999px;padding:18px 32px;">AI</span>
+    </div>
+
+    <div style="position:absolute;left:115px;top:412px;width:1690px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;">
+      <div style="position:relative;background:#fff;border:2px solid #F66048;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="display:flex;align-items:center;gap:12px;"><span style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Алиса</span><span style="display:inline-flex;align-items:center;font-family:'YS Text';font-weight:500;font-size:18px;color:#fff;background:#F66048;border-radius:999px;padding:5px 13px;">AI</span></div>
+        <img src="../../assets/logos/services/technology/alice_ai.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Поиск</div>
+        <img src="../../assets/logos/services/search_services/yandex_ru_red.svg" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Браузер</div>
+        <img src="../../assets/logos/services/search_services/browser.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Go</div>
+        <img src="../../assets/logos/services/city/go.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Маркет</div>
+        <img src="../../assets/logos/services/city/market.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Еда</div>
+        <img src="../../assets/logos/services/city/eats.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Диск</div>
+        <img src="../../assets/logos/services/productivity/disk.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+      <div style="position:relative;background:#fff;border:2px solid #DADADA;border-radius:36px;padding:30px 30px 26px 30px;min-height:184px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;">Почта</div>
+        <img src="../../assets/logos/services/productivity/mail.png" alt="" style="position:absolute;right:28px;bottom:26px;width:62px;height:62px;object-fit:contain;">
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Продукты Яндекса в&nbsp;цифрах</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">07</div>
+  </section>
+
+  <!-- ════ 8 · ФИНАЛ (серый) ════ -->
+  <section data-label="Финал" data-layout="final" data-screen-label="08" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F2F2F2;">
+    <div data-ph="title" style="position:absolute;left:115px;top:120px;width:1691px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:220px;line-height:0.79;color:#1F1F20;">Спасибо</div>
+    <div data-ph="name" style="position:absolute;left:114px;top:898px;width:1453px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#1F1F20;">Иванов Иван</div>
+    <div data-ph="role" style="position:absolute;left:114px;top:945px;width:1453px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.1;color:#494949;">Спикер</div>
+    <img src="../../assets/logos/yandex-mark.svg" alt="" style="position:absolute;right:115px;bottom:96px;width:88px;height:88px;">
+  </section>
+
+</x-import>
+</x-dc>
+</body>
+</html>

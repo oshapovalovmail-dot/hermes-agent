@@ -146,6 +146,19 @@ class MessageEvent:
     _admitted_before_drain: bool = field(default=False, init=False, repr=False, compare=False)
     # Run-owned final presentation snapshot; never deserialized from ingress metadata.
     _notification_reply_muted: Optional[bool] = field(default=None, init=False, repr=False, compare=False)
+    # Process-local selected bytes from a native transport download; never accepted from ingress metadata.
+    _inbound_attachment_snapshots: tuple = field(default=(), init=False, repr=False, compare=False)
+
+    @property
+    def inbound_attachment_snapshots(self) -> tuple:
+        """Bounded transport byte snapshots, for pre_gateway_dispatch consumers (not host paths)."""
+        return self._inbound_attachment_snapshots
+
+    def append_inbound_attachment_snapshot(self, filename: str, content: bytes) -> None:
+        """Native transport only: capture up to four selected attachments of at most 2 MiB each."""
+        if not isinstance(content, bytes) or len(content) > 2 * 1024 * 1024 or len(self._inbound_attachment_snapshots) >= 4:
+            return
+        self._inbound_attachment_snapshots += ((clean_attachment_filename(filename) or 'attachment.bin', content),)
 
     def absorb_reply_expected(self, other: "MessageEvent") -> None:
         """One turn now answers *other* too: an addressed message wins, then an unknown one."""
@@ -162,6 +175,8 @@ class MessageEvent:
             self.media_filenames = pad(self) + pad(other)
         self.media_urls.extend(other.media_urls)
         self.media_types.extend(other.media_types)
+        for filename, content in other.inbound_attachment_snapshots:
+            self.append_inbound_attachment_snapshot(filename, content)
 
     def _command_text(self) -> str:
         """Return the message text with leading Desktop attachment refs stripped.

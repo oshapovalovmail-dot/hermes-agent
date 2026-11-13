@@ -942,6 +942,10 @@ class GatewayBusySessionMixin:
                 return True
             return False  # base adapter queues silently behind the active turn
 
+        event = await self._hm_pre_gateway_dispatch_hook(event, event.source)
+        if event is None:
+            return True
+
         # Same authorization gate as the cold path, else unauthorized users in shared threads
         # inject messages into a session they don't own.
         from gateway.run import _AGENT_PENDING_SENTINEL

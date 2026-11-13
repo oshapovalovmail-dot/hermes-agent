@@ -1,0 +1,57 @@
+name: qyp_guard
+version: 0.1.0
+manifest_version: 2
+description: Principal-scoped no-network auxiliary sandbox and snapshot export broker
+kind: standalone
+dependencies:
+  - python-telegram-bot[webhooks]==22.8
+  - mcp==2.3.0
+provides_tools:
+  - qyp_exec
+  - qyp_read
+  - qyp_export
+  - qyp_role
+  - qyp_code_read
+provides_hooks:
+  - pre_tool_call
+  - pre_llm_call
+config_schema:
+  admitted_user_ids:
+    type: list
+    default: []
+    description: Explicit canonical Telegram ID strings with provisioned native profile routes; owner is implicit
+  sandbox_backend:
+    type: string
+    default: disabled
+    description: Explicit docker, podman or disabled; never fall back to a host executor
+  code_research_root:
+    type: string
+    description: Operator-bound approved Arcadia mount; only fixed subtree reads and immutable broker copies
+  podman_image:
+    type: string
+    description: Exact qualified sha256 image in dedicated rootful store
+  podman_metadata:
+    type: string
+    description: Private owned operation metadata under the explicit Atlas root
+  docker_image:
+    type: string
+    description: Verified immutable local image ID sha256 with 64 lowercase hex digits
+  docker_host:
+    type: string
+    description: Operator selected local unix Docker socket; never mounted in sandbox
+  docker_bin:
+    type: string
+    default: /usr/bin/false
+  container_python:
+    type: string
+    default: /usr/local/bin/python3
+  container_node:
+    type: string
+    description: Optional absolute node executable inside approved image; absent fails closed
+  root:
+    type: string
+    description: Operator-owned private 0700 broker root; never a host project
+  media_policy_integrated:
+    type: boolean
+    default: false
+    description: Enable ONLY after separately proposed mandatory MEDIA seam acceptance

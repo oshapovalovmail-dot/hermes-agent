@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Яндекс 2026: AI-экосистема" description="Дека о трансформации Яндекса в AI-first экосистему: титул, Яндекс сегодня (флоу-схема), развитие Alice AI (таблица + цитата), новое в поиске (бранч-схема), цифры и эффект (стат-карточки), физический AI (линейная схема), итог (3 тренда + цитата), финал. Схемы — нативными блоками; data-layout/data-ph проставлены под фирменный PPTX." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #111; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+  <!-- ════ 1 · ТИТУЛ (красный) ════ -->
+  <section data-label="Титул" data-layout="title" data-screen-label="01" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F66048;">
+    <div data-ph="title" style="position:absolute;left:115px;top:150px;width:1700px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:180px;line-height:0.82;letter-spacing:-0.02em;color:#FFFFFF;">Яндекс 2026:<br>AI-экосистема</div>
+    <div style="position:absolute;left:118px;top:560px;font-size:40px;color:rgba(255,255,255,0.92);">Из поисковой компании — в AI-first платформу</div>
+    <div data-ph="name" style="position:absolute;left:114px;top:898px;width:1453px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#FFFFFF;">Иванов Иван</div>
+    <div data-ph="role" style="position:absolute;left:114px;top:945px;width:1453px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.1;color:rgba(255,255,255,0.92);">Специалист</div>
+    <img src="../../assets/logos/yandex-mark-white.svg" alt="" style="position:absolute;right:115px;bottom:96px;width:92px;height:92px;">
+  </section>
+
+  <!-- ════ 2 · ЯНДЕКС СЕГОДНЯ — флоу-схема ════ -->
+  <section data-label="Яндекс сегодня" data-layout="content" data-screen-label="02" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Яндекс сегодня: экосистема и ИИ-центр</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1500px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Трансформация из поисковой компании в&nbsp;AI-first экосистему</div>
+
+    <!-- факты + вывод (слева) -->
+    <div style="position:absolute;left:115px;top:312px;width:880px;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:flex-start;gap:18px;padding:18px 0;border-bottom:2px solid #EAEAEA;"><span style="width:13px;height:13px;border-radius:50%;background:#F66048;flex:none;margin-top:12px;"></span><span style="font-size:30px;color:#494949;line-height:1.12;">Поиск + ИИ + сервисы: Такси, Еда, Маркет, Браузер, Устройства</span></div>
+        <div style="display:flex;align-items:flex-start;gap:18px;padding:18px 0;border-bottom:2px solid #EAEAEA;"><span style="width:13px;height:13px;border-radius:50%;background:#F66048;flex:none;margin-top:12px;"></span><span style="font-size:30px;color:#494949;line-height:1.12;">Центр новой стратегии — Alice AI</span></div>
+        <div style="display:flex;align-items:flex-start;gap:18px;padding:18px 0;"><span style="width:13px;height:13px;border-radius:50%;background:#F66048;flex:none;margin-top:12px;"></span><span style="font-size:30px;color:#494949;line-height:1.12;">AI становится «сквозным слоем» всех продуктов</span></div>
+      </div>
+      <div style="background:#F5F4F2;border-radius:30px;padding:34px 40px;margin-top:40px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:#909090;">Вывод</div>
+        <div style="font-size:34px;line-height:1.16;color:#494949;margin-top:14px;">Яндекс больше не «поисковик», а&nbsp;AI-платформа</div>
+      </div>
+    </div>
+
+    <!-- флоу-схема (справа) -->
+    <div style="position:absolute;left:1115px;top:300px;width:690px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+      <div style="width:100%;border:2px solid #DADADA;border-radius:22px;padding:22px 28px;text-align:center;font-size:28px;color:#1F1F20;">Пользователь</div>
+      <div style="font-size:34px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="width:100%;border:2px solid #DADADA;border-radius:22px;padding:22px 28px;text-align:center;font-size:28px;color:#1F1F20;">Поиск · Алиса · Браузер</div>
+      <div style="font-size:34px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="width:100%;background:#F66048;border:2px solid #F66048;border-radius:22px;padding:24px 28px;text-align:center;font-family:'YS Text';font-weight:500;font-size:30px;color:#fff;">AI-слой · Alice AI</div>
+      <div style="font-size:34px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="width:100%;border:2px solid #DADADA;border-radius:22px;padding:22px 28px;text-align:center;font-size:28px;color:#1F1F20;">Сервисы: Go · Маркет · Музыка · Лавка</div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Яндекс 2026 · AI-экосистема</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">02</div>
+  </section>
+
+  <!-- ════ 3 · ALICE AI — таблица + цитата ════ -->
+  <section data-label="Развитие Alice AI" data-layout="content" data-screen-label="03" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Как развивается Alice AI</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1500px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Алиса превращается в&nbsp;универсального AI-агента</div>
+
+    <!-- таблица (Правило 74) — слева, с воздухом по строкам -->
+    <div style="position:absolute;left:115px;top:300px;width:1010px;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:16px;">
+        <span style="font-family:'YS Text';font-weight:400;font-size:24px;color:#909090;">Направление</span>
+        <span style="font-family:'YS Text';font-weight:400;font-size:24px;color:#909090;">Что происходит</span>
+      </div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:40px;padding:36px 0;border-bottom:2px solid #EAEAEA;"><span style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;flex:none;width:240px;">Чат AI</span><span style="font-size:28px;color:#494949;line-height:1.12;text-align:right;">расширенные ответы, мультимодальность</span></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:40px;padding:36px 0;border-bottom:2px solid #EAEAEA;"><span style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;flex:none;width:240px;">Память</span><span style="font-size:28px;color:#494949;line-height:1.12;text-align:right;">My Memory — хранение задач и&nbsp;мыслей</span></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:40px;padding:36px 0;border-bottom:2px solid #EAEAEA;"><span style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;flex:none;width:240px;">Агентность</span><span style="font-size:28px;color:#494949;line-height:1.12;text-align:right;">выполнение действий: заказ, бронирование</span></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:40px;padding:36px 0;"><span style="font-family:'YS Text';font-weight:500;font-size:30px;color:#1F1F20;flex:none;width:240px;">Устройства</span><span style="font-size:28px;color:#494949;line-height:1.12;text-align:right;">голос в&nbsp;наушниках и&nbsp;колонках</span></div>
+    </div>
+
+    <!-- важно (справа сверху) — отдельная зона, выровнена с таблицей -->
+    <div style="position:absolute;left:1205px;top:300px;width:600px;">
+      <div style="font-family:'YS Text';font-weight:400;font-size:24px;color:#909090;padding-bottom:16px;">Важно</div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:30px 0;border-bottom:2px solid #EAEAEA;"><span style="width:12px;height:12px;border-radius:50%;background:#F66048;flex:none;margin-top:10px;"></span><span style="font-size:28px;color:#494949;line-height:1.14;">AI превращается во&nbsp;«второй мозг» пользователя</span></div>
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:30px 0;"><span style="width:12px;height:12px;border-radius:50%;background:#F66048;flex:none;margin-top:10px;"></span><span style="font-size:28px;color:#494949;line-height:1.14;">Поддержка сценариев жизни, а&nbsp;не&nbsp;только ответов</span></div>
+      </div>
+    </div>
+
+    <!-- цитата — отдельной карточкой ниже, явно отделена от булитов и таблицы -->
+    <div style="position:absolute;left:1205px;top:610px;width:600px;background:#F5F4F2;border-radius:30px;border-left:6px solid #F66048;padding:38px 44px 42px 44px;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:#909090;">Цитата</div>
+      <div style="font-size:32px;line-height:1.22;color:#1F1F20;margin-top:16px;">«Alice AI turns thoughts into structured notes, reminders and tasks.»</div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Яндекс 2026 · AI-экосистема</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">03</div>
+  </section>
+
+  <!-- ════ 4 · НОВОЕ В ПОИСКЕ — бранч-схема ════ -->
+  <section data-label="Новое в поиске" data-layout="content" data-screen-label="04" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Новое в поиске Яндекса</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1500px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Поиск становится диалогом</div>
+
+    <!-- изменения + вывод (слева) -->
+    <div style="position:absolute;left:115px;top:312px;width:840px;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:flex-start;gap:18px;padding:18px 0;border-bottom:2px solid #EAEAEA;"><span style="width:13px;height:13px;border-radius:50%;background:#F66048;flex:none;margin-top:12px;"></span><span style="font-size:30px;color:#494949;line-height:1.12;">Появился режим диалога с&nbsp;Alice AI</span></div>
+        <div style="display:flex;align-items:flex-start;gap:18px;padding:18px 0;border-bottom:2px solid #EAEAEA;"><span style="width:13px;height:13px;border-radius:50%;background:#F66048;flex:none;margin-top:12px;"></span><span style="font-size:30px;color:#494949;line-height:1.12;">Переключение: классический поиск ↔ AI-ответ</span></div>
+        <div style="display:flex;align-items:flex-start;gap:18px;padding:18px 0;"><span style="width:13px;height:13px;border-radius:50%;background:#F66048;flex:none;margin-top:12px;"></span><span style="font-size:30px;color:#494949;line-height:1.12;">Расширенная строка поиска под длинные запросы</span></div>
+      </div>
+      <div style="background:#F5F4F2;border-radius:30px;padding:34px 40px;margin-top:40px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:#909090;">Вывод</div>
+        <div style="font-size:34px;line-height:1.16;color:#494949;margin-top:14px;">Поиск перестаёт быть списком ссылок и&nbsp;становится интерфейсом ответа</div>
+      </div>
+    </div>
+
+    <!-- бранч-схема (справа) -->
+    <div style="position:absolute;left:1075px;top:312px;width:730px;display:flex;flex-direction:column;align-items:center;">
+      <div style="width:420px;border:2px solid #DADADA;border-radius:22px;padding:22px 28px;text-align:center;font-size:28px;color:#1F1F20;">Запрос пользователя</div>
+      <div style="font-size:34px;color:#CECECE;line-height:0.9;">↓</div>
+      <div style="width:420px;background:#F5F4F2;border-radius:22px;padding:22px 28px;text-align:center;font-family:'YS Text';font-weight:500;font-size:28px;color:#1F1F20;">Search Engine</div>
+      <div style="font-size:34px;color:#CECECE;line-height:0.9;">↓</div>
+      <div style="width:100%;display:flex;justify-content:center;gap:24px;">
+        <div style="flex:1;border:2px solid #DADADA;border-radius:18px;padding:22px 18px;text-align:center;"><div style="font-family:'YS Text';font-weight:500;font-size:26px;color:#1F1F20;">Classic Results</div><div style="font-size:22px;color:#909090;margin-top:6px;">классический список</div></div>
+        <div style="flex:1;background:#F66048;border:2px solid #F66048;border-radius:18px;padding:22px 18px;text-align:center;"><div style="font-family:'YS Text';font-weight:500;font-size:26px;color:#fff;">Alice AI</div><div style="font-size:22px;color:rgba(255,255,255,0.9);margin-top:6px;">Dialog Mode</div></div>
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Яндекс 2026 · AI-экосистема</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">04</div>
+  </section>
+
+  <!-- ════ 5 · ЦИФРЫ И ЭФФЕКТ — стат-карточки ════ -->
+  <section data-label="Цифры и эффект" data-layout="content" data-screen-label="05" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:900px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Цифры и эффект изменений</div>
+
+    <!-- вывод-облако в верхнем правом углу (заголовок короткий) -->
+    <div style="position:absolute;left:1105px;top:64px;width:700px;background:#F5F4F2;border-radius:30px;padding:34px 42px;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:#909090;">Вывод</div>
+      <div style="font-size:34px;line-height:1.16;color:#494949;margin-top:14px;">AI — уже не&nbsp;эксперимент, а&nbsp;основной продуктовый драйвер</div>
+    </div>
+
+    <!-- стат-карточки крупнее, на всё тело слайда -->
+    <div style="position:absolute;left:115px;top:300px;width:1690px;display:flex;gap:24px;">
+      <div style="flex:1;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:48px 46px 48px 46px;display:flex;flex-direction:column;min-height:460px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:140px;line-height:0.8;letter-spacing:-0.02em;color:#1F1F20;">2,5×</div>
+        <div style="font-size:32px;color:#494949;line-height:1.16;margin-top:auto;">быстрее стали ответы AI</div>
+      </div>
+      <div style="flex:1;background:#F66048;border:2px solid #F66048;border-radius:45px;padding:48px 46px 48px 46px;display:flex;flex-direction:column;min-height:460px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:140px;line-height:0.8;letter-spacing:-0.02em;color:#fff;">6 млн+</div>
+        <div style="font-size:32px;color:rgba(255,255,255,0.92);line-height:1.16;margin-top:auto;">изображений сгенерировано в&nbsp;AI-режимах</div>
+      </div>
+      <div style="flex:1;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:48px 46px 48px 46px;display:flex;flex-direction:column;min-height:460px;">
+        <x-import component-from-global-scope="DesignSystem_132e64.Icon" name="sparks" size="130" color="#1F1F20" hint-size="130px,130px"></x-import>
+        <div style="font-size:32px;color:#494949;line-height:1.16;margin-top:auto;">растёт использование AI внутри сервисов</div>
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Яндекс 2026 · AI-экосистема · оценочные показатели</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">05</div>
+  </section>
+
+  <!-- ════ 6 · ФИЗИЧЕСКИЙ AI — линейная схема ════ -->
+  <section data-label="Физический AI" data-layout="content" data-screen-label="06" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Новые устройства и «физический AI»</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1500px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Яндекс выходит в&nbsp;мир «AI вне экрана»</div>
+
+    <!-- Yandex Drops + что значит -->
+    <div style="position:absolute;left:115px;top:312px;width:840px;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:32px;color:#1F1F20;line-height:1.0;">Yandex Drops</div>
+      <div style="display:flex;flex-direction:column;margin-top:20px;">
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:2px solid #EAEAEA;"><span style="width:12px;height:12px;border-radius:50%;background:#F66048;flex:none;margin-top:10px;"></span><span style="font-size:28px;color:#494949;line-height:1.14;">Голосовой AI без смартфона</span></div>
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:2px solid #EAEAEA;"><span style="width:12px;height:12px;border-radius:50%;background:#F66048;flex:none;margin-top:10px;"></span><span style="font-size:28px;color:#494949;line-height:1.14;">«My Memory» прямо в&nbsp;ушах</span></div>
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;"><span style="width:12px;height:12px;border-radius:50%;background:#F66048;flex:none;margin-top:10px;"></span><span style="font-size:28px;color:#494949;line-height:1.14;">Работа офлайн-команд</span></div>
+      </div>
+      <div style="background:#F5F4F2;border-radius:30px;padding:32px 40px;margin-top:32px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:#909090;">Что это значит</div>
+        <div style="font-size:30px;line-height:1.18;color:#494949;margin-top:14px;">AI становится носимым — появляется «always-on assistant»</div>
+      </div>
+    </div>
+
+    <!-- линейная схема (справа, вертикальный стек блоков) -->
+    <div style="position:absolute;left:1075px;top:300px;width:730px;display:flex;flex-direction:column;gap:6px;">
+      <div style="border:2px solid #DADADA;border-radius:20px;padding:16px 28px;text-align:center;font-size:28px;color:#1F1F20;">Наушники</div>
+      <div style="text-align:center;font-size:26px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="border:2px solid #DADADA;border-radius:20px;padding:16px 28px;text-align:center;font-size:28px;color:#1F1F20;">Голос</div>
+      <div style="text-align:center;font-size:26px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="background:#F66048;border:2px solid #F66048;border-radius:20px;padding:16px 28px;text-align:center;font-family:'YS Text';font-weight:500;font-size:30px;color:#fff;">Alice AI</div>
+      <div style="text-align:center;font-size:26px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="border:2px solid #DADADA;border-radius:20px;padding:16px 28px;text-align:center;font-size:28px;color:#1F1F20;">Сервисы</div>
+      <div style="text-align:center;font-size:26px;color:#CECECE;line-height:0.7;">↓</div>
+      <div style="border:2px solid #DADADA;border-radius:20px;padding:16px 28px;text-align:center;font-size:28px;color:#1F1F20;">Действие</div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Яндекс 2026 · AI-экосистема</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">06</div>
+  </section>
+
+  <!-- ════ 7 · ИТОГ — 3 тренда + цитата ════ -->
+  <section data-label="Итог" data-layout="content" data-screen-label="07" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1040px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Итог и направление развития</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:171px;width:1000px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.04;color:#494949;">Яндекс строит AI-операционную систему жизни пользователя</div>
+
+    <!-- слева: связанный путь Search → Assistant → Экосистема (вертикальная ось) -->
+    <div style="position:absolute;left:115px;top:336px;width:980px;">
+      <div style="position:relative;padding-left:66px;">
+        <div style="position:absolute;left:13px;top:18px;bottom:18px;width:3px;background:#DADADA;"></div>
+        <div style="display:flex;flex-direction:column;gap:50px;">
+          <div style="position:relative;">
+            <span style="position:absolute;left:-66px;top:8px;width:28px;height:28px;border-radius:50%;background:#1F1F20;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Search</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:60px;line-height:0.9;color:#1F1F20;margin-top:4px;">AI-диалог</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:8px;">поиск как разговор, а&nbsp;не&nbsp;список ссылок</div>
+          </div>
+          <div style="position:relative;">
+            <span style="position:absolute;left:-66px;top:8px;width:28px;height:28px;border-radius:50%;background:#1F1F20;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Assistant</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:60px;line-height:0.9;color:#1F1F20;margin-top:4px;">AI-агент</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:8px;">Алиса выполняет действия за&nbsp;пользователя</div>
+          </div>
+          <div style="position:relative;">
+            <span style="position:absolute;left:-66px;top:8px;width:28px;height:28px;border-radius:50%;background:#1F1F20;"></span>
+            <div style="font-family:'YS Text';font-weight:500;font-size:24px;color:#909090;">Apps</div>
+            <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:60px;line-height:0.9;color:#1F1F20;margin-top:4px;">Экосистема</div>
+            <div style="font-size:28px;color:#494949;line-height:1.14;margin-top:8px;">единый интеллект на&nbsp;все сервисы</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- справа: герой-цитата — доминанта и единственный красный акцент -->
+    <div style="position:absolute;left:1175px;top:300px;width:630px;min-height:530px;background:#F66048;border-radius:45px;padding:54px 52px 48px 52px;display:flex;flex-direction:column;">
+      <div style="font-family:'YS Text';font-weight:500;font-size:20px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Манифест 2026</div>
+      <div style="font-size:52px;line-height:1.18;color:#fff;margin-top:28px;">Будущее Яндекса — это не&nbsp;сервисы, а&nbsp;один интеллект, который управляет ими всеми</div>
+      <div style="margin-top:auto;display:flex;align-items:center;gap:16px;padding-top:40px;">
+        <img src="../../assets/logos/yandex-mark-white.svg" alt="" style="width:50px;height:50px;">
+        <span style="font-size:26px;color:rgba(255,255,255,0.9);">Стратегия Яндекса</span>
+      </div>
+    </div>
+
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Яндекс 2026 · AI-экосистема</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">07</div>
+  </section>
+
+  <!-- ════ 8 · ФИНАЛ (серый) ════ -->
+  <section data-label="Финал" data-layout="final" data-screen-label="08" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F2F2F2;">
+    <div data-ph="title" style="position:absolute;left:115px;top:120px;width:1691px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:220px;line-height:0.79;color:#1F1F20;">Спасибо</div>
+    <div data-ph="name" style="position:absolute;left:114px;top:898px;width:1453px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#1F1F20;">Иванов Иван</div>
+    <div data-ph="role" style="position:absolute;left:114px;top:945px;width:1453px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.1;color:#494949;">Специалист</div>
+    <img src="../../assets/logos/yandex-mark.svg" alt="" style="position:absolute;right:115px;bottom:96px;width:88px;height:88px;">
+  </section>
+
+</x-import>
+</x-dc>
+</body>
+</html>

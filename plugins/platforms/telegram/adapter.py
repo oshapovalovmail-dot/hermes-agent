@@ -964,6 +964,17 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         Only rejects when it can make the same context-aware decision the runner would; unknown DMs pass through when
         there is no allowlist or pairing is the unauthorized-DM behavior."""
         source = self._source_from_message_for_auth(message)
+        if self.config.extra.get('atlas_admission') is True:
+            from gateway.atlas_admission import installed_gate
+            gate=installed_gate()
+            binding=gate.message_binding(message) if gate is not None else None
+            if binding is None:return False
+            source.thread_id=binding.thread_id
+            gate.stamp_source(source, binding)
+        self._canonicalize(source)
+        from gateway.required_policies import required_source_authorized
+        if not required_source_authorized(source):
+            return False
         user_id = source.user_id
         # No identity → service message or channel post without sender_chat; defer to message gating.
         if not user_id:
@@ -3223,6 +3234,11 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
                 builder = builder.local_mode(True)
                 logger.info("[%s] Using Telegram local_mode (read files from disk)", self.name)
             request, get_updates_request = await self._build_ptb_requests()
+            if self.config.extra.get('atlas_admission') is True:
+                from gateway.atlas_admission import installed_gate, GuardedRequest
+                gate=installed_gate()
+                if gate is None:raise PermissionError('atlas_admission_authority_required')
+                request = GuardedRequest(request, gate)
             builder = builder.request(request).get_updates_request(get_updates_request)
             # PTB's default processor awaits each update inline, so one slow turn deafens every chat.
             # Concurrent across chats, FIFO within a chat; the builder keeps this instance, so the
@@ -5167,6 +5183,9 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         self, chat_id: str, audio_path: str, caption: Optional[str] = None, reply_to: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None, **kwargs) -> SendResult:
         """Send audio as a native Telegram voice message or audio file."""
+        from gateway.media_delivery_gate import required_media_policy
+        if required_media_policy() not in (None, ''):
+            return await self.send_document(chat_id, audio_path, caption, reply_to=reply_to, metadata=metadata)
         if not self._bot:
             return SendResult(success=False, error="Not connected")
         _transcoded_voice_path: Optional[str] = None
@@ -5212,6 +5231,14 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         self, chat_id: str, images: list[tuple], metadata: Optional[dict[str, Any]] = None, human_delay: float = 0.0) -> SendResult:
         """Send images as Telegram albums (``send_media_group``, 10 per chunk). Animated GIFs can't join a
         media group (need ``send_animation``) so they go via the base per-image path, as does a failed chunk."""
+        from gateway.media_delivery_gate import required_media_policy, resolve_media_upload
+        if required_media_policy() not in (None, ''):
+            paths = [url[7:] if url.startswith('file://') else url for url, _ in images]
+            if not paths or len(paths) > 10 or any(resolve_media_upload(p, chat_id)[1] is None for p in paths):
+                return SendResult(success=False, error='Required media policy denied')
+            results = [await self.send_document(chat_id, p, caption=alt, metadata=metadata)
+                       for p, (_, alt) in zip(paths, images)]
+            return SendResult(success=all(r.success for r in results))
         if not self._bot:
             return SendResult(success=False, error="Not connected")
         if not images:
@@ -5289,6 +5316,9 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         self, chat_id: str, image_path: str, caption: Optional[str] = None, reply_to: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None, **kwargs) -> SendResult:
         """Send a local image file natively as a Telegram photo."""
+        from gateway.media_delivery_gate import required_media_policy
+        if required_media_policy() not in (None, ''):
+            return await self.send_document(chat_id, image_path, caption, reply_to=reply_to, metadata=metadata)
         # Pre-compress large raster images to progressive JPEG once; the photo send and the document
         # fallback both reuse the compressed file so either upload stays under media_write_timeout.
         compressed = self._compress_image_to_jpeg(image_path)
@@ -5329,17 +5359,35 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
     ) -> SendResult:
         """Shared shell for native local-file sends: existence check, open, send with routing, then
         ``await on_error(exc)`` on any failure. ``build_kwargs(f)`` supplies the media kwargs."""
+        from gateway.media_delivery_gate import resolve_media_upload
+        required, approved = resolve_media_upload(path, chat_id)
+        if required:
+            if approved is None:
+                return SendResult(success=False, error='Required media policy denied')
+            path = approved
         if not self._bot:
             return SendResult(success=False, error="Not connected")
         try:
             if not os.path.exists(path):
                 return SendResult(success=False, error=self._missing_media_path_error(label, path))
-            with open(path, "rb") as f:  # noqa: ASYNC230 -- file handle is streamed to the upload; a local open() is non-blocking in practice
+            if (required and media_key == "document" and not self.config.extra.get("base_url")
+                    and os.stat(path).st_size > 50 * 1000 * 1000):
+                # Public Bot API upload boundary, not an export/storage policy.
+                return SendResult(success=False, error="Telegram public Bot API upload limit: 50 MB; sandbox export retained")
+            with open(path, "rb") as f:  # noqa: ASYNC230 -- handle stays open through the awaited upload
+                payload = build_kwargs(f)
+                if required and media_key == "document":
+                    from telegram import InputFile
+                    # PTB otherwise eagerly reads a file handle into one bytes object.
+                    payload[media_key] = InputFile(f, filename=payload.get("filename"), read_file_handle=False)
                 msg = await self._send_media(
                     getattr(self._bot, f"send_{media_key}"), chat_id, reply_to, metadata, media_key,
-                    reset_media=lambda: f.seek(0), **build_kwargs(f))
+                    reset_media=lambda: f.seek(0), **payload)
             return SendResult(success=True, message_id=str(msg.message_id))
         except Exception as e:
+            from gateway.atlas_admission import AdmissionDenied
+            if isinstance(e,AdmissionDenied):
+                return SendResult(success=False,error='Atlas admission denied')
             return await on_error(e)
 
     async def _warn_then(self, media_key: str, e: Exception, fallback) -> SendResult:
@@ -5368,6 +5416,9 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         ``320x320`` video with ``duration=0`` and no thumbnail, which clients then draw as a square
         tile whatever the true aspect ratio (portrait reels and 16:9 clips alike).
         """
+        from gateway.media_delivery_gate import required_media_policy
+        if required_media_policy() not in (None, ''):
+            return await self.send_document(chat_id, video_path, caption, reply_to=reply_to, metadata=metadata)
         geometry = await asyncio.to_thread(_probe_video_geometry, video_path)
         thumb_path = (
             await asyncio.to_thread(_video_thumbnail_jpeg, video_path, geometry.get("duration"))
@@ -5396,6 +5447,9 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         self, chat_id: str, image_url: str, caption: Optional[str] = None, reply_to: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None) -> SendResult:
         """Send a URL image as a Telegram photo: URL send (<5MB) → download+upload (≤10MB) → base text."""
+        from gateway.media_delivery_gate import required_media_policy
+        if required_media_policy() not in (None, ''):
+            return SendResult(success=False, error='Required media policy denies URL uploads')
         if not self._bot:
             return SendResult(success=False, error="Not connected")
         from tools.url_safety import is_safe_url
@@ -6256,6 +6310,8 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
         """Append a cached attachment to the event (message type follows the kind only for the first one)."""
         event.media_urls.append(cached.path)
         event.media_types.append(cached.media_type)
+        if getattr(cached, 'source_bytes', None) is not None:
+            event.append_inbound_attachment_snapshot(cached.display_name, cached.source_bytes)
         if len(event.media_urls) == 1 and cached.kind in self._CACHED_KIND_TO_MESSAGE_TYPE:
             event.message_type = self._CACHED_KIND_TO_MESSAGE_TYPE[cached.kind]
         event.text = self._append_observed_note(event.text, note)
@@ -6675,6 +6731,7 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
                 return True
             file_obj = await source.get_file()
             data = await file_obj.download_as_bytearray()
+            event.append_inbound_attachment_snapshot('attachment'+ext,bytes(data))
             if kind == "video":
                 ext = self._ext_from_path(getattr(file_obj, "file_path", None), SUPPORTED_VIDEO_TYPES, ext)
                 cached_path = await cache_video_from_bytes_async(bytes(data), ext=ext)
@@ -6724,6 +6781,7 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
             if ext in _TELEGRAM_IMAGE_EXTENSIONS or doc_mime.startswith("image/"):
                 file_obj = await doc.get_file()
                 image_bytes = await file_obj.download_as_bytearray()
+                event.append_inbound_attachment_snapshot(original_filename or 'image.jpg',bytes(image_bytes))
                 image_ext = ext if ext in _TELEGRAM_IMAGE_EXTENSIONS else _TELEGRAM_IMAGE_MIME_TO_EXT.get(doc_mime, ".jpg")
                 try:
                     cached_path = await cache_image_from_bytes_async(bytes(image_bytes), ext=image_ext)
@@ -6748,6 +6806,7 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
             if ext in SUPPORTED_VIDEO_TYPES:
                 file_obj = await doc.get_file()
                 video_bytes = await file_obj.download_as_bytearray()
+                event.append_inbound_attachment_snapshot(original_filename or 'video.mp4',bytes(video_bytes))
                 self._set_cached_media(
                     event, await cache_video_from_bytes_async(bytes(video_bytes), ext=ext), SUPPORTED_VIDEO_TYPES[ext], MessageType.VIDEO,
                     "[Telegram] Cached user video document at %s")
@@ -6757,6 +6816,7 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
             # application/octet-stream. Image documents already returned above.
             file_obj = await doc.get_file()
             raw_bytes = bytes(await file_obj.download_as_bytearray())
+            event.append_inbound_attachment_snapshot(original_filename or 'attachment.bin',raw_bytes)
             from gateway.platforms.base import cache_media_bytes_async
             cached = await cache_media_bytes_async(raw_bytes, filename=original_filename or f"document{ext or '.bin'}", mime_type=doc_mime)
             if cached is None:
@@ -6817,6 +6877,7 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
             try:
                 file_obj = await msg.photo[-1].get_file()  # PhotoSize list sorted by size; largest last
                 image_bytes = await file_obj.download_as_bytearray()
+                event.append_inbound_attachment_snapshot('photo.jpg',bytes(image_bytes))
                 ext = self._ext_from_path(file_obj.file_path, [".png", ".webp", ".gif", ".jpeg", ".jpg"], ".jpg")
                 self._set_cached_media(
                     event, await cache_image_from_bytes_async(bytes(image_bytes), ext=ext), f"image/{ext.lstrip('.')}", event.message_type,
@@ -7108,6 +7169,13 @@ class TelegramAdapter(TelegramQATailMixin, TelegramHeldInboundMixin, TelegramTop
             user_name=user_name, thread_id=thread_id_str, chat_topic=chat_topic, message_id=str(message.message_id),
             is_bot=bool(getattr(user, "is_bot", False)) if user else False)
         reply_to_id, reply_to_text = self._reply_context(message)
+        if self.config.extra.get('atlas_admission') is True:
+            from gateway.atlas_admission import installed_gate
+            gate=installed_gate()
+            binding=gate.message_binding(message) if gate is not None else None
+            if binding is None:raise PermissionError('native_message_admission_required')
+            if source.thread_id!=binding.thread_id:raise PermissionError('native_topic_binding_mismatch')
+            gate.stamp_source(source, binding)
         from gateway.platforms.base import resolve_channel_prompt  # per-channel/topic ephemeral prompt
         from plugins.platforms.telegram.telegram_context import group_identity_prompt, group_reply_expected
         _chat_id_str = str(chat.id)

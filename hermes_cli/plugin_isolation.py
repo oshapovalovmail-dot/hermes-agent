@@ -37,6 +37,7 @@ _ISOLATION_MODES = frozenset({ISOLATION_IN_PROCESS, ISOLATION_HOST})
 # raw platform SDK clients, argparse parsers, adapter classes bound to the gateway's event loop, the
 # launch-scope dashboard auth registry. A plugin calling one of these runs only in-process.
 HOST_UNSUPPORTED_CTX_METHODS: dict[str, str] = {
+    "refresh_gateway_profiles": "native profile reconciliation runs on the gateway loop",
     "register_login_backend": "browser-vault fills hold a server-local context manager",
     "register_browser_page_backend": "browser-vault fill scripts carry credentials that stay in the Hermes process",
     "register_platform": "platform adapters run on the gateway's event loop with native SDK clients",

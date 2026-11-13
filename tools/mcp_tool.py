@@ -508,6 +508,9 @@ _CONNECT_RETRY_BASE_BACKOFF_SEC, _CONNECT_RETRY_MAX_BACKOFF_SEC = 30.0, 600.0
 # ``_server_breaker_opened_at`` records the monotonic timestamp when the breaker most recently transitioned
 # into the open state. Use the ``_bump_server_error`` / ``_reset_server_error`` helpers to mutate this state
 # — they keep the count and timestamp in sync.
+# Calling-profile policy; explicit boolean False opts out of the native
+# consecutive-error pause. No effect on trust, authentication or transport retry.
+_server_circuit_breaker_enabled: dict[Any, bool] = {}
 _server_error_counts: dict[Any, int] = {}
 _server_breaker_opened_at: dict[Any, float] = {}
 # True while every strike in the current streak was the tool's own error payload (server reachable,
@@ -532,11 +535,19 @@ _server_cost_policies: dict[Any, Any] = {}
 _TRUST_FULL, _TRUST_UNTRUSTED = "full", "untrusted"
 
 
+def _circuit_breaker_enabled(server_name: str) -> bool:
+    """The consuming profile's policy, never a shared connection owner's."""
+    from tools.mcp_tool_scope import _server_key
+    return _server_circuit_breaker_enabled.get(_server_key(server_name), True) is not False
+
+
 def _bump_server_error(server_name: str, *, application: bool = False) -> None:
     """Count a failure; at the threshold (re)stamp the breaker-open time. Keyed by the calling
     scope's connection so one profile's failing server never opens another profile's breaker.
     *application*: the call completed and the payload was an error (transport is fine)."""
     from tools.mcp_tool_scope import _resolve_server_key
+    if not _circuit_breaker_enabled(server_name):
+        return
     key = _resolve_server_key(server_name)
     n = _server_error_counts.get(key, 0) + 1
     _server_error_counts[key] = n

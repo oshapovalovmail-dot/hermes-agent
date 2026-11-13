@@ -523,6 +523,11 @@ def _compute_tool_definitions(enabled_toolsets: Optional[list[str]] = None, disa
                               quiet_mode: bool = False, skip_tool_search_assembly: bool = False) -> list[dict[str, Any]]:
     """Uncached implementation of :func:`get_tool_definitions`."""
     tools_to_include = _select_tool_names(enabled_toolsets, disabled_toolsets, quiet_mode)
+    from tools.tool_access_policy import allowed_tool_names
+    allowed = allowed_tool_names()
+    if allowed is not None:
+        tools_to_include.intersection_update(allowed)
+        skip_tool_search_assembly = True  # a wrapper must not widen an exact operator ceiling
     # Selection is per schema, not per process/profile. Kanban's local checks
     # are uncached; the outer definitions cache already keys on this selection.
     from tools.kanban_toolset_context import scoped_kanban_toolset_selection
@@ -796,6 +801,11 @@ def _pre_dispatch_guards(function_name: str, function_args: dict[str, Any], skip
     """
     # pre_tool_call fires exactly once per execution: one invoke_hook pass yields
     # both the block message and modified args. skip=True: caller already fired it.
+    from tools.tool_access_policy import allowed_tool_names
+    allowed = allowed_tool_names()
+    if allowed is not None and function_name not in allowed:
+        message = 'Tool is outside the operator capability ceiling.'
+        return function_args, (tool_error(message), 'operator_tool_ceiling', message)
     if not skip_pre_tool_call_hook:
         block_message: Optional[str] = None
         try:

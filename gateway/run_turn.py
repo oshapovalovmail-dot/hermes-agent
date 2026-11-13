@@ -199,6 +199,18 @@ class GatewayTurnMixin(GatewayTurnDeliveryMixin, GatewayBackgroundMixin, Gateway
                 await _typing_adapter.stop_typing(source.chat_id)
 
     async def _handle_message_with_agent(self, event, source, _quick_key: str, run_generation: int):
+        from gateway.atlas_admission import installed_gate, binding_scope
+        gate=installed_gate()
+        if gate is not None and source.platform==Platform.TELEGRAM:
+            if not gate.source_authorized(source):return None
+            binding=source._atlas_binding
+            try:await gate.recheck(binding,gate._issued[id(binding)][1])
+            except (Exception,SystemExit):return None
+            with binding_scope(binding):
+                return await self._atlas_handle_message_with_agent(event,source,_quick_key,run_generation)
+        return await self._atlas_handle_message_with_agent(event,source,_quick_key,run_generation)
+
+    async def _atlas_handle_message_with_agent(self, event, source, _quick_key: str, run_generation: int):
         """Inner handler that runs under the _running_agents sentinel guard."""
         _msg_start_time = time.time()
         _platform_name = source.platform.value if hasattr(source.platform, "value") else str(source.platform)
@@ -245,6 +257,9 @@ class GatewayTurnMixin(GatewayTurnDeliveryMixin, GatewayBackgroundMixin, Gateway
             _turn_channel_prompt, _turn_source = self._pinned_channel_inputs(  # internal/synthetic reuse pins
                 session_key, event.channel_prompt, source,
                 internal=event.internal or getattr(event, "inherit_channel_pin", False))
+            # Shared history/prompt pins never replace THIS turn's authenticated actor.
+            if getattr(source,'_atlas_binding',None) is not None:
+                _turn_source=source
             if not event.internal:
                 # Persist prompt pins before execution for internal restart resumes.
                 await self._persist_prompt_pins(session_key, _run_start_session_id)

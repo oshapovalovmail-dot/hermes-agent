@@ -1,0 +1,192 @@
+/* Generated from Figma Variables. First mode = :root default.
+   FLOAT tokens are unitless — multiply by 1px in calc() where a length is needed. */
+
+:root {
+  --accent-red-2: rgb(255,51,51); /* @kind color */
+  --accent-red: rgb(255,51,51); /* @kind color */
+  --accents-alice-hovered: rgb(99,53,224); /* @kind color */
+  --accents-blue-2: rgb(2,119,255); /* @kind color */
+  --accents-blue: rgb(0,119,255); /* @kind color */
+  --accents-graphite-2: rgb(44,44,50); /* @kind color */
+  --accents-graphite-active: rgb(105,105,119); /* @kind color */
+  --accents-graphite-hover: rgb(67,67,76); /* @kind color */
+  --accents-graphite-light: rgb(77,77,86); /* @kind color */
+  --accents-graphite: rgb(44,44,50); /* @kind color */
+  --accents-green: rgb(0,179,65); /* @kind color */
+  --accents-neuro-pink-active: rgb(220,83,129); /* @kind color */
+  --accents-neuro-pink-hover: rgb(236,89,138); /* @kind color */
+  --accents-neuro-pink: rgb(251,95,147); /* @kind color */
+  --accents-neuro-search: rgb(248,96,74); /* @kind color */
+  --accents-red-2: rgb(255,51,51); /* @kind color */
+  --accents-red: rgb(255,51,51); /* @kind color */
+  --accents-yellow-2: rgb(255,204,0); /* @kind color */
+  --accents-yellow: rgb(253,213,55); /* @kind color */
+  --applied-link-2: rgb(0,119,255); /* @kind color */
+  --applied-link: rgb(0,119,255); /* @kind color */
+  --applied-narrow-tab-background: rgb(255,255,255); /* @kind color */
+  --applied-narrow-toggle-off-background-disabled: rgba(0,0,0,0.06); /* @kind color */
+  --applied-narrow-toggle-off-background-hover: rgba(0,0,0,0.24); /* @kind color */
+  --applied-narrow-toggle-off-background: rgba(0,0,0,0.18); /* @kind color */
+  --applied-narrow-toggle-off-stroke-disabled: rgba(255,255,255,0); /* @kind color */
+  --applied-narrow-toggle-off-stroke: rgba(255,255,255,0); /* @kind color */
+  --applied-separator-2: rgba(0,0,0,0.1); /* @kind color */
+  --applied-separator: rgba(0,0,0,0.09); /* @kind color */
+  --applied-stroke-2: rgba(51,51,51,0.12); /* @kind color */
+  --applied-stroke-3: rgba(51,51,51,0.12); /* @kind color */
+  --applied-stroke: rgba(0,0,0,0.12); /* @kind color */
+  --applied-tooltip: rgb(44,44,49); /* @kind color */
+  --background-primary: rgb(255,255,255); /* @kind color */
+  --background-secondary-2: rgb(255,255,255); /* @kind color */
+  --background-secondary-3: rgb(255,255,255); /* @kind color */
+  --background-secondary: rgb(255,255,255); /* @kind color */
+  --fill-accent: rgba(0,119,255,0.1); /* @kind color */
+  --fill-beta-fill-6: rgba(0,0,0,0.06); /* @kind color */
+  --fill-fill-12-2: rgba(0,0,0,0.12); /* @kind color */
+  --fill-fill-12: rgba(0,0,0,0.12); /* @kind color */
+  --fill-fill-15: rgba(0,0,0,0.15); /* @kind color */
+  --fill-fill-18-2: rgba(0,0,0,0.18); /* @kind color */
+  --fill-fill-18-3: rgba(0,0,0,0.18); /* @kind color */
+  --fill-fill-18: rgba(0,0,0,0.18); /* @kind color */
+  --fill-fill-24: rgba(0,0,0,0.24); /* @kind color */
+  --fill-fill-4: rgba(0,0,0,0.04); /* @kind color */
+  --fill-fill-6-2: rgba(0,0,0,0.06); /* @kind color */
+  --fill-fill-6-3: rgba(0,0,0,0.06); /* @kind color */
+  --fill-fill-6: rgba(0,0,0,0.06); /* @kind color */
+  --fill-fill-9-2: rgba(0,0,0,0.09); /* @kind color */
+  --fill-fill-9: rgba(0,0,0,0.09); /* @kind color */
+  --fill-warning: rgba(255,51,51,0.1); /* @kind color */
+  --forced-alice: rgb(122,85,255); /* @kind color */
+  --forced-black-2: rgb(0,0,0); /* @kind color */
+  --forced-black-3: rgb(0,0,0); /* @kind color */
+  --forced-black: rgb(0,0,0); /* @kind color */
+  --forced-white-2: rgb(255,255,255); /* @kind color */
+  --forced-white-3: rgb(255,255,255); /* @kind color */
+  --forced-white-4: rgb(255,255,255); /* @kind color */
+  --forced-white-5: rgb(255,255,255); /* @kind color */
+  --forced-white: rgb(255,255,255); /* @kind color */
+  --overflow-overflow: rgb(243,243,242); /* @kind color */
+  --red: rgb(248,96,74); /* @kind color */
+  --spacing-20-px: 20;
+  --text-and-icon-primary: rgb(0,0,0); /* @kind color */
+  --text-and-icons-disabled-2: rgba(0,0,0,0.25); /* @kind color */
+  --text-and-icons-disabled-3: rgba(0,0,0,0.25); /* @kind color */
+  --text-and-icons-disabled: rgba(0,0,0,0.24); /* @kind color */
+  --text-and-icons-primary-2: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary-3: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary-4: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary-inverted-2: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary-inverted-3: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary-inverted-4: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary-inverted: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary: rgb(0,0,0); /* @kind color */
+  --text-and-icons-secondary-2: rgba(0,0,0,0.66); /* @kind color */
+  --text-and-icons-secondary-3: rgba(0,0,0,0.66); /* @kind color */
+  --text-and-icons-secondary: rgba(0,0,0,0.64); /* @kind color */
+  --text-and-icons-tertiary: rgba(0,0,0,0.45); /* @kind color */
+  --text-and-icons-trinity-2: rgba(0,0,0,0.45); /* @kind color */
+  --text-and-icons-trinity: rgba(0,0,0,0.44); /* @kind color */
+  --text-icons-primary: rgb(0,0,0); /* @kind color */
+  --white: rgb(255,255,255); /* @kind color */
+}
+
+:root[data-theme="dark"], .dark {
+  --accent-red-2: rgb(255,91,91); /* @kind color */
+  --accent-red: rgb(255,91,91); /* @kind color */
+  --accents-alice-hovered: rgb(168,140,255); /* @kind color */
+  --accents-blue-2: rgb(98,170,253); /* @kind color */
+  --accents-blue: rgb(98,170,253); /* @kind color */
+  --accents-graphite-2: rgb(234,234,236); /* @kind color */
+  --accents-graphite-active: rgb(174,174,183); /* @kind color */
+  --accents-graphite-hover: rgb(207,207,211); /* @kind color */
+  --accents-graphite-light: rgb(187,187,191); /* @kind color */
+  --accents-graphite: rgb(234,234,236); /* @kind color */
+  --accents-green: rgb(39,197,90); /* @kind color */
+  --accents-neuro-pink-active: rgb(220,83,129); /* @kind color */
+  --accents-neuro-pink-hover: rgb(236,89,138); /* @kind color */
+  --accents-neuro-pink: rgb(251,95,147); /* @kind color */
+  --accents-neuro-search: rgb(248,96,74); /* @kind color */
+  --accents-red-2: rgb(255,91,91); /* @kind color */
+  --accents-red: rgb(255,92,91); /* @kind color */
+  --accents-yellow-2: rgb(253,222,85); /* @kind color */
+  --accents-yellow: rgb(253,213,55); /* @kind color */
+  --applied-link-2: rgb(98,170,253); /* @kind color */
+  --applied-link: rgb(98,170,253); /* @kind color */
+  --applied-narrow-tab-background: rgba(255,255,255,0.24); /* @kind color */
+  --applied-narrow-toggle-off-background-disabled: rgb(26,26,30); /* @kind color */
+  --applied-narrow-toggle-off-background-hover: rgba(255,255,255,0.12); /* @kind color */
+  --applied-narrow-toggle-off-background: rgb(26,26,30); /* @kind color */
+  --applied-narrow-toggle-off-stroke-disabled: rgba(255,255,255,0.18); /* @kind color */
+  --applied-narrow-toggle-off-stroke: rgba(255,255,255,0.3); /* @kind color */
+  --applied-separator-2: rgba(255,255,255,0.12); /* @kind color */
+  --applied-separator: rgba(255,255,255,0.1); /* @kind color */
+  --applied-stroke-2: rgba(255,255,255,0.12); /* @kind color */
+  --applied-stroke-3: rgba(255,255,255,0.12); /* @kind color */
+  --applied-stroke: rgba(255,255,255,0.12); /* @kind color */
+  --applied-tooltip: rgb(44,44,49); /* @kind color */
+  --background-primary: rgb(22,22,23); /* @kind color */
+  --background-secondary-2: rgb(40,40,46); /* @kind color */
+  --background-secondary-3: rgb(40,40,46); /* @kind color */
+  --background-secondary: rgb(40,40,42); /* @kind color */
+  --fill-accent: rgba(255,255,255,0.14); /* @kind color */
+  --fill-beta-fill-6: rgba(255,255,255,0.12); /* @kind color */
+  --fill-fill-12-2: rgba(255,255,255,0.24); /* @kind color */
+  --fill-fill-12: rgba(255,255,255,0.24); /* @kind color */
+  --fill-fill-15: rgba(255,255,255,0.26); /* @kind color */
+  --fill-fill-18-2: rgba(255,255,255,0.28); /* @kind color */
+  --fill-fill-18-3: rgba(255,255,255,0.28); /* @kind color */
+  --fill-fill-18: rgba(255,255,255,0.28); /* @kind color */
+  --fill-fill-24: rgba(255,255,255,0.3); /* @kind color */
+  --fill-fill-4: rgba(255,255,255,0.06); /* @kind color */
+  --fill-fill-6-2: rgba(255,255,255,0.12); /* @kind color */
+  --fill-fill-6-3: rgba(255,255,255,0.1); /* @kind color */
+  --fill-fill-6: rgba(255,255,255,0.12); /* @kind color */
+  --fill-fill-9-2: rgba(255,255,255,0.18); /* @kind color */
+  --fill-fill-9: rgba(255,255,255,0.16); /* @kind color */
+  --fill-warning: rgba(255,91,91,0.13); /* @kind color */
+  --forced-alice: rgb(122,85,255); /* @kind color */
+  --forced-black-2: rgb(0,0,0); /* @kind color */
+  --forced-black-3: rgb(0,0,0); /* @kind color */
+  --forced-black: rgb(0,0,0); /* @kind color */
+  --forced-white-2: rgb(255,255,255); /* @kind color */
+  --forced-white-3: rgb(255,255,255); /* @kind color */
+  --forced-white-4: rgb(255,255,255); /* @kind color */
+  --forced-white-5: rgb(255,255,255); /* @kind color */
+  --forced-white: rgb(255,255,255); /* @kind color */
+  --overflow-overflow: rgb(0,0,0); /* @kind color */
+  --text-and-icon-primary: rgb(255,255,255); /* @kind color */
+  --text-and-icons-disabled-2: rgba(255,255,255,0.3); /* @kind color */
+  --text-and-icons-disabled-3: rgba(255,255,255,0.3); /* @kind color */
+  --text-and-icons-disabled: rgba(255,255,255,0.28); /* @kind color */
+  --text-and-icons-primary-2: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary-3: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary-4: rgb(255,255,255); /* @kind color */
+  --text-and-icons-primary-inverted-2: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary-inverted-3: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary-inverted-4: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary-inverted: rgb(0,0,0); /* @kind color */
+  --text-and-icons-primary: rgb(255,255,255); /* @kind color */
+  --text-and-icons-secondary-2: rgba(255,255,255,0.69); /* @kind color */
+  --text-and-icons-secondary-3: rgba(255,255,255,0.69); /* @kind color */
+  --text-and-icons-secondary: rgba(255,255,255,0.68); /* @kind color */
+  --text-and-icons-tertiary: rgba(255,255,255,0.48); /* @kind color */
+  --text-and-icons-trinity-2: rgba(255,255,255,0.48); /* @kind color */
+  --text-and-icons-trinity: rgba(255,255,255,0.48); /* @kind color */
+  --text-icons-primary: rgb(255,255,255); /* @kind color */
+}
+
+:root[data-mode="pro"] {
+  --text-and-icons-primary-inverted-2: rgb(255,255,255); /* @kind color */
+}
+
+:root[data-mode="mode"] {
+  --accents-alice-hovered: rgb(168,140,255); /* @kind color */
+  --accents-neuro-pink-active: rgb(220,83,129); /* @kind color */
+  --accents-neuro-pink-hover: rgb(236,89,138); /* @kind color */
+  --forced-alice: rgb(122,85,255); /* @kind color */
+  --forced-white: rgb(255,255,255); /* @kind color */
+}
+
+:root[data-mode="night"] {
+  --red: rgb(248,96,74); /* @kind color */
+  --white: rgb(255,255,255); /* @kind color */
+}

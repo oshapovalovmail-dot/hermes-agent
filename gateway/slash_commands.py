@@ -460,7 +460,13 @@ class GatewaySlashCommandsMixin(
         # it is the set to act on — acting on the sibling subset alone would reply "Stopped" while a
         # same-thread run under a differently shaped key kept going. See `_chat_scoped_run_keys` for
         # the shapes and isolation bounds; both tiers are authorization-gated.
-        runs = self._same_chat_runs(source, session_key)
+        # Atlas canonical sessions include the authenticated UID even inside a
+        # shared topic. A chat/thread fallback would grant one member control
+        # of a different member's private worker. Only the exact owner key above
+        # (and its own detached turn) may be interrupted under this authority.
+        from gateway.atlas_admission import installed_gate
+        atlas_owner_only = source.platform == Platform.TELEGRAM and installed_gate() is not None
+        runs = [] if atlas_owner_only else self._same_chat_runs(source, session_key)
         sibling_keys = self._sibling_thread_run_keys(source, runs)
         fallback_keys = self._chat_scoped_run_keys(source, runs)
         # Reason is per-stop, not per-key: a stop that only ever had thread siblings keeps its own

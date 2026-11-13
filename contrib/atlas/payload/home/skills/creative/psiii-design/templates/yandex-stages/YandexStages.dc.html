@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Этапы развития Яндекса" description="Дека-история компании: таймлайн вех, вертикальный таймлайн этапов, экосистема сервисов (подвал-сайтмап), бар-чарт с карточкой драйверов, тезис на красном, финал. Маркеры data-layout/data-ph проставлены — экспорт в фирменный PPTX детерминирован (export-deck.js)." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #111; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+  <!-- ════ 1 · ТИТУЛ (красный) ════ -->
+  <section data-label="Титул" data-layout="title" data-screen-label="01" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F66048;">
+    <div data-ph="title" style="position:absolute;left:115px;top:103px;width:1453px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:220px;line-height:0.79;color:#FFFFFF;">Этапы развития Яндекса</div>
+    <div style="position:absolute;left:115px;top:476px;font-size:40px;color:rgba(255,255,255,0.92);">Как было и как стало</div>
+    <div data-ph="name" style="position:absolute;left:114px;top:898px;width:1453px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#FFFFFF;">Иванов Иван</div>
+    <div data-ph="role" style="position:absolute;left:114px;top:945px;width:1453px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.1;color:#FFFFFF;">Руководитель</div>
+    <img src="../../assets/logos/yandex-mark-white.svg" alt="" style="position:absolute;right:115px;bottom:96px;width:92px;height:92px;">
+  </section>
+
+  <!-- ════ 2 · ИСТОРИЯ — таймлайн-карточки ════ -->
+  <section data-label="Как это было" data-layout="content" data-screen-label="02" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Как это было</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:155px;width:1692px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.0;color:#494949;">Ключевые вехи 1997–2025</div>
+    <div style="position:absolute;left:115px;top:360px;width:1690px;display:flex;gap:24px;">
+      <div style="flex:1;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:38px 34px 46px 34px;display:flex;flex-direction:column;min-height:524px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;color:#1F1F20;line-height:0.9;letter-spacing:-0.01em;">1997</div>
+        <div style="font-size:28px;color:#1F1F20;line-height:1.08;margin-top:auto;">Запуск Yandex.ru</div>
+      </div>
+      <div style="flex:1;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:38px 34px 46px 34px;display:flex;flex-direction:column;min-height:524px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;color:#1F1F20;line-height:0.9;letter-spacing:-0.01em;">2007</div>
+        <div style="font-size:28px;color:#1F1F20;line-height:1.08;margin-top:auto;">IPO на&nbsp;NASDAQ</div>
+      </div>
+      <div style="flex:1;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:38px 34px 46px 34px;display:flex;flex-direction:column;min-height:524px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;color:#1F1F20;line-height:0.9;letter-spacing:-0.01em;">2011</div>
+        <img src="../../assets/logos/services/city/taxi.png" alt="" style="width:60px;height:60px;object-fit:contain;margin-top:24px;">
+        <div style="font-size:28px;color:#1F1F20;line-height:1.08;margin-top:auto;">Запуск Яндекс&nbsp;Такси</div>
+      </div>
+      <div style="flex:1;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:38px 34px 46px 34px;display:flex;flex-direction:column;min-height:524px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;color:#1F1F20;line-height:0.9;letter-spacing:-0.01em;">2018</div>
+        <img src="../../assets/logos/services/technology/alice_ai.png" alt="" style="width:60px;height:60px;object-fit:contain;margin-top:24px;">
+        <div style="font-size:28px;color:#1F1F20;line-height:1.08;margin-top:auto;">Появление Алисы</div>
+      </div>
+      <div style="flex:1;background:#F66048;border:2px solid #F66048;border-radius:45px;padding:38px 34px 46px 34px;display:flex;flex-direction:column;min-height:524px;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:56px;color:#fff;line-height:0.9;letter-spacing:-0.01em;">2025</div>
+        <div style="align-self:flex-start;display:inline-flex;align-items:center;gap:9px;font-family:'YS Text';font-weight:500;font-size:22px;color:#fff;background:rgba(255,255,255,0.22);border-radius:999px;padding:7px 17px;margin-top:18px;"><span style="width:10px;height:10px;border-radius:50%;background:#fff;"></span>Сейчас</div>
+        <div style="font-size:28px;color:#fff;line-height:1.08;margin-top:auto;">Фокус на&nbsp;AI и&nbsp;Cloud</div>
+      </div>
+    </div>
+    <div style="position:absolute;right:115px;top:77px;width:624px;background:#F5F4F2;border-radius:26px;padding:32px 36px;font-family:'YS Text';font-weight:400;font-size:30px;line-height:1.22;color:#1F1F20;">За&nbsp;25+&nbsp;лет — путь от&nbsp;поисковой системы до&nbsp;крупнейшей digital-экосистемы России<div style="position:absolute;left:-9px;top:34px;width:22px;height:22px;background:#F5F4F2;transform:rotate(45deg);"></div></div>
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Этапы развития Яндекса</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">02</div>
+  </section>
+
+  <!-- ════ 3 · КЛЮЧЕВЫЕ ЭТАПЫ — вертикальный таймлайн ════ -->
+  <section data-label="Этапы" data-layout="content" data-screen-label="03" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:560px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Ключевые этапы развития</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:236px;width:540px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.0;color:#494949;">Каждый этап открывал новый рынок</div>
+    <img src="../../assets/icons/arrow-right-circle.svg" alt="" style="position:absolute;left:107px;top:392px;width:78px;height:78px;">
+    <div style="position:absolute;left:901px;top:0;width:3px;height:1080px;background:#1F1F20;z-index:0;"></div>
+    <div style="position:absolute;left:890px;width:25px;height:25px;border-radius:50%;background:#F66048;z-index:1;top:107px;"></div>
+    <div style="position:absolute;left:890px;width:25px;height:25px;border-radius:50%;background:#F66048;z-index:1;top:347px;"></div>
+    <div style="position:absolute;left:890px;width:25px;height:25px;border-radius:50%;background:#F66048;z-index:1;top:586px;"></div>
+    <div style="position:absolute;left:890px;width:25px;height:25px;border-radius:50%;background:#F66048;z-index:1;top:825px;"></div>
+    <div style="position:absolute;left:948px;z-index:1;top:73px;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:1.0;letter-spacing:-0.01em;color:#1F1F20;">1997–2007</div><div style="font-family:'YS Text';font-weight:500;font-size:32px;line-height:1.0;color:#1F1F20;margin-top:16px;">Поиск и&nbsp;реклама</div><div style="font-family:'YS Text';font-weight:400;font-size:28px;line-height:1.06;color:#494949;margin-top:8px;">Лидер российского search</div></div>
+    <div style="position:absolute;left:948px;z-index:1;top:314px;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:1.0;letter-spacing:-0.01em;color:#1F1F20;">2007–2013</div><div style="font-family:'YS Text';font-weight:500;font-size:32px;line-height:1.0;color:#1F1F20;margin-top:16px;">Карты, Такси, Маркет</div><div style="font-family:'YS Text';font-weight:400;font-size:28px;line-height:1.06;color:#494949;margin-top:8px;">Экосистема сервисов</div></div>
+    <div style="position:absolute;left:948px;z-index:1;top:553px;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:1.0;letter-spacing:-0.01em;color:#1F1F20;">2014–2020</div><div style="font-family:'YS Text';font-weight:500;font-size:32px;line-height:1.0;color:#1F1F20;margin-top:16px;">Delivery и&nbsp;подписка</div><div style="font-family:'YS Text';font-weight:400;font-size:28px;line-height:1.06;color:#494949;margin-top:8px;">Рост удержания пользователей</div></div>
+    <div style="position:absolute;left:948px;z-index:1;top:794px;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:1.0;letter-spacing:-0.01em;color:#1F1F20;">2020–2025</div><div style="font-family:'YS Text';font-weight:500;font-size:32px;line-height:1.0;color:#1F1F20;margin-top:16px;">AI и&nbsp;Cloud</div><div style="font-family:'YS Text';font-weight:400;font-size:28px;line-height:1.06;color:#494949;margin-top:8px;">Новый драйвер роста</div></div>
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Этапы развития Яндекса</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">03</div>
+  </section>
+
+  <!-- ════ 4 · ЭКОСИСТЕМА — герой + подвал-сайтмап ════ -->
+  <section data-label="Экосистема" data-layout="content" data-screen-label="04" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Экосистема сервисов</div>
+    <div data-ph="subtitle" style="position:absolute;left:115px;top:155px;width:1692px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.0;color:#494949;">Охватывает повседневные digital-сценарии</div>
+    <div style="position:absolute;left:115px;top:330px;width:540px;height:600px;">
+      <div style="background:#F66048;border-radius:45px;padding:44px 46px 52px 46px;display:flex;flex-direction:column;height:100%;">
+        <div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:140px;color:#fff;line-height:0.82;letter-spacing:-0.02em;">90+</div>
+        <div style="font-size:28px;color:rgba(255,255,255,0.92);margin-top:16px;">сервисов в&nbsp;единой экосистеме</div>
+        <div style="margin-top:auto;font-weight:500;font-size:22px;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.8);">Search · Mobility · Media · AI</div>
+      </div>
+    </div>
+    <div style="position:absolute;left:715px;top:330px;width:1090px;height:600px;display:flex;align-items:flex-start;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:44px 40px;">
+      <div style="display:flex;gap:32px;width:100%;">
+        <div style="flex:1;display:flex;flex-direction:column;gap:28px;">
+          <div style="font-family:'YS Text';font-weight:500;font-size:20px;text-transform:uppercase;letter-spacing:0.05em;color:#909090;padding-bottom:12px;border-bottom:2px solid #EAEAEA;">Мобильность</div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/geo/maps.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Карты</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/geo/navi.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Навигатор</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/city/taxi.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Такси</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/city/drive.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Драйв</span></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:28px;">
+          <div style="font-family:'YS Text';font-weight:500;font-size:20px;text-transform:uppercase;letter-spacing:0.05em;color:#909090;padding-bottom:12px;border-bottom:2px solid #EAEAEA;">Коммерция</div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/city/market.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Маркет</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/city/lavka.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Лавка</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/city/eats.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Еда</span></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:28px;">
+          <div style="font-family:'YS Text';font-weight:500;font-size:20px;text-transform:uppercase;letter-spacing:0.05em;color:#909090;padding-bottom:12px;border-bottom:2px solid #EAEAEA;">Медиа</div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/personal/music.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Музыка</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/personal/kinopoisk.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">КиноПоиск</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/personal/studio.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Студия</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/personal/plus.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Плюс</span></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:28px;">
+          <div style="font-family:'YS Text';font-weight:500;font-size:20px;text-transform:uppercase;letter-spacing:0.05em;color:#909090;padding-bottom:12px;border-bottom:2px solid #EAEAEA;">AI и облако</div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/technology/alice_ai.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Алиса</span></div>
+          <div style="display:flex;align-items:center;gap:14px;"><img src="../../assets/logos/services/for_business/cloud.png" alt="" style="width:44px;height:44px;object-fit:contain;flex:none;"><span style="font-size:27px;color:#1F1F20;">Cloud</span></div>
+        </div>
+      </div>
+    </div>
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Этапы развития Яндекса</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">04</div>
+  </section>
+
+  <!-- ════ 5 · МАСШТАБ — бар-чарт + карточка драйверов ════ -->
+  <section data-label="Масштаб" data-layout="content" data-screen-label="05" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#FFFFFF;">
+    <div data-ph="title" style="position:absolute;left:114px;top:77px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:72px;line-height:0.84;color:#1F1F20;">Масштаб бизнеса сегодня</div>
+    <div style="position:absolute;left:115px;top:330px;width:1090px;">
+      <div style="margin-bottom:28px;color:#1F1F20;font-family:'YS Text';font-weight:500;font-size:32px;line-height:1.0;">Выручка, млрд&nbsp;₽ · по&nbsp;годам</div>
+      <div style="position:relative;display:inline-flex;align-items:flex-end;gap:52px;height:475px;padding:0 8px;">
+        <div style="width:168px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;margin-bottom:14px;letter-spacing:-0.01em;">127</div><div style="width:100%;background:#CECECE;border-radius:8px 8px 0 0;height:36px;"></div></div>
+        <div style="width:168px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;margin-bottom:14px;letter-spacing:-0.01em;">218</div><div style="width:100%;background:#CECECE;border-radius:8px 8px 0 0;height:62px;"></div></div>
+        <div style="width:168px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#1F1F20;margin-bottom:14px;letter-spacing:-0.01em;">521</div><div style="width:100%;background:#CECECE;border-radius:8px 8px 0 0;height:148px;"></div></div>
+        <div style="width:168px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#F66048;margin-bottom:14px;letter-spacing:-0.01em;">1090</div><div style="width:100%;background:#F66048;border-radius:8px 8px 0 0;height:310px;"></div></div>
+        <div style="width:168px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;"><div style="font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:44px;color:#F66048;margin-bottom:14px;letter-spacing:-0.01em;">1440</div><div style="width:100%;background:#F66048;border-radius:8px 8px 0 0;height:410px;"></div></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:2px;background:#1F1F20;"></div>
+      </div>
+      <div style="display:inline-flex;gap:52px;padding:0 8px;margin-top:18px;"><span style="width:168px;text-align:center;font-family:'YS Text';font-weight:400;font-size:24px;color:#494949;">2018</span><span style="width:168px;text-align:center;font-family:'YS Text';font-weight:400;font-size:24px;color:#494949;">2020</span><span style="width:168px;text-align:center;font-family:'YS Text';font-weight:400;font-size:24px;color:#494949;">2022</span><span style="width:168px;text-align:center;font-family:'YS Text';font-weight:400;font-size:24px;color:#494949;">2024</span><span style="width:168px;text-align:center;font-family:'YS Text';font-weight:400;font-size:24px;color:#494949;">2025</span></div>
+    </div>
+    <div style="position:absolute;left:1265px;top:330px;width:540px;min-height:560px;background:#fff;border:2px solid #DADADA;border-radius:45px;padding:38px 40px 52px 40px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        <div style="font-family:'YS Text';font-weight:500;font-size:32px;line-height:1.0;color:#1F1F20;">Драйверы роста</div>
+        <div style="display:flex;align-items:center;gap:7px;flex:none;" aria-hidden="true"><span style="width:9px;height:9px;border-radius:50%;background:#D9D9D9;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D9D9D9;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D9D9D9;"></span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:54px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 22px;border-radius:18px;background:#F5F4F2;font-family:'YS Text';font-weight:400;font-size:28px;color:#1F1F20;line-height:1.06;"><span>AI и&nbsp;генеративные модели</span><span style="flex:none;font-family:'YS Text';font-weight:500;font-size:24px;padding:7px 15px;border-radius:999px;background:#F66048;color:#fff;">+180%</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 22px;border-radius:18px;font-family:'YS Text';font-weight:400;font-size:28px;color:#1F1F20;line-height:1.06;"><span>Cloud и&nbsp;B2B</span><span style="flex:none;font-family:'YS Text';font-weight:500;font-size:24px;padding:7px 15px;border-radius:999px;background:rgba(31,138,91,.12);color:#1F8A5B;">+95%</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 22px;border-radius:18px;font-family:'YS Text';font-weight:400;font-size:28px;color:#1F1F20;line-height:1.06;"><span>Подписка Плюс</span><span style="flex:none;font-family:'YS Text';font-weight:500;font-size:24px;padding:7px 15px;border-radius:999px;background:rgba(31,138,91,.12);color:#1F8A5B;">+60%</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 22px;border-radius:18px;font-family:'YS Text';font-weight:400;font-size:28px;color:#1F1F20;line-height:1.06;"><span>E-commerce и&nbsp;логистика</span><span style="flex:none;font-family:'YS Text';font-weight:500;font-size:24px;padding:7px 15px;border-radius:999px;background:rgba(31,138,91,.12);color:#1F8A5B;">+45%</span></div>
+      </div>
+    </div>
+    <div data-ph="note" style="position:absolute;left:115px;top:979px;width:1405px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">Этапы развития Яндекса · выручка по&nbsp;годам</div>
+    <div data-ph="num" style="position:absolute;left:1779px;top:979px;width:26px;font-family:'YS Text',sans-serif;font-weight:400;font-size:20px;line-height:1.1;color:#494949;">05</div>
+  </section>
+
+  <!-- ════ 6 · ТЕЗИС (красный) ════ -->
+  <section data-label="Тезис" data-layout="thesis" data-screen-label="06" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F66048;">
+    <div data-ph="title" style="position:absolute;left:114px;top:338px;width:1692px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:120px;line-height:0.82;color:#fff;">Яндекс построил полноценную AI-экосистему — с&nbsp;собственной инфраструктурой, устройствами и&nbsp;сервисами</div>
+  </section>
+
+  <!-- ════ 7 · ФИНАЛ (серый) ════ -->
+  <section data-label="Финал" data-layout="final" data-screen-label="07" style="width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'YS Text',sans-serif;background:#F2F2F2;">
+    <div data-ph="title" style="position:absolute;left:115px;top:103px;width:1691px;font-family:'YS Display Cond','YS Text',sans-serif;font-weight:900;font-size:220px;line-height:0.79;color:#1F1F20;">Остались вопросы? Обращайтесь</div>
+    <div data-ph="name" style="position:absolute;left:114px;top:898px;width:1453px;font-family:'YS Text',sans-serif;font-weight:500;font-size:40px;line-height:1.1;color:#1F1F20;">Иванов Иван</div>
+    <div data-ph="role" style="position:absolute;left:114px;top:945px;width:1453px;font-family:'YS Text',sans-serif;font-weight:400;font-size:40px;line-height:1.1;color:#494949;">Руководитель</div>
+    <img src="../../assets/logos/yandex-mark.svg" alt="" style="position:absolute;right:115px;bottom:96px;width:88px;height:88px;">
+  </section>
+
+</x-import>
+</x-dc>
+</body>
+</html>

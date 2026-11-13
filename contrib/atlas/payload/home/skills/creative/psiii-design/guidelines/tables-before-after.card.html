@@ -1,0 +1,143 @@
+<!-- @dsCard group="Guidelines" name="Таблицы — было / стало" subtitle="Правило 74: переоформление таблицы по фирменным принципам · один датасет, два оформления" viewport="1520x1000" -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  :root {
+    --ink: #1F1F20;
+    --muted: #494949;
+    --hair: #CECECE;
+    --hair-soft: #E4E4E7;
+    --accent: #F66048;
+  }
+  body { margin: 0; background: var(--gray-50); font-family: var(--font-text); color: var(--ink); }
+  .wrap { padding: 40px 44px 48px; }
+  .head { max-width: 1180px; margin-bottom: 30px; }
+  .head h1 { font-family: var(--font-display); font-weight: 900; font-size: 44px; line-height: 1; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .head p { font-size: 20px; line-height: 1.3; color: var(--muted); margin: 0; max-width: 920px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; }
+
+  .panel { background: var(--white); border-radius: 20px; box-shadow: var(--shadow-card); padding: 28px 30px 30px; }
+  .tag { display: inline-flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 500; margin-bottom: 22px; }
+  .tag .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--white); font-size: 16px; line-height: 1; }
+  .tag.bad .dot { background: var(--hair); }
+  .tag.good .dot { background: var(--accent); }
+  .tag.bad { color: #909090; }
+  .tag.good { color: var(--ink); }
+
+  /* ── BAD table ── */
+  .t-bad-title { font-size: 18px; font-weight: 500; color: var(--ink); margin: 0 0 14px; }
+  table { border-collapse: collapse; font-size: 14px; }
+  .t-bad { width: 100%; }
+  .t-bad th, .t-bad td { border: 1px solid var(--hair); padding: 9px 10px; text-align: center; vertical-align: middle; }
+  .t-bad th { background: #E6ECF8; color: var(--muted); font-weight: 700; }
+  .t-bad tr:nth-child(even) td { background: #F1ECF4; }
+
+  /* ── GOOD table ── */
+  .t-good-title { font-size: 18px; font-weight: 500; color: var(--ink); line-height: 1.3; margin: 0 0 18px; max-width: 460px; }
+  .good-flow { display: flex; gap: 22px; align-items: flex-start; }
+  .t-good { border-collapse: collapse; font-size: 14px; flex: 1; }
+  .t-good thead th { font-weight: 400; font-size: 12px; color: #909090; text-align: right; padding: 0 12px 9px; vertical-align: bottom; line-height: 1.25; }
+  .t-good thead th.l { text-align: left; }
+  .t-good thead th .u { display: block; font-size: 11px; color: #B4B4B4; }
+  .t-good tbody td { padding: 11px 12px; text-align: right; border-top: 1px solid var(--hair-soft); vertical-align: top; font-variant-numeric: tabular-nums; }
+  .t-good tbody td.l { text-align: left; color: var(--muted); }
+  .t-good tbody td.yr { text-align: left; color: var(--ink); font-weight: 500; }
+  .t-good tbody tr:first-child td { border-top: 1px solid var(--hair); }
+  .t-good .key { color: var(--accent); font-weight: 700; }
+  .foot { margin-top: 14px; font-size: 12px; color: #909090; }
+
+  .callout { flex: none; width: 150px; background: var(--accent); border-radius: 16px; padding: 18px 18px 20px; color: var(--white); margin-top: 26px; }
+  .callout .big { font-family: var(--font-display); font-weight: 900; font-size: 46px; line-height: 0.95; letter-spacing: -0.01em; }
+  .callout .lbl { font-size: 13px; line-height: 1.25; margin-top: 8px; opacity: 0.95; }
+
+  .notes { margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--hair-soft); }
+  .notes li { font-size: 13px; line-height: 1.45; color: var(--muted); margin-bottom: 6px; list-style: none; padding-left: 22px; position: relative; }
+  .notes li::before { position: absolute; left: 0; top: 0; }
+  .notes.bad li::before { content: "✕"; color: var(--hair); font-size: 12px; top: 1px; }
+  .notes.good li::before { content: "✓"; color: var(--accent); font-size: 12px; top: 1px; }
+  .notes b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Таблицы: было / стало</h1>
+    <p>Один и тот&nbsp;же датасет в&nbsp;двух оформлениях. Слева — типичные ошибки, справа — переоформление по&nbsp;Правилу&nbsp;74: фирменные цвета, заголовок с&nbsp;выводом, тихие шапки, выравнивание, минимум границ и&nbsp;вынос ключевой цифры.</p>
+  </div>
+
+  <div class="cols">
+    <!-- ───────── BAD ───────── -->
+    <div class="panel">
+      <span class="tag bad"><span class="dot">✕</span>Было</span>
+      <p class="t-bad-title">Доходы и расходы компании N за 2023 и 2024 годы</p>
+      <table class="t-bad">
+        <tbody>
+          <tr>
+            <th>Доходы 2024</th><th>Расходы 2024</th><th>Вычисление прибыли</th><th>Прибыль в рублях</th><th>Прибыль в долларах</th><th>№ отчёта</th>
+          </tr>
+          <tr>
+            <td>60,3 млрд руб.</td><td>22,4 млрд руб.</td><td>Д − Р = 60,3 млрд руб 22,4 млрд руб.</td><td>37,9 млрд руб.</td><td>386,6 K</td><td>489015</td>
+          </tr>
+          <tr>
+            <th>Доходы 2023</th><th>Расходы 2023</th><th>Вычисление прибыли</th><th>Прибыль в рублях</th><th>Прибыль в долларах</th><th>№ отчёта</th>
+          </tr>
+          <tr>
+            <td>50,3 млрд руб.</td><td>30,8 млрд руб.</td><td>Д − Р = 50,3 млрд руб. − 30,8 млрд руб.</td><td>19,5 млрд руб.</td><td>198,9 K</td><td>39920</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul class="notes bad">
+        <li>Заголовок называет <b>тему</b>, а не вывод</li>
+        <li>Шапки <b>повторяются</b> и кричат ярче данных</li>
+        <li>Полная <b>сетка границ</b> + заливка строк отвлекают</li>
+        <li>Всё <b>по центру</b>, единицы измерения в каждой ячейке</li>
+        <li>Данные <b>не отсортированы</b>, формула раздувает таблицу</li>
+      </ul>
+    </div>
+
+    <!-- ───────── GOOD ───────── -->
+    <div class="panel">
+      <span class="tag good"><span class="dot">✓</span>Стало</span>
+      <p class="t-good-title">Оптимизация бюджета в&nbsp;компании N: рост доходов и&nbsp;снижение затрат в&nbsp;2024</p>
+      <div class="good-flow">
+        <table class="t-good">
+          <thead>
+            <tr>
+              <th class="l">Год</th>
+              <th>Доходы<span class="u">млрд ₽</span></th>
+              <th>Расходы<span class="u">млрд ₽</span></th>
+              <th>Прибыль<span class="u">млрд ₽</span></th>
+              <th>Прибыль<span class="u">тыс. $</span></th>
+              <th class="l">Отчёт №</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="yr">2023</td><td>50,3</td><td>30,8</td><td>19,5</td><td>198,9</td><td class="l">39920</td>
+            </tr>
+            <tr>
+              <td class="yr">2024</td><td>60,3</td><td>22,4</td><td class="key">37,9</td><td>386,6</td><td class="l">489015</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <div class="big">37,9</div>
+          <div class="lbl">прибыль за&nbsp;2024, млрд&nbsp;₽</div>
+        </div>
+      </div>
+      <p class="foot">* Прибыль = Доходы − Расходы</p>
+      <ul class="notes good">
+        <li>Заголовок несёт <b>вывод</b>, а не тему</li>
+        <li>Шапки <b>тихие</b>, единицы — в названии колонки</li>
+        <li>Числа <b>вправо</b>, год и №&nbsp;отчёта — <b>влево</b> как текст</li>
+        <li>Только <b>горизонтальные линии</b>, без заливки строк</li>
+        <li>Главная цифра <b>вынесена</b> акцентом, формула — в&nbsp;сноску</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</body>
+</html>

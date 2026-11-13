@@ -1,0 +1,81 @@
+<!-- @dsCard group="Components" viewport="920x620" name="Buttons — типы · размеры · состояния" subtitle="Правило 75 · UI-кит Яндекса: пилюли, YS Text Regular, графит primary, синий link только для UI, красный accent — один CTA" -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: var(--white); font-family: var(--font-text); font-weight: var(--fw-regular); color: var(--text-primary); }
+  #root { padding: 36px 40px 40px; display: flex; flex-direction: column; gap: 30px; }
+  h1 { font-family: var(--font-display); font-weight: 900; font-size: 34px; line-height: 1; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { font-size: 15px; color: var(--text-muted); margin: 0; }
+  .block { display: flex; flex-direction: column; gap: 14px; }
+  .lbl { font-size: 12px; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; }
+  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .note { font-size: 13px; color: var(--gray-600); margin: 0; }
+  .note b { font-weight: var(--fw-medium); color: var(--gray-900); }
+  .hl { color: var(--accent); }
+  .divider { height: 1px; background: var(--control-stroke); border: 0; margin: 2px 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Button, Icon } = window.DesignSystem_132e64;
+  function Demo() {
+    return (
+      <>
+        <div>
+          <h1>Кнопки</h1>
+          <p className="sub">UI-кит Яндекса · пилюля · YS Text Regular 14/20 · Правило 75</p>
+        </div>
+
+        <div className="block">
+          <div className="lbl">Типы — иерархия от главного к третичному</div>
+          <div className="row">
+            <Button type="primary">Primary</Button>
+            <Button type="secondary">Secondary</Button>
+            <Button type="stroke">Stroke</Button>
+            <Button type="ghost">Ghost</Button>
+            <Button type="link">Link</Button>
+            <Button type="accent">Accent</Button>
+          </div>
+          <p className="note"><b>primary</b> графит #2C2C32 · <b>secondary</b> чёрный 6% · <b>stroke</b> обводка 12% · <b>ghost</b> прозрачная · <b>link</b> синий #0077FF (только UI) · <b className="hl">accent</b> красный — один CTA на экран</p>
+        </div>
+
+        <hr className="divider" />
+
+        <div className="block">
+          <div className="lbl">Размеры — высота в px</div>
+          <div className="row">
+            <Button size={24}>Size 24</Button>
+            <Button size={28}>Size 28</Button>
+            <Button size={36}>Size 36</Button>
+            <Button size={64}>Size 64</Button>
+          </div>
+          <p className="note">По умолчанию <b>36</b>. На слайдах 1920×1080 — <b>36 и крупнее</b>; 24/28 только для плотного интерфейса.</p>
+        </div>
+
+        <hr className="divider" />
+
+        <div className="block">
+          <div className="lbl">С иконкой · только иконка · состояния</div>
+          <div className="row">
+            <Button type="primary" iconLeft={<Icon name="search" size={16} color="#FFFFFF" />}>Найти</Button>
+            <Button type="secondary" iconRight={<Icon name="right_arrow" size={16} />}>Дальше</Button>
+            <Button type="primary" iconOnly aria-label="Поиск"><Icon name="search" size={16} color="#FFFFFF" /></Button>
+            <Button type="secondary" iconOnly aria-label="Меню"><Icon name="burger_menu" size={16} /></Button>
+            <Button type="primary" disabled>Disabled</Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

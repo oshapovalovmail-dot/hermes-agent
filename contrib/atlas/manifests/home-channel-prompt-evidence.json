@@ -1,0 +1,35 @@
+{
+  "state": "SOURCE_DELTA_QUALIFIED_LIVE_ACCEPTANCE_PENDING_PARENT",
+  "config_key": "gateway.home_channel_prompt",
+  "generic_default": true,
+  "only_explicit_boolean_false_suppresses": true,
+  "atlas_generated_root_member_future_template_value": false,
+  "home_channel_assigned": false,
+  "first_contact_intro_preserved": true,
+  "home_delivery_and_auth_semantics_changed": false,
+  "core_patch_sha256": "0fd8650b76652b3099655be30a8cda66bb17a298c614e239ebd2b5adfdc34299",
+  "core_file_sha256": "d9a6c4bc9cfec9c304465ecb879bef2baf3ad61e71557783740fb16a726f7d91",
+  "previous_23_core_files_byte_identical": true,
+  "TDD": {
+    "RED": "5 AST-method fixture tests executed; explicit false failed with the actual native no-home notice",
+    "GREEN": "5 AST-method fixture tests passed on changed exact method",
+    "generator_RED": "explicit False expected, legacy True observed",
+    "generator_GREEN": true,
+    "scope": "Exact native method AST; bounded imported config, secret, first-contact and notice dependencies; no native initialization, external model or Telegram transport"
+  },
+  "fresh_physical_verification": {
+    "pinned_upstream_commit": "3c43466900cb1a802d2ef1155c481b37d7d1063a",
+    "patch_files_hash_verified": 24,
+    "source_distribution_tests_executed": 40,
+    "source_distribution_tests_exit": 0,
+    "generated_root_member_template_flags_asserted": true,
+    "native_initialization_check": "BLOCKED: explicit fixture initialization consent not supplied for this source-only check",
+    "whole_verifier_exit": 2,
+    "native_SDK_or_skills_initialization_executed": false
+  },
+  "independent_delta_review": "PASS after requiring strict JSON-only parsing for the live control template staging carrier",
+  "historical_17_native_scenarios_rerun": false,
+  "sandbox_image_inputs_changed": false,
+  "production_activation_permitted": false,
+  "live_new_thread_send_reply_acceptance": "PENDING_PARENT; not inferred from fixture tests or readiness"
+}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Isolated, site-free interpreter with an immutable document-library search path.
+exec /usr/local/bin/python3 -I -S /opt/atlas/bootstrap.py "$@"

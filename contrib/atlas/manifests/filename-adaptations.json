@@ -1,0 +1,28 @@
+{
+  "reason": "Arc repository InvalidChar filename rule",
+  "files": [
+    {
+      "original": "payload/home/skills/creative/psiii-design/templates/deck/Презентация ПСиИИ.pptx",
+      "distributed": "payload/home/skills/creative/psiii-design/templates/deck/presentation-psiii.pptx",
+      "sha256": "804e0a2a42651db9600f50db90097783ff40926051efc92db9278ca960bb6a03"
+    },
+    {
+      "original": "payload/home/skills/creative/psiii-design/ui_kits/slides/Презентация ПСиИИ.pptx",
+      "distributed": "payload/home/skills/creative/psiii-design/ui_kits/slides/presentation-psiii.pptx",
+      "sha256": "804e0a2a42651db9600f50db90097783ff40926051efc92db9278ca960bb6a03"
+    },
+    {
+      "original": "payload/home/skills/creative/psiii-design/Как пользоваться дизайн-системой (для пользователя).md",
+      "distributed": "payload/home/skills/creative/psiii-design/design-system-guide-ru.md",
+      "sha256": "16245eaa204ee5a27c4298e5e49af2f1c4d618340d52cd3a57e3bb6452466278"
+    }
+  ],
+  "link_files_modified": [
+    "payload/home/skills/creative/psiii-design/readme.md",
+    "payload/home/skills/creative/psiii-design/templates/deck/README.md",
+    "payload/home/skills/creative/psiii-design/ui_kits/slides/index.html",
+    "payload/home/skills/creative/psiii-design/ui_kits/slides/README.md"
+  ],
+  "core_and_guard_code_changed": false,
+  "immutable_image_note": "Previously qualified image remains the recorded image; the rebuilt source tree has ASCII filename adaptations. Business-pptx source.pptx path and bytes remain unchanged."
+}

@@ -424,7 +424,7 @@ def is_host_excluded_by_no_proxy(hostname: str, no_proxy_value: str | None = Non
 
 
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Any, Callable, Awaitable, Tuple, Union
 
@@ -1058,6 +1058,10 @@ def validate_media_delivery_path(path: str, session_key: str = "") -> Optional[s
     (``HERMES_MEDIA_DELIVERY_STRICT=1``, public bots where prompt injection must not exfiltrate
     host secrets): MUST be under a Hermes cache, an operator root (``HERMES_MEDIA_ALLOW_DIRS``),
     or freshly produced within the recency window. Symlinks are resolved before any check."""
+    from gateway.media_delivery_gate import resolve_required_media_path
+    required, policy_path = resolve_required_media_path(path, session_key)
+    if required:
+        return policy_path
     candidate = _normalize_media_tag_path(path)
     if not candidate:
         return None
@@ -1107,6 +1111,12 @@ def _validated_delivery_path(raw_path, session_key: str, label: str,
     host cannot see is retried against the active remote sandbox (ssh/modal/...; #466). When
     ``dropped`` is a list, a rejected path is appended as ``{"path", "reason"}`` so the caller can
     report the drop instead of booking a delivery that never happened (#115908)."""
+    from gateway.media_delivery_gate import resolve_required_media_path
+    required, policy_path = resolve_required_media_path(str(raw_path), session_key)
+    if required:
+        if policy_path is None and dropped is not None:
+            dropped.append({'path': str(raw_path), 'reason': 'required delivery policy denied'})
+        return policy_path  # Never remote-fetch a policy rejection.
     raw = str(raw_path)
     safe_path = validate_media_delivery_path(raw, session_key=session_key)
     if not safe_path:
@@ -1447,6 +1457,7 @@ class CachedMedia:
     media_type: str           # MIME type recorded on the MessageEvent
     kind: str                 # "image" | "video" | "audio" | "document"
     display_name: str         # human-readable name for transcript notes
+    source_bytes: bytes | None = field(default=None, repr=False, compare=False)
 
     def context_note(self) -> str:
         """One-line transcript annotation pointing the agent at the file (sandbox-translated at
@@ -1493,13 +1504,14 @@ def cache_media_bytes(data: bytes, *, filename: str = "", mime_type: str = "",
                 raise
             return None
         out_mime = mime if passthrough and mime.startswith(f"{kind}/") else table[kind_ext]
-        return CachedMedia(path, out_mime, kind, display)
+        return CachedMedia(path, out_mime, kind, display, data if len(data) <= 2 * 1024 * 1024 else None)
     # Any other type is cached and surfaced as a path — an authorized user's uploads must never be
     # silently dropped. Unknown types get octet-stream so the agent reaches for terminal tools.
     fallback_name = filename or (f"document{ext}" if ext else "document.bin")
     path = cache_document_from_bytes(data, fallback_name)
     out_mime = SUPPORTED_DOCUMENT_TYPES.get(ext) or mime or "application/octet-stream"
-    return CachedMedia(path, out_mime, "document", display or fallback_name)
+    return CachedMedia(path, out_mime, "document", display or fallback_name,
+                       data if len(data) <= 2 * 1024 * 1024 else None)
 
 
 async def cache_media_bytes_async(
@@ -3500,17 +3512,20 @@ class BasePlatformAdapter(ABC):
         if eph_ttl > 0 and result.success and result.message_id:
             self._schedule_ephemeral_delete(event.source.chat_id, result.message_id, eph_ttl)
 
+    @contextlib.contextmanager
     def _media_delivery_scope(self, source: Optional[SessionSource]):
-        """Routed home + terminal policy for post-handler text, media and error delivery;
-        a no-op without a runner or outside multiplexing."""
-        resolve = getattr(self.gateway_runner, "_media_delivery_scope_for_source", None)
-        if not callable(resolve) or source is None:
-            return contextlib.nullcontext()
-        try:
-            return resolve(source)
-        except Exception:
-            logger.debug("[%s] Failed to resolve media delivery scope", self.name, exc_info=True)
-            return contextlib.nullcontext()
+        """Routed home + transport-bound origin, including post-turn local uploads."""
+        from gateway.media_delivery_gate import media_delivery_origin
+        with media_delivery_origin(source, session_key=self._source_session_key(source) if source is not None else ''):
+            resolve = getattr(self.gateway_runner, "_media_delivery_scope_for_source", None)
+            scope = contextlib.nullcontext()
+            if callable(resolve) and source is not None:
+                try:
+                    scope = resolve(source)
+                except Exception:
+                    logger.debug("[%s] Failed to resolve media delivery scope", self.name, exc_info=True)
+            with scope:
+                yield
 
     def _final_delivery_adapter(self, source: Optional[SessionSource]) -> "BasePlatformAdapter":
         """The runner's CURRENT adapter for a new final-response send: a reconnect can swap the
@@ -3922,6 +3937,18 @@ class BasePlatformAdapter(ABC):
         await self._drain_pending_after_session_command(session_key, command_guard)
 
     async def handle_message(self, event: MessageEvent) -> None:
+        from gateway.atlas_admission import installed_gate, binding_scope
+        gate=installed_gate()
+        if gate is not None and event.source.platform==Platform.TELEGRAM:
+            if not gate.source_authorized(event.source):return
+            binding=event.source._atlas_binding
+            try:await gate.recheck(binding,gate._issued[id(binding)][1])
+            except (Exception,SystemExit):return
+            with binding_scope(binding):
+                return await self._handle_admitted_message(event)
+        return await self._handle_admitted_message(event)
+
+    async def _handle_admitted_message(self, event: MessageEvent) -> None:
         """Process an incoming message; returns quickly by spawning a background
         task so new messages (and interrupts) can arrive while an agent runs."""
         event._gateway_accepted = False
@@ -4290,14 +4317,22 @@ class BasePlatformAdapter(ABC):
         Returns the result with the adapter that sent it: that adapter owns ``result.message_id``
         (an ephemeral delete must go to the same transport)."""
         delivery_adapter = self._final_delivery_adapter(event.source)
+        from gateway.atlas_admission import installed_gate, binding_scope
+        gate = installed_gate() if getattr(event.source.platform, 'value', event.source.platform) == 'telegram' else None
+        if gate is not None and not gate.source_authorized(event.source):
+            return SendResult(success=False, error='Atlas exact final source required'), delivery_adapter
+        binding = getattr(event.source, '_atlas_binding', None) if gate is not None else None
         logger.info("[%s] Sending response (%d chars) to %s", delivery_adapter.name,
                     len(text_content), event.source.chat_id)
         obligation_id = await self._record_delivery_obligation(
             event, session_key, text_content, delivery_adapter, is_ephemeral_response)
         if obligation_id is not None:
             await self._release_turn_marker(event)  # the ledger now owns the crash recovery
-        result = await delivery_adapter._send_with_retry(
-            chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
+        if gate is not None and (not gate.source_authorized(event.source) or event.source._atlas_binding is not binding):
+            return SendResult(success=False, error='Atlas final source retired during ledger await'), delivery_adapter
+        with binding_scope(binding) if gate is not None else contextlib.nullcontext():
+            result = await delivery_adapter._send_with_retry(
+                chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
         stop_reply_clock(delivery_adapter, event.source.chat_id, result)
         if obligation_id is not None:
             await self._finalize_delivery_obligation(obligation_id, result, event, delivery_adapter)
@@ -4352,13 +4387,17 @@ class BasePlatformAdapter(ABC):
         results feed ``record_delivery`` so the turn outcome reflects them."""
         human_delay = self._get_human_delay()
         images, media_files, local_files = extracted.images, extracted.media_files, extracted.local_files
-        if images:
-            logger.info("[%s] Extracted %d image(s) to send as attachments", self.name, len(images))
-            await self._send_image_batch(event, images, metadata, human_delay, record_delivery)
-        await self._deliver_media_attachments(
-            event, media_files, local_files,
-            force_document_attachments=extracted.force_document_attachments,
-            human_delay=human_delay, metadata=metadata, record_delivery=record_delivery)
+        # Extraction's routed scope ends before this native transport callback.
+        # Rebind the same authenticated origin/profile for the upload recheck;
+        # final-text ledger writes remain outside this attachment-only scope.
+        with self._media_delivery_scope(event.source):
+            if images:
+                logger.info("[%s] Extracted %d image(s) to send as attachments", self.name, len(images))
+                await self._send_image_batch(event, images, metadata, human_delay, record_delivery)
+            await self._deliver_media_attachments(
+                event, media_files, local_files,
+                force_document_attachments=extracted.force_document_attachments,
+                human_delay=human_delay, metadata=metadata, record_delivery=record_delivery)
         if not (anything_sent or images or local_files or media_files) and extracted.pre_extract.strip():
             logger.error("[%s] response_delivery_dropped: non-empty response "
                          "(%d chars) produced no delivered message or attachment "
@@ -4460,6 +4499,16 @@ class BasePlatformAdapter(ABC):
             self._cleanup_finished_session_task(session_key, interrupt_event)
 
     async def _process_message_background(self, event: MessageEvent, session_key: str) -> None:
+        # Scope lifetime encloses the existing native final/media/callback path.
+        from gateway.session_native_proofs import complete_source
+        try:
+            await self._process_message_background_native(event, session_key)
+        finally:
+            pending = self._pending_messages.get(session_key)
+            if pending is None or getattr(pending.source, '_atlas_binding', None) is not getattr(event.source, '_atlas_binding', None):
+                complete_source(event.source)
+
+    async def _process_message_background_native(self, event: MessageEvent, session_key: str) -> None:
         """Background task that actually processes the message."""
         delivery_attempted = delivery_succeeded = False  # feeds the processing-complete hook
 

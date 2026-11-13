@@ -1,0 +1,63 @@
+<!-- @dsCard group="Components" viewport="900x560" name="UI kit — меню, списки, аватары" subtitle="Правило 75 · ListItem · ContextMenu · Avatar — значения из кита Яндекса" -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: var(--gray-50); font-family: var(--font-text); font-weight: var(--fw-regular); color: var(--text-primary); }
+  #root { padding: 34px 40px 40px; display: flex; gap: 44px; align-items: flex-start; flex-wrap: wrap; }
+  .block { display: flex; flex-direction: column; gap: 14px; }
+  .lbl { font-size: 12px; color: var(--text-muted); letter-spacing: .03em; text-transform: uppercase; }
+  h1 { width: 100%; font-family: var(--font-display); font-weight: 900; font-size: 32px; line-height: 1; margin: 0; letter-spacing: -0.01em; }
+  .row { display: flex; align-items: center; gap: 16px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { ContextMenu, ListItem, Avatar, Icon, Switcher } = window.DesignSystem_132e64;
+  function Demo() {
+    return (
+      <>
+        <h1>Меню · списки · аватары</h1>
+
+        <div className="block">
+          <div className="lbl">ContextMenu + ListItem</div>
+          <ContextMenu>
+            <ListItem label="Открыть в новой вкладке" iconLeft={<Icon name="new_tab" size={16} />} hint="⌘T" />
+            <ListItem label="Скопировать ссылку" iconLeft={<Icon name="copy" size={16} />} />
+            <ListItem label="Добавить в избранное" iconLeft={<Icon name="heart" size={16} />} selected />
+            <ListItem label="Настройки" iconLeft={<Icon name="settings" size={16} />} trailing={<Switcher size="small" checked />} />
+            <ListItem label="Удалить" disabled />
+          </ContextMenu>
+        </div>
+
+        <div className="block">
+          <div className="lbl">Avatar — 24 / 32 / 40 / 48</div>
+          <div className="row">
+            <Avatar size={24} initials="Я" />
+            <Avatar size={32} initials="ИИ" />
+            <Avatar size={40} initials="П" badge />
+            <Avatar size={48} initials="Н" />
+          </div>
+          <div className="lbl" style={{ marginTop: 8 }}>ListItem с аватаром</div>
+          <div style={{ width: 300 }}>
+            <ListItem
+              label="Поисковые сервисы"
+              iconLeft={<Avatar size={32} initials="П" />}
+              hint="online"
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

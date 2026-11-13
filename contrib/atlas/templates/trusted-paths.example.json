@@ -1,0 +1,13 @@
+{
+  "mcp":"/operator/tools/mcp",
+  "yt":"/operator/tools/yt",
+  "gh":"/operator/tools/gh",
+  "arc":"/operator/tools/arc",
+  "arcanum":"/operator/tools/arcanum-go-cli",
+  "vh3":"/operator/tools/vh3",
+  "docker":"/operator/tools/docker",
+  "arc_cwd":"/operator/checkout/approved-subtree",
+  "arc_roots":["approved-subtree"],
+  "github_repos":["organization/approved-repository"],
+  "honcho_endpoint":"https://memory.example.invalid"
+}

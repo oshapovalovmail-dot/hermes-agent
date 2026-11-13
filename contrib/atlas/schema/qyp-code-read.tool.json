@@ -1,0 +1,67 @@
+{
+  "name": "qyp_code_read",
+  "description": "Read UTF-8 source lines, list or literal-search within ONE explicitly selected approved Arcadia subtree. Read returns a hash-bound immutable /inputs copy for auxiliary scripts. No project writes, shell, credentials, mount-root discovery or symlinks. Search/list continuations are not a live-source snapshot.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": [
+          "read",
+          "list",
+          "search"
+        ]
+      },
+      "scope": {
+        "type": "string",
+        "enum": [
+          "neuroexpert",
+          "junk/ovshapovalov",
+          "frontend/browserweb/projects/neuro-expert",
+          "alice",
+          "agents/eval",
+          "agents/sdk-go",
+          "taxi/tplatform/ai_infra/ai_minion",
+          "zootopia/analytics/ml/stefania",
+          "portal/alice-cowork",
+          "browser"
+        ]
+      },
+      "path": {
+        "type": "string"
+      },
+      "start_line": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "line_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200
+      },
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200
+      },
+      "after_path": {
+        "type": "string"
+      },
+      "after_line": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "operation",
+      "scope",
+      "path"
+    ],
+    "additionalProperties": false
+  }
+}

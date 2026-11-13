@@ -276,6 +276,21 @@ class TelegramApplication(Application):
         return stopped or (claim is not None and not claim.accepted)
 
     async def process_update(self, update):
+        if self.adapter.config.extra.get('atlas_admission') is True:
+            from gateway.atlas_admission import installed_gate, binding_scope
+            gate=installed_gate()
+            if gate is None or not isinstance(update,Update) or update.callback_query is not None:
+                return
+            message=update.effective_message
+            if message is None:return
+            try:
+                binding=await gate.admit_message(message,self.bot)
+            except (Exception,SystemExit):return
+            with binding_scope(binding):
+                return await self._process_admitted_update(update)
+        return await self._process_admitted_update(update)
+
+    async def _process_admitted_update(self, update):
         if not isinstance(update, Update):
             return await super().process_update(update)
         bot_id = self.bot.id

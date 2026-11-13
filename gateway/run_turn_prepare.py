@@ -562,8 +562,12 @@ class GatewayTurnPrepareMixin:
             if note:
                 turn_sidecar_notes.append(note)
 
-        # One-time prompt if no home channel is set (webhooks deliver to configured targets instead).
+        # Prompt if no home channel is set (webhooks deliver to configured targets instead).
         if not human_platform:
+            return
+        # Explicit per-profile opt-out; retain legacy behavior for absent/non-boolean values.
+        prompt_config = _load_gateway_config().get("gateway")
+        if isinstance(prompt_config, dict) and prompt_config.get("home_channel_prompt") is False:
             return
         platform_name = source.platform.value
         env_key = _home_target_env_var(platform_name)

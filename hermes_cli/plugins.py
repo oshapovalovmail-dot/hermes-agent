@@ -109,6 +109,9 @@ def _install_plugin_debug_handler(force: bool = False) -> None:
 _install_plugin_debug_handler()
 
 VALID_HOOKS: set[str] = {
+    "required_gateway_policy",  # mandatory startup readiness, failure aborts before adapters
+    "required_gateway_source",  # pre-download/auxiliary intake gate for required policies
+    "resolve_media_delivery_path",  # mandatory MEDIA policy: generic fail-closed path resolver
     "pre_tool_call", "post_tool_call", "transform_terminal_output", "transform_tool_result",
     # transform_llm_output: return a replacement string (first non-None wins) or None.
     "transform_llm_output", "pre_llm_call", "post_llm_call",

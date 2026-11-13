@@ -1,0 +1,8 @@
+{
+  "files_scanned": 567,
+  "embedded_office_property_parts_scanned": 6,
+  "findings": [],
+  "pass": true,
+  "scope": "publishable source only; no private input stores scanned",
+  "not_a_guarantee": "Pattern scan and bounded Office metadata review do not establish absence of all possible sensitive text."
+}
