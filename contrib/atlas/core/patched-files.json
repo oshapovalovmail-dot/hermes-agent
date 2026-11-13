@@ -1,5 +1,5 @@
 {
-  "atlas_bridge/contract.py": "2f1faa9f5d370a586a3d7ccd14bad2d4ad39353a71980a4d6c7b3464f3f30e9e",
+  "atlas_bridge/contract.py": "bee096e709f826c3f5d9c3e0c4221185da637e66bb55c7fc841777732cfb62dc",
   "atlas_bridge/fixture_hub.py": "cba5017237172b5058ba17d452bc64f10c38f715112349a9ca1e1102ee035fe3",
   "atlas_native_bridge/__init__.py": "ed15b990d2cf10d04bc6aca70468f9e90537f6bf78e8a08f12dc516cbc83e084",
   "atlas_native_bridge/attachments.py": "b7e5b3a6740a8077866b3921e8fdb1aa5c52ab16edafe0a28c984243e93a71b7",

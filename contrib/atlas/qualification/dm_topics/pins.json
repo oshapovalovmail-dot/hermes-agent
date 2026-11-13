@@ -1,0 +1,10 @@
+{
+  "atlas_bridge/contract.py": "bee096e709f826c3f5d9c3e0c4221185da637e66bb55c7fc841777732cfb62dc",
+  "atlas_native_bridge/edge.py": "77cd9fa7c7fcb5be50b9651891b9dd8d0ba92ff8b88c845645be18cebb3b7410",
+  "atlas_native_bridge/protocol.py": "8530b44dff3ad93a1b6e18b66c784f864ec1cad430c88236296ed99164f45f66",
+  "atlas_native_bridge/remote.py": "c3fa562e5d1ea87692105d1231028560324d0cf5b4babfb3bed3563824bee197",
+  "gateway/atlas_admission.py": "155556bdb6b9df9cfcb16453c3a8abea36594ff00ec0f8cc22079ef50f35b217",
+  "gateway/config.py": "711847b5f740a5131bd2772bc8d737f94ab549faab8d8de18befe8202dbe7dd7",
+  "gateway/session.py": "90c43fd482f85ad93d50356f9d89adabbb785cb2f20da73c3b93c21a713b41a6",
+  "gateway/session_detached.py": "e3b5610cefa81fe6ce1865102c3b52620f562e613141243f2764cdaf91f1dfed"
+}

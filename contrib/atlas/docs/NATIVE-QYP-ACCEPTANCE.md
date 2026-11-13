@@ -42,8 +42,16 @@
 - Фокусированные suite: actual clock/reader 18 на Mac и 18 на Linux; SDK carry-forward 13; route 6; filename SDK 7; known native hint reuse 9. Счётчики разных suite не складываются в число уникальных сценариев.
 - Живой второй сотрудник, группа с Tasha и её demotion, настоящий trace CDP и автоматический recall в новом диалоге не заявлены проверенными. Каталог 2121 операций/151 сервиса не означает исчерпывающего прогона каждой операции.
 
+## Темы личных сообщений
+
+Валидатор транспорта ошибочно отвергал любой `thread_id` в ЛС, хотя настоящий SDK и native session key уже поддерживали темы. Теперь в аутентифицированном private-чате допускается только `None` или канонический положительный идентификатор темы. Совпадение UID/chat/profile, проверка Staff, подписи, freshness, nonce и exact-topic egress сохранены.
+
+Причинный RED воспроизведён на actual PTB → AdmissionGate → MacEdge. Изолированная suite из девяти тестов прошла на Mac и Linux. Portable-копия и команды находятся в `qualification/dm_topics/README.md`. Service TopicCreate проверен только на порядок ingress и разделение origins; downstream-подавление пустого model turn этим тестом не заявляется.
+
+После точечной установки на обоих хостах новый настоящий запрос `429979` получил ожидаемый ответ `429980` в исходной приватной теме `429911`; SDK delivery journal подтвердил доставку. Исходное потреблённое сообщение не replay.
+
 ## Исходники и поставка
 
-Native base: `3c43466900cb1a802d2ef1155c481b37d7d1063a`. Проверенный текущий core patch: `ef1dec6ba115ce0fee70ddf6f4f39cf23a1db797fd544ab0662d5fa6e608e3ed`, 67 изменённых native-файлов. Проект хранит portable payload, installer, core patch и source-level проверки. Права, секреты, target-native PM-generation и активация задаются отдельно конкретной установке; один только source archive не является развёртыванием.
+Native base: `3c43466900cb1a802d2ef1155c481b37d7d1063a`. Проверенный текущий core patch: `9e6f6baa15a8555422d1866c8d0b558f438b129ca851e43d8c42d44b50c96940`, 67 изменённых native-файлов. Проект хранит portable payload, installer, core patch и source-level проверки. Права, секреты, target-native PM-generation и активация задаются отдельно конкретной установке; один только source archive не является развёртыванием.
 
-Публикация ведётся в существующий Arcadia PR `17115466`, без нового дубликата, force-push, отключения required checks или комментариев в PR. Merge подтверждается только live-состоянием сервера, не локальным commit или настройкой auto-merge.
+Базовая поставка вошла в trunk через PR `17115466`, ревизия `r22107672`. Последующие исправления публикуются отдельно от уже merged PR, без force-push, отключения required checks или комментариев в PR. Merge подтверждается состоянием сервера и ревизией, не локальным commit или настройкой auto-merge.

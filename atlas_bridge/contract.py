@@ -59,7 +59,9 @@ def validate(raw):
         raise Denied('eligibility_required')
     proof = raw['eligibility']
     if raw['chat_type'] == 'dm':
-        if raw['chat_id'] != raw['user_id'] or raw['thread_id'] is not None or raw['profile'] != 'tg-' + raw['user_id']:
+        if (raw['chat_id'] != raw['user_id']
+                or (raw['thread_id'] is not None and not positive_id(raw['thread_id']))
+                or raw['profile'] != 'tg-' + raw['user_id']):
             raise Denied('exact_dm_scope_required')
         if (type(raw['username']) is not str or not re.fullmatch(r'[a-z0-9_]{1,32}', raw['username'])
                 or proof != {'kind': 'staff_username', 'active': True, 'verified': True, 'robot': False}

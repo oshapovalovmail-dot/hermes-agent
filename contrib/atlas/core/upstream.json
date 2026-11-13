@@ -72,7 +72,7 @@
   "merged_independent_review_required": true,
   "new_native_read_proof_API": true,
   "parent_base_domain_A_replacement_required": false,
-  "patch_sha256": "ef1dec6ba115ce0fee70ddf6f4f39cf23a1db797fd544ab0662d5fa6e608e3ed",
+  "patch_sha256": "9e6f6baa15a8555422d1866c8d0b558f438b129ca851e43d8c42d44b50c96940",
   "provisional": true,
   "url": "https://github.com/oshapovalovmail-dot/hermes-agent.git"
 }
