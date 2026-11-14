@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 29, in <module>
+    work=sidecar.load_service_backend('work_services')
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 121, in load_service_backend
+    from jsonschema import Draft202012Validator
+ModuleNotFoundError: No module named 'jsonschema'

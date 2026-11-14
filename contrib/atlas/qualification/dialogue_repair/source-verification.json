@@ -1,0 +1,24 @@
+{
+  "verdict": "PASS",
+  "frozen_composed_hashes_verified": true,
+  "guard_manifest_soul_exact_reviewed_bytes": true,
+  "alias_functions_exact_reviewed_bytes": true,
+  "public_backend_only_manifest_pin_changed_byte_inverse": true,
+  "public_sidecar_only_two_functions_and_work_pins_changed_byte_inverse": true,
+  "original_identity_arcanum_test_classes_ast_unchanged": true,
+  "green_tests": 35,
+  "green_exits": [
+    0,
+    0,
+    0
+  ],
+  "red_exits": [
+    1,
+    1,
+    1
+  ],
+  "receipt_hashes_verified": true,
+  "owned_temp_fixtures_cleaned": true,
+  "native_fixture_origin": "reviewed frozen identity/baseline/runtime/gateway, exact bytes",
+  "production_runtime_source_config_or_credentials_accessed": false
+}

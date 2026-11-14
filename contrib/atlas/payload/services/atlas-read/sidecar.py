@@ -88,7 +88,7 @@ def extension_schema(name):
     return shape
 
 
-SERVICE_BACKENDS = {'tracker_wiki': {'file': 'tracker_wiki_backend.py', 'sha256': '28c81e83f7d0255b2eef4409830a754622b0851fb246e8d6eaac9354aeac5fd7', 'catalog': 'tracker_wiki_catalog.json', 'catalog_sha256': 'b9917cb78fe780d9c0f4bcc49561c72d7b48054a0f799e471d888b971e5ac254'}, 'work_services': {'file': 'work_services_backend.py', 'sha256': 'd29bb7bcf1a6851d74287225f93f77fd6d283026393aaec247b497dc536d3f11', 'catalog': 'work_services_manifest.json', 'catalog_sha256': 'b26fb43e9648082a3f8f251def2a66878756ba18b07c0501d6a4a01d92ea475d', 'dependencies': {'select_parser.py': '0ef0ffd9b61f2b90ebc102ba37df1b6ee1e89f38726f087f9c0f41bc41b2b179'}}}
+SERVICE_BACKENDS = {'tracker_wiki': {'file': 'tracker_wiki_backend.py', 'sha256': '28c81e83f7d0255b2eef4409830a754622b0851fb246e8d6eaac9354aeac5fd7', 'catalog': 'tracker_wiki_catalog.json', 'catalog_sha256': 'b9917cb78fe780d9c0f4bcc49561c72d7b48054a0f799e471d888b971e5ac254'}, 'work_services': {'file': 'work_services_backend.py', 'sha256': '564b42ecdee85fa9f1e2adbf18c7870ae79bbca8f49193ba6e5b0a1b83131990', 'catalog': 'work_services_manifest.json', 'catalog_sha256': '2217163c4309f855ddeeb7854e9c9770235a33c200285663e779b800e98ef8fb', 'dependencies': {'select_parser.py': '0ef0ffd9b61f2b90ebc102ba37df1b6ee1e89f38726f087f9c0f41bc41b2b179'}}}
 PAGING_SHA256 = '169bcf2fb51373f49eec0f1f6d0bec32cf4f22e117e1ef56270955f0cc79a465'
 # Internal code-owned merged service implementation, inserted into sidecar.py.
 _SERVICE_CACHE={}
@@ -420,7 +420,7 @@ def check_arc_patch(patch: str, allowed_paths: set[str] | None = None) -> list[s
 
 def parse_pr(url):
     if not isinstance(url, str) or len(url) > 600: raise PolicyError('invalid_argument')
-    if re.fullmatch(r'https://a\.yandex-team\.ru/review/[1-9][0-9]{0,10}/?', url):
+    if re.fullmatch(r'https://(?:a|arcanum)\.yandex-team\.ru/review/[1-9][0-9]{0,10}/?', url):
         return 'arc', url.rstrip('/').rsplit('/', 1)[1]
     m = re.fullmatch(r'https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/([1-9][0-9]{0,10})/?', url)
     if not m: raise PolicyError('invalid_argument')
@@ -766,7 +766,14 @@ class ReadService:
             else:
                 raw=self.runner([ARC_CLI,'pr','status',prid,'--json'],cwd=ARC_CWD)
                 data=json.loads(raw)
-                if not isinstance(data,dict) or data.get('id')!=int(prid) or data.get('url','').rstrip('/')!=url.rstrip('/'):
+                if not isinstance(data,dict) or data.get('id')!=int(prid):
+                    raise PolicyError('pr_metadata_unrecognized')
+                # Validate, never normalize, native URLs before alias identity comparison.
+                try:
+                    actual_provider,actual_prid=parse_pr(data.get('url'))
+                except PolicyError:
+                    raise PolicyError('pr_metadata_unrecognized') from None
+                if (actual_provider,actual_prid)!=(provider,prid):
                     raise PolicyError('pr_metadata_unrecognized')
                 # PR output only. Patch stays in bounded host memory; never written to disk.
                 # Whole patch must be provably inside source ACL BEFORE any content returns.

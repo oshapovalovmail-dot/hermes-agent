@@ -1,0 +1,268 @@
+test_ambient_identity_denied (__main__.RoleTests.test_ambient_identity_denied) ... ok
+test_changed_session_between_principal_and_projection (__main__.RoleTests.test_changed_session_between_principal_and_projection) ... FAIL
+test_description_business_metadata_not_staff_or_authority (__main__.RoleTests.test_description_business_metadata_not_staff_or_authority) ... FAIL
+test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) ... 
+  test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='user_id') ... FAIL
+  test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='chat_id') ... FAIL
+  test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='profile') ... FAIL
+  test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='thread_id') ... FAIL
+  test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='session_key') ... FAIL
+  test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='role') ... FAIL
+test_empty_bound_session_never_projects (__main__.RoleTests.test_empty_bound_session_never_projects) ... FAIL
+test_foreign_plugin_profile_denied (__main__.RoleTests.test_foreign_plugin_profile_denied) ... ok
+test_group_returns_unknown_even_if_human_has_username (__main__.RoleTests.test_group_returns_unknown_even_if_human_has_username) ... FAIL
+test_member_role_ceiling_and_distinct_identity (__main__.RoleTests.test_member_role_ceiling_and_distinct_identity) ... FAIL
+test_model_argument_identity_injection_denied (__main__.RoleTests.test_model_argument_identity_injection_denied) ... ok
+test_native_missing_username_denied (__main__.RoleTests.test_native_missing_username_denied) ... ok
+test_native_revocation_denied (__main__.RoleTests.test_native_revocation_denied) ... ok
+test_native_unauthorized_denied (__main__.RoleTests.test_native_unauthorized_denied) ... ok
+test_self_metadata_from_original_authenticated_canonical_username (__main__.RoleTests.test_self_metadata_from_original_authenticated_canonical_username) ... FAIL
+test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) ... 
+  test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='user_id') ... FAIL
+  test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='chat_id') ... FAIL
+  test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='profile') ... FAIL
+  test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='thread_id') ... FAIL
+test_swapped_foreign_binding_between_principal_and_projection (__main__.RoleTests.test_swapped_foreign_binding_between_principal_and_projection) ... FAIL
+test_swapped_same_principal_binding_is_not_original_identity (__main__.RoleTests.test_swapped_same_principal_binding_is_not_original_identity) ... FAIL
+test_exact_native_field_mapping (__main__.ValidatorTests.test_exact_native_field_mapping) ... FAIL
+test_existing_staff_login_route_preserved (__main__.ValidatorTests.test_existing_staff_login_route_preserved) ... ok
+test_extra_headers_credentials_closed_no_dispatch (__main__.ValidatorTests.test_extra_headers_credentials_closed_no_dispatch) ... ok
+test_malformed_canonical_username_no_dispatch (__main__.ValidatorTests.test_malformed_canonical_username_no_dispatch) ... ok
+test_published_validator_accepts_exact_business_selector (__main__.ValidatorTests.test_published_validator_accepts_exact_business_selector) ... FAIL
+test_sanitizer_credentials_unchanged (__main__.ValidatorTests.test_sanitizer_credentials_unchanged) ... ok
+test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) ... 
+  test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='a') ... FAIL
+  test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='0') ... FAIL
+  test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='_') ... FAIL
+  test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='a_1') ... FAIL
+  test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') ... FAIL
+
+======================================================================
+FAIL: test_changed_session_between_principal_and_projection (__main__.RoleTests.test_changed_session_between_principal_and_projection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 133, in test_changed_session_between_principal_and_projection
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_description_business_metadata_not_staff_or_authority (__main__.RoleTests.test_description_business_metadata_not_staff_or_authority)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 153, in test_description_business_metadata_not_staff_or_authority
+    self.assertIn('Staff',d);self.assertIn('ACL',d);self.assertIn('not a Staff login',d)
+    ~~~~~~~~~~~~~^^^^^^^^^^^
+AssertionError: 'Staff' not found in 'Bound Telegram role; owner has the same no-host/no-CU/no-Telegram-MCP ceiling.'
+
+======================================================================
+FAIL: test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='user_id')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 126, in test_each_who_component_must_match_unchanged_current_binding
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='chat_id')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 126, in test_each_who_component_must_match_unchanged_current_binding
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='profile')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 126, in test_each_who_component_must_match_unchanged_current_binding
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='thread_id')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 126, in test_each_who_component_must_match_unchanged_current_binding
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='session_key')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 126, in test_each_who_component_must_match_unchanged_current_binding
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) (field='role')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 126, in test_each_who_component_must_match_unchanged_current_binding
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_empty_bound_session_never_projects (__main__.RoleTests.test_empty_bound_session_never_projects)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 136, in test_empty_bound_session_never_projects
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_group_returns_unknown_even_if_human_has_username (__main__.RoleTests.test_group_returns_unknown_even_if_human_has_username)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 90, in test_group_returns_unknown_even_if_human_has_username
+    self.assertTrue(r['ok']);self.assertIn('telegram_username',r);self.assertIsNone(r['telegram_username'])
+                             ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'telegram_username' not found in {'ok': True, 'user_id': '900001', 'role': 'owner', 'ceiling': 'isolated_auxiliary_only'}
+
+======================================================================
+FAIL: test_member_role_ceiling_and_distinct_identity (__main__.RoleTests.test_member_role_ceiling_and_distinct_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 74, in test_member_role_ceiling_and_distinct_identity
+    self.assertEqual(r.get('telegram_username'),'other_user');self.assertEqual(r['role'],'member');self.assertEqual(r['ceiling'],'isolated_auxiliary_only')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 'other_user'
+
+======================================================================
+FAIL: test_self_metadata_from_original_authenticated_canonical_username (__main__.RoleTests.test_self_metadata_from_original_authenticated_canonical_username)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 68, in test_self_metadata_from_original_authenticated_canonical_username
+    self.assertTrue(r['ok']);self.assertEqual(r.get('telegram_username'),'fixture_user','business identity missing from real Service.handler(qyp_role)')
+                             ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 'fixture_user' : business identity missing from real Service.handler(qyp_role)
+
+======================================================================
+FAIL: test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='user_id')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 150, in test_swapped_chat_profile_topic_or_user_between_principal_and_projection
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='chat_id')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 150, in test_swapped_chat_profile_topic_or_user_between_principal_and_projection
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='profile')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 150, in test_swapped_chat_profile_topic_or_user_between_principal_and_projection
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) (field='thread_id')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 150, in test_swapped_chat_profile_topic_or_user_between_principal_and_projection
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_swapped_foreign_binding_between_principal_and_projection (__main__.RoleTests.test_swapped_foreign_binding_between_principal_and_projection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 108, in test_swapped_foreign_binding_between_principal_and_projection
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_swapped_same_principal_binding_is_not_original_identity (__main__.RoleTests.test_swapped_same_principal_binding_is_not_original_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 118, in test_swapped_same_principal_binding_is_not_original_identity
+    self.assertFalse(r['ok']);self.assertNotIn('telegram_username',r)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_exact_native_field_mapping (__main__.ValidatorTests.test_exact_native_field_mapping)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 167, in test_exact_native_field_mapping
+    self.assertTrue(result['ok'],result)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'INVALID_INPUT', 'message': 'Read rejected or unavailable; raw diagnostics suppressed', 'source': {'system': 'reviewed_work_services', 'service': 'staff_api_mcp', 'nativeTool': 'person-full-info', 'operation': 'staff_api_mcp.person-full-info'}, 'text': '', 'pagination': {'has_more': None, 'text_truncated': False}}
+
+======================================================================
+FAIL: test_published_validator_accepts_exact_business_selector (__main__.ValidatorTests.test_published_validator_accepts_exact_business_selector)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 159, in test_published_validator_accepts_exact_business_selector
+    self.assertTrue(self.valid(self.args()),'selected published validator rejects legitimate business selector')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : selected published validator rejects legitimate business selector
+
+======================================================================
+FAIL: test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='a')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 180, in test_short_and_maximum_canonical_names
+    with self.subTest(value=value):self.assertTrue(self.valid(self.args(value)))
+                                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 180, in test_short_and_maximum_canonical_names
+    with self.subTest(value=value):self.assertTrue(self.valid(self.args(value)))
+                                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='_')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 180, in test_short_and_maximum_canonical_names
+    with self.subTest(value=value):self.assertTrue(self.valid(self.args(value)))
+                                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='a_1')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 180, in test_short_and_maximum_canonical_names
+    with self.subTest(value=value):self.assertTrue(self.valid(self.args(value)))
+                                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) (value='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py", line 180, in test_short_and_maximum_canonical_names
+    with self.subTest(value=value):self.assertTrue(self.valid(self.args(value)))
+                                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 23 tests in 1.138s
+
+FAILED (failures=25)

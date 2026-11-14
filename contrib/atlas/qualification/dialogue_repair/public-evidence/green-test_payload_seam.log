@@ -1,0 +1,10 @@
+test_actual_public_service_and_extension_pin_chain (__main__.PublicPayloadTests.test_actual_public_service_and_extension_pin_chain) ... ok
+test_canonical_soul_exact_reviewed_bytes (__main__.PublicPayloadTests.test_canonical_soul_exact_reviewed_bytes) ... ok
+test_existing_sidecar_acl_bindings_other_pins_unchanged (__main__.PublicPayloadTests.test_existing_sidecar_acl_bindings_other_pins_unchanged) ... ok
+test_native_fixture_integrity (__main__.PublicPayloadTests.test_native_fixture_integrity) ... ok
+test_public_backend_manifest_pin (__main__.PublicPayloadTests.test_public_backend_manifest_pin) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.068s
+
+OK

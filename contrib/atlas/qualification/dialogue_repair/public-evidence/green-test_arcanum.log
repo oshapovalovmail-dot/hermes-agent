@@ -1,0 +1,13 @@
+SOURCE=${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py
+test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) ... ok
+test_bounds_and_view_before_dispatch (__main__.ArcanumTests.test_bounds_and_view_before_dispatch) ... ok
+test_github_acl_unchanged (__main__.ArcanumTests.test_github_acl_unchanged) ... ok
+test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) ... ok
+test_invalid_requests_reject_before_dispatch (__main__.ArcanumTests.test_invalid_requests_reject_before_dispatch) ... ok
+test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) ... ok
+test_whole_patch_acl_even_after_output_cutoff (__main__.ArcanumTests.test_whole_patch_acl_even_after_output_cutoff) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.006s
+
+OK

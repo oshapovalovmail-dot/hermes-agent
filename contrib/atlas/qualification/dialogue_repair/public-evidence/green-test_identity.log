@@ -1,0 +1,28 @@
+test_ambient_identity_denied (__main__.RoleTests.test_ambient_identity_denied) ... ok
+test_changed_session_between_principal_and_projection (__main__.RoleTests.test_changed_session_between_principal_and_projection) ... ok
+test_description_business_metadata_not_staff_or_authority (__main__.RoleTests.test_description_business_metadata_not_staff_or_authority) ... ok
+test_each_who_component_must_match_unchanged_current_binding (__main__.RoleTests.test_each_who_component_must_match_unchanged_current_binding) ... ok
+test_empty_bound_session_never_projects (__main__.RoleTests.test_empty_bound_session_never_projects) ... ok
+test_foreign_plugin_profile_denied (__main__.RoleTests.test_foreign_plugin_profile_denied) ... ok
+test_group_returns_unknown_even_if_human_has_username (__main__.RoleTests.test_group_returns_unknown_even_if_human_has_username) ... ok
+test_member_role_ceiling_and_distinct_identity (__main__.RoleTests.test_member_role_ceiling_and_distinct_identity) ... ok
+test_model_argument_identity_injection_denied (__main__.RoleTests.test_model_argument_identity_injection_denied) ... ok
+test_native_missing_username_denied (__main__.RoleTests.test_native_missing_username_denied) ... ok
+test_native_revocation_denied (__main__.RoleTests.test_native_revocation_denied) ... ok
+test_native_unauthorized_denied (__main__.RoleTests.test_native_unauthorized_denied) ... ok
+test_self_metadata_from_original_authenticated_canonical_username (__main__.RoleTests.test_self_metadata_from_original_authenticated_canonical_username) ... ok
+test_swapped_chat_profile_topic_or_user_between_principal_and_projection (__main__.RoleTests.test_swapped_chat_profile_topic_or_user_between_principal_and_projection) ... ok
+test_swapped_foreign_binding_between_principal_and_projection (__main__.RoleTests.test_swapped_foreign_binding_between_principal_and_projection) ... ok
+test_swapped_same_principal_binding_is_not_original_identity (__main__.RoleTests.test_swapped_same_principal_binding_is_not_original_identity) ... ok
+test_exact_native_field_mapping (__main__.ValidatorTests.test_exact_native_field_mapping) ... ok
+test_existing_staff_login_route_preserved (__main__.ValidatorTests.test_existing_staff_login_route_preserved) ... ok
+test_extra_headers_credentials_closed_no_dispatch (__main__.ValidatorTests.test_extra_headers_credentials_closed_no_dispatch) ... ok
+test_malformed_canonical_username_no_dispatch (__main__.ValidatorTests.test_malformed_canonical_username_no_dispatch) ... ok
+test_published_validator_accepts_exact_business_selector (__main__.ValidatorTests.test_published_validator_accepts_exact_business_selector) ... ok
+test_sanitizer_credentials_unchanged (__main__.ValidatorTests.test_sanitizer_credentials_unchanged) ... ok
+test_short_and_maximum_canonical_names (__main__.ValidatorTests.test_short_and_maximum_canonical_names) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 5.771s
+
+OK

@@ -1,0 +1,56 @@
+{
+  "phase": "green",
+  "environment": {
+    "PATH": "/usr/bin:/bin",
+    "LANG": "en_US.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "${EXISTING_DEPENDENCY_ENV}/lib/python3.14/site-packages"
+  },
+  "commands": [
+    {
+      "command": [
+        "${VALIDATION_ROOT}/venv/bin/python",
+        "-B",
+        "${PROJECT_ROOT}/qualification/dialogue_repair/test_identity.py"
+      ],
+      "cwd": "${PROJECT_ROOT}",
+      "exit_code": 0,
+      "tests": 23,
+      "log": "green-test_identity.log",
+      "test_sha256": "47dc54ea7fb049865b9bbdf0f8510021d2fed65694a2e106bb2ca3ba75244ac8",
+      "log_sha256": "c91b6e2a1934014f1339f11aeea1eafbd9ac15a7b8a0e7838e3379d2eba5904e",
+      "private_original_log_sha256": "c91b6e2a1934014f1339f11aeea1eafbd9ac15a7b8a0e7838e3379d2eba5904e"
+    },
+    {
+      "command": [
+        "${VALIDATION_ROOT}/venv/bin/python",
+        "-B",
+        "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py"
+      ],
+      "cwd": "${PROJECT_ROOT}",
+      "exit_code": 0,
+      "tests": 7,
+      "log": "green-test_arcanum.log",
+      "test_sha256": "7115d745e678668cf6e2bd5e5c8a43def2faaaa3594cd93f02b450e4ad8eeccb",
+      "log_sha256": "85b0a1370972b1e713d9a482d0318eb1a3588400ddda0a5ec116f63fb57b18e6",
+      "private_original_log_sha256": "3e6335b055eaaff965eaa640cf957d43934d602ce5756409fc9c240893509440"
+    },
+    {
+      "command": [
+        "${VALIDATION_ROOT}/venv/bin/python",
+        "-B",
+        "${PROJECT_ROOT}/qualification/dialogue_repair/test_payload_seam.py"
+      ],
+      "cwd": "${PROJECT_ROOT}",
+      "exit_code": 0,
+      "tests": 5,
+      "log": "green-test_payload_seam.log",
+      "test_sha256": "959b1b33a2667b9d80ff650fa770a897aecf627626bc3a11a8350165d418714f",
+      "log_sha256": "1508472c751617eacda51765afa88efa91fb4d16a892fe282e53da591bc863d5",
+      "private_original_log_sha256": "1508472c751617eacda51765afa88efa91fb4d16a892fe282e53da591bc863d5"
+    }
+  ],
+  "all_passed": true,
+  "evidence_representation": "Host-path-projected publication copy; commands are portable recipes, not literal original argv. Full original evidence retained privately.",
+  "private_original_receipt_sha256": "dfd863d96e6670d835d121c3122770d850ba7fe1e1cc32975bc62874346de555"
+}

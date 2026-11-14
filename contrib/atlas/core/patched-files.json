@@ -3,7 +3,7 @@
   "atlas_bridge/fixture_hub.py": "cba5017237172b5058ba17d452bc64f10c38f715112349a9ca1e1102ee035fe3",
   "atlas_native_bridge/__init__.py": "ed15b990d2cf10d04bc6aca70468f9e90537f6bf78e8a08f12dc516cbc83e084",
   "atlas_native_bridge/attachments.py": "b7e5b3a6740a8077866b3921e8fdb1aa5c52ab16edafe0a28c984243e93a71b7",
-  "atlas_native_bridge/edge.py": "77cd9fa7c7fcb5be50b9651891b9dd8d0ba92ff8b88c845645be18cebb3b7410",
+  "atlas_native_bridge/edge.py": "a2b7f8306005379c4f27ec1a9b7db7765adcd4cdce21b0bbeb1469a275e04033",
   "atlas_native_bridge/edge_cli.py": "48065c28adf309efa1ff8ebb18d7740658a72e5ab05a2c41065bd6a85343fc2f",
   "atlas_native_bridge/edge_entry.py": "ac30e3b5d9254245f68a29212cc07573ef535ed636f02c0397bd67588e2c40e6",
   "atlas_native_bridge/expanded_qualification.py": "d479b1a9a11c63ca041553d2da304edbc4c849be96ed5cc2ffa67d7770d1565f",

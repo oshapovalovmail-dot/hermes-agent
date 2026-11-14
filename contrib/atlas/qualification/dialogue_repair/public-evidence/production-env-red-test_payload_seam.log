@@ -1,0 +1,33 @@
+test_actual_public_service_and_extension_pin_chain (__main__.PublicPayloadTests.test_actual_public_service_and_extension_pin_chain) ... ERROR
+test_canonical_soul_exact_reviewed_bytes (__main__.PublicPayloadTests.test_canonical_soul_exact_reviewed_bytes) ... FAIL
+test_existing_sidecar_acl_bindings_other_pins_unchanged (__main__.PublicPayloadTests.test_existing_sidecar_acl_bindings_other_pins_unchanged) ... ok
+test_native_fixture_integrity (__main__.PublicPayloadTests.test_native_fixture_integrity) ... ok
+test_public_backend_manifest_pin (__main__.PublicPayloadTests.test_public_backend_manifest_pin) ... ok
+
+======================================================================
+ERROR: test_actual_public_service_and_extension_pin_chain (__main__.PublicPayloadTests.test_actual_public_service_and_extension_pin_chain)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_payload_seam.py", line 53, in test_actual_public_service_and_extension_pin_chain
+    sidecar.load_service_backend(name)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 121, in load_service_backend
+    from jsonschema import Draft202012Validator
+ModuleNotFoundError: No module named 'jsonschema'
+
+======================================================================
+FAIL: test_canonical_soul_exact_reviewed_bytes (__main__.PublicPayloadTests.test_canonical_soul_exact_reviewed_bytes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_payload_seam.py", line 71, in test_canonical_soul_exact_reviewed_bytes
+    self.assertEqual(digest(PROJECT/'templates/SOUL.md'), BASE['expected_soul_sha256'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57' != 'a94a372391f4a628dc3cbf5c1dc5f3334f677477884ebe4451298e2888d1ee13'
+- 244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57
++ a94a372391f4a628dc3cbf5c1dc5f3334f677477884ebe4451298e2888d1ee13
+
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.117s
+
+FAILED (failures=1, errors=1)

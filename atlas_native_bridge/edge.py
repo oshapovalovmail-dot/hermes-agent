@@ -93,6 +93,11 @@ class MacEdge:
         if type(update) is not Update or type(update.update_id) is not int or update.update_id<0 or update.message is None:raise Denied('actual_sdk_message_update_required')
         message=update.message
         b=await self.gate.admit_message(message,self.bot)
+        # Topic creation is an admitted SDK service event, not a human turn.
+        # Preserve text/caption/media inputs, including empty-text attachments.
+        if (message.forum_topic_created is not None and not message.text
+                and not message.caption and not message.effective_attachment):
+            raise Denied('non_conversational_forum_topic_created')
         # Only actual PTB fields. Display names/text never supply usernames.
         now=int(time.time())
         raw={'version':1,'kind':'telegram_input','bot_id':'9229862070','epoch':self.codec.epoch,

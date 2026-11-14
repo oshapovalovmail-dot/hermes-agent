@@ -1,0 +1,12 @@
+[
+  {
+    "command": "arc diff --stat -- payload templates qualification/dialogue_repair docs/DIALOGUE-REPAIR-ACCEPTANCE.md",
+    "exit_code": 0,
+    "output": "junk/ovshapovalov/atlas/payload/home/plugins/qyp_guard/__init__.py              | +++++++-\n junk/ovshapovalov/atlas/payload/services/atlas-read/sidecar.py                  | ++++-\n junk/ovshapovalov/atlas/payload/services/atlas-read/work_services_backend.py    | +-\n junk/ovshapovalov/atlas/payload/services/atlas-read/work_services_manifest.json | ++\n junk/ovshapovalov/atlas/templates/SOUL.md                                       | ++\n 5 files changed, 42 insertions(+), 6 deletions(-)"
+  },
+  {
+    "command": "arc status --short -- payload templates qualification/dialogue_repair docs/DIALOGUE-REPAIR-ACCEPTANCE.md",
+    "exit_code": 0,
+    "output": "M payload/home/plugins/qyp_guard/__init__.py\n M payload/services/atlas-read/sidecar.py\n M payload/services/atlas-read/work_services_backend.py\n M payload/services/atlas-read/work_services_manifest.json\n M templates/SOUL.md\n?? docs/DIALOGUE-REPAIR-ACCEPTANCE.md\n?? qualification/dialogue_repair/"
+  }
+]

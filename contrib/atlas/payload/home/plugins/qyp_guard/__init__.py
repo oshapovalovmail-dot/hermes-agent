@@ -34,7 +34,7 @@ SCHEMAS={
     'qyp_exec':schema('qyp_exec','Auxiliary Python/JS scripts only, in a no-network container. Review code/diffs and generate reports/documents; never apply project fixes, edit host source, commit, deploy or use Computer Use.',{'language':{'type':'string','enum':['python','javascript']},'code':{'type':'string','maxLength':65536},'timeout':{'type':'number','minimum':1,'maximum':MAX_EXECUTION_SECONDS,'default':MAX_EXECUTION_SECONDS}},['language','code']),
     'qyp_read':schema('qyp_read','Read a bounded UTF-8 sandbox result, never host projects, credentials or another user.',{'path':{'type':'string'}},['path']),
     'qyp_export':schema('qyp_export','Issue a private immutable report/document for this exact principal and chat.',{'path':{'type':'string'}},['path']),
-    'qyp_role':schema('qyp_role','Bound Telegram role; owner has the same no-host/no-CU/no-Telegram-MCP ceiling.',{},[]),
+    'qyp_role':schema('qyp_role','Bound Telegram role and read-only self Staff lookup metadata. telegram_username is the original authenticated canonical Telegram username for this exact bound DM, or null when unknown/group; use Staff search_by.telegram_accounts.value_lower. It is not a Staff login or ACL authority. Owner has the same no-host/no-CU/no-Telegram-MCP ceiling.',{},[]),
 }
 
 
@@ -78,6 +78,19 @@ class Service:
         if self.ctx.profile_name!=binding.profile:raise PermissionError('exact_native_profile_required')
         from gateway.session_context import bound_session_key
         return principal_for_binding(self.admission,binding,bound_session_key())
+
+    def self_telegram_username(self,who,original_binding):
+        # Read-only business metadata, never another authority or identity cache.
+        binding=self.admission.check_current_sync()
+        from gateway.atlas_admission import current_binding, canonical_username
+        from gateway.session_context import bound_session_key
+        key=bound_session_key()
+        if (binding is not original_binding or binding is not current_binding() or self.ctx.profile_name!=binding.profile
+                or not key or principal_for_binding(self.admission,binding,key)!=who):
+            raise PermissionError('exact_self_identity_required')
+        if binding.chat_type!='dm':return None
+        username=binding.username
+        return username if username is not None and canonical_username(username)==username else None
 
     def guard_dispatch(self,event,session_key='',**kwargs):
         source=getattr(event,'source',None);platform=getattr(source,'platform',None);uid=getattr(source,'user_id',None)
@@ -237,9 +250,13 @@ class Service:
     def handler(self,name):
         def handle(args,**kwargs):
             try:
+                role_binding=None
+                if name=='qyp_role':
+                    from gateway.atlas_admission import current_binding
+                    role_binding=current_binding()
                 who=self.authorized_principal();shape=SCHEMAS[name]['parameters']
                 if not isinstance(args,dict) or set(args)-set(shape['properties']) or set(shape['required'])-set(args):return json.dumps({'ok':False,'error':'invalid_arguments'})
-                if name=='qyp_role':result={'user_id':who.user_id,'role':who.role,'ceiling':'isolated_auxiliary_only'}
+                if name=='qyp_role':result={'user_id':who.user_id,'role':who.role,'ceiling':'isolated_auxiliary_only','telegram_username':self.self_telegram_username(who,role_binding)}
                 elif name=='qyp_exec':
                     from tools.interrupt import is_interrupted
                     result=self.broker.execute(who,args['language'],args['code'],args.get('timeout',MAX_EXECUTION_SECONDS),cancel_check=is_interrupted)

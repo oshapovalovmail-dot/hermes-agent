@@ -692,10 +692,10 @@ index 0000000000..c2d3f7c780
 +        raise
 diff --git a/atlas_native_bridge/edge.py b/atlas_native_bridge/edge.py
 new file mode 100644
-index 0000000000..0ec4d8dbe7
+index 0000000000..5facae02bf
 --- /dev/null
 +++ b/atlas_native_bridge/edge.py
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,267 @@
 +"""Thin Mac Telegram SDK edge. No agent, model, shell tool or project workspace."""
 +import asyncio
 +import json
@@ -791,6 +791,11 @@ index 0000000000..0ec4d8dbe7
 +        if type(update) is not Update or type(update.update_id) is not int or update.update_id<0 or update.message is None:raise Denied('actual_sdk_message_update_required')
 +        message=update.message
 +        b=await self.gate.admit_message(message,self.bot)
++        # Topic creation is an admitted SDK service event, not a human turn.
++        # Preserve text/caption/media inputs, including empty-text attachments.
++        if (message.forum_topic_created is not None and not message.text
++                and not message.caption and not message.effective_attachment):
++            raise Denied('non_conversational_forum_topic_created')
 +        # Only actual PTB fields. Display names/text never supply usernames.
 +        now=int(time.time())
 +        raw={'version':1,'kind':'telegram_input','bot_id':'9229862070','epoch':self.codec.epoch,

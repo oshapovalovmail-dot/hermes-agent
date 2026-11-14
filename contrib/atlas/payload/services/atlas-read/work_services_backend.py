@@ -25,7 +25,7 @@ ARCANUM = '/usr/bin/false'
 ARC_CWD = '/nonexistent'
 MAX_BYTES=2_000_000
 MAX_SECONDS=45
-MANIFEST_SHA256 = 'b26fb43e9648082a3f8f251def2a66878756ba18b07c0501d6a4a01d92ea475d'
+MANIFEST_SHA256 = '2217163c4309f855ddeeb7854e9c9770235a33c200285663e779b800e98ef8fb'
 YT_CONFIG=('{read_retries={enable=%false;create_transaction_and_take_snapshot_lock=%false;};'
            'read_parallel={enable=%false;};proxy={enable_proxy_discovery=%false;'
            'prefer_https=%true;request_timeout=10000;retries={count=1;};};}')

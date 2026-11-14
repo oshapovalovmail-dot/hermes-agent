@@ -1,0 +1,54 @@
+{
+  "files": {
+    "payload/home/plugins/qyp_guard/__init__.py": "0cfdba62187ec03d352a9be21af9c066dbce78f416ca546a8deda27e25ef9dd9",
+    "payload/services/atlas-read/work_services_manifest.json": "b26fb43e9648082a3f8f251def2a66878756ba18b07c0501d6a4a01d92ea475d",
+    "payload/services/atlas-read/work_services_backend.py": "d29bb7bcf1a6851d74287225f93f77fd6d283026393aaec247b497dc536d3f11",
+    "payload/services/atlas-read/sidecar.py": "79cd055abd8554d0d2541be5c003deba93c45e3ec2b611d647ad9f8c01f8e6e5",
+    "templates/SOUL.md": "244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57"
+  },
+  "sidecar_constants": {
+    "MCP_CLI": "/usr/bin/false",
+    "GH_CLI": "/usr/bin/false",
+    "ARC_CLI": "/usr/bin/false",
+    "ARC_CWD": "/nonexistent",
+    "ARC_ROOTS": [],
+    "EXTENDED_BACKENDS": {
+      "nirvana_read": {
+        "file": "nirvana_backend.py",
+        "sha256": "70175ad0e5ece3d70daca86a402102d9e4b992245ea63818280f676303dcfdd8"
+      },
+      "yt_read": {
+        "file": "yt_backend.py",
+        "sha256": "5e1821c90435e7a0368567b73a8a8cc8d8e2254b7a44e2ede3b4f12681ec860c"
+      },
+      "datalens_read": {
+        "file": "datalens_backend.py",
+        "sha256": "2878db219737a9f47b9efdd9e13e03ad0865848864407c1aeff12817756c1083"
+      }
+    },
+    "SERVICE_BACKENDS": {
+      "tracker_wiki": {
+        "file": "tracker_wiki_backend.py",
+        "sha256": "28c81e83f7d0255b2eef4409830a754622b0851fb246e8d6eaac9354aeac5fd7",
+        "catalog": "tracker_wiki_catalog.json",
+        "catalog_sha256": "b9917cb78fe780d9c0f4bcc49561c72d7b48054a0f799e471d888b971e5ac254"
+      },
+      "work_services": {
+        "file": "work_services_backend.py",
+        "sha256": "d29bb7bcf1a6851d74287225f93f77fd6d283026393aaec247b497dc536d3f11",
+        "catalog": "work_services_manifest.json",
+        "catalog_sha256": "b26fb43e9648082a3f8f251def2a66878756ba18b07c0501d6a4a01d92ea475d",
+        "dependencies": {
+          "select_parser.py": "0ef0ffd9b61f2b90ebc102ba37df1b6ee1e89f38726f087f9c0f41bc41b2b179"
+        }
+      }
+    },
+    "PAGING_SHA256": "169bcf2fb51373f49eec0f1f6d0bec32cf4f22e117e1ef56270955f0cc79a465"
+  },
+  "sidecar_outside_changed_seam_ast_sha256": "791d6051ab511d35b44651887254817ee1940137963fde949c858297b79a1144",
+  "expected_soul_sha256": "a94a372391f4a628dc3cbf5c1dc5f3334f677477884ebe4451298e2888d1ee13",
+  "native_fixture": {
+    "atlas_admission.py": "155556bdb6b9df9cfcb16453c3a8abea36594ff00ec0f8cc22079ef50f35b217",
+    "session_context.py": "120daa79082a43bec00f7b61f717bdff8c059e2ac505ec394163e248d5d1f3eb"
+  }
+}

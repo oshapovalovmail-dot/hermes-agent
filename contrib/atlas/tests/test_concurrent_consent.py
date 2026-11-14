@@ -15,7 +15,7 @@ WORK = Path(os.environ.get('ATLAS_TEST_WORK', PROJECT.parent / 'receipts/consent
 CORE = Path(os.environ['ATLAS_TEST_CORE']).resolve()
 sys.path.insert(0, str(PROJECT))
 from atlas_dist import install as installer
-APPROVED_SHA = '244e6cb783242c9c6e24b04d3279000681c510e521954eeb14fbab34b2c53d57'
+APPROVED_SHA = 'a94a372391f4a628dc3cbf5c1dc5f3334f677477884ebe4451298e2888d1ee13'
 
 
 def child(root, selector, barrier):

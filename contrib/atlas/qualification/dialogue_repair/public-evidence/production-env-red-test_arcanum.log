@@ -1,0 +1,500 @@
+SOURCE=${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py
+test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) ... 
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='/', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='/', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='/', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='/', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='diff') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='metadata') ... FAIL
+  test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='diff') ... FAIL
+test_bounds_and_view_before_dispatch (__main__.ArcanumTests.test_bounds_and_view_before_dispatch) ... ok
+test_github_acl_unchanged (__main__.ArcanumTests.test_github_acl_unchanged) ... ok
+test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) ... 
+  test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) (url=None) ... FAIL
+  test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) (url=1) ... FAIL
+  test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) (url='https://a.yandex-team.ru/review/17068009//') ... FAIL
+test_invalid_requests_reject_before_dispatch (__main__.ArcanumTests.test_invalid_requests_reject_before_dispatch) ... ok
+test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) ... 
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17068009', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17068009', slash='/') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16592861', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16592861', slash='/') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054274', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054274', slash='/') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16939956', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16939956', slash='/') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054612', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054612', slash='/') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='1', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='1', slash='/') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='99999999999', slash='') ... ERROR
+  test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='99999999999', slash='/') ... ERROR
+test_whole_patch_acl_even_after_output_cutoff (__main__.ArcanumTests.test_whole_patch_acl_even_after_output_cutoff) ... 
+  test_whole_patch_acl_even_after_output_cutoff (__main__.ArcanumTests.test_whole_patch_acl_even_after_output_cutoff) (host='arcanum.yandex-team.ru', view='metadata') ... FAIL
+  test_whole_patch_acl_even_after_output_cutoff (__main__.ArcanumTests.test_whole_patch_acl_even_after_output_cutoff) (host='arcanum.yandex-team.ru', view='diff') ... FAIL
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17068009', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17068009', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16592861', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16592861', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054274', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054274', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16939956', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='16939956', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054612', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='17054612', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='1', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='1', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='99999999999', slash='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+ERROR: test_parse_aliases_five_observed_ids (__main__.ArcanumTests.test_parse_aliases_five_observed_ids) (host='arcanum.yandex-team.ru', prid='99999999999', slash='/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 60, in test_parse_aliases_five_observed_ids
+    self.assertEqual(m.parse_pr(f'https://{host}/review/{prid}{slash}'), ('arc', prid))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${PROJECT_ROOT}/payload/services/atlas-read/sidecar.py", line 426, in parse_pr
+    if not m: raise PolicyError('invalid_argument')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sidecar_under_test.PolicyError: invalid_argument
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://a.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'pr_metadata_unrecognized', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='/', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='a.yandex-team.ru', ns='/', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='/', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='a.yandex-team.ru', ns='/', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009', actual='arcanum.yandex-team.ru', ns='/', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_alias_matrix_preserves_requested_source_and_native_argv (__main__.ArcanumTests.test_alias_matrix_preserves_requested_source_and_native_argv) (url='https://arcanum.yandex-team.ru/review/17068009/', actual='arcanum.yandex-team.ru', ns='/', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 72, in test_alias_matrix_preserves_requested_source_and_native_argv
+    self.assertTrue(answer['ok'], answer)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : {'ok': False, 'code': 'invalid_argument', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) (url=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 95, in test_invalid_native_metadata_rejects_before_patch
+    self.assertEqual(answer['code'], 'pr_metadata_unrecognized', answer)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'pr_client_unavailable' != 'pr_metadata_unrecognized'
+- pr_client_unavailable
++ pr_metadata_unrecognized
+ : {'ok': False, 'code': 'pr_client_unavailable', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) (url=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 95, in test_invalid_native_metadata_rejects_before_patch
+    self.assertEqual(answer['code'], 'pr_metadata_unrecognized', answer)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'pr_client_unavailable' != 'pr_metadata_unrecognized'
+- pr_client_unavailable
++ pr_metadata_unrecognized
+ : {'ok': False, 'code': 'pr_client_unavailable', 'message': '', 'source': '', 'text': '', 'truncated': False, 'returned_chars': 0, 'untrusted': True}
+
+======================================================================
+FAIL: test_invalid_native_metadata_rejects_before_patch (__main__.ArcanumTests.test_invalid_native_metadata_rejects_before_patch) (url='https://a.yandex-team.ru/review/17068009//')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 95, in test_invalid_native_metadata_rejects_before_patch
+    self.assertEqual(answer['code'], 'pr_metadata_unrecognized', answer)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ok' != 'pr_metadata_unrecognized'
+- ok
++ pr_metadata_unrecognized
+ : {'ok': True, 'code': 'ok', 'message': '', 'source': 'https://a.yandex-team.ru/review/17068009', 'text': '{"metadata": {"id": 17068009, "url": "https://a.yandex-team.ru/review/17068009//", "title": "fixture"}, "validated_paths": ["neuroexpert/test.py"]}', 'truncated': False, 'returned_chars': 147, 'untrusted': True}
+
+======================================================================
+FAIL: test_whole_patch_acl_even_after_output_cutoff (__main__.ArcanumTests.test_whole_patch_acl_even_after_output_cutoff) (host='arcanum.yandex-team.ru', view='metadata')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 110, in test_whole_patch_acl_even_after_output_cutoff
+    self.assertEqual(answer['code'], 'pr_scope_denied')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'invalid_argument' != 'pr_scope_denied'
+- invalid_argument
++ pr_scope_denied
+
+
+======================================================================
+FAIL: test_whole_patch_acl_even_after_output_cutoff (__main__.ArcanumTests.test_whole_patch_acl_even_after_output_cutoff) (host='arcanum.yandex-team.ru', view='diff')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "${PROJECT_ROOT}/qualification/dialogue_repair/test_arcanum.py", line 110, in test_whole_patch_acl_even_after_output_cutoff
+    self.assertEqual(answer['code'], 'pr_scope_denied')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'invalid_argument' != 'pr_scope_denied'
+- invalid_argument
++ pr_scope_denied
+
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.009s
+
+FAILED (failures=29, errors=14)
