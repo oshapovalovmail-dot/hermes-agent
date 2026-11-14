@@ -88,7 +88,7 @@ def extension_schema(name):
     return shape
 
 
-SERVICE_BACKENDS = {'tracker_wiki': {'file': 'tracker_wiki_backend.py', 'sha256': '28c81e83f7d0255b2eef4409830a754622b0851fb246e8d6eaac9354aeac5fd7', 'catalog': 'tracker_wiki_catalog.json', 'catalog_sha256': 'b9917cb78fe780d9c0f4bcc49561c72d7b48054a0f799e471d888b971e5ac254'}, 'work_services': {'file': 'work_services_backend.py', 'sha256': '564b42ecdee85fa9f1e2adbf18c7870ae79bbca8f49193ba6e5b0a1b83131990', 'catalog': 'work_services_manifest.json', 'catalog_sha256': '2217163c4309f855ddeeb7854e9c9770235a33c200285663e779b800e98ef8fb', 'dependencies': {'select_parser.py': '0ef0ffd9b61f2b90ebc102ba37df1b6ee1e89f38726f087f9c0f41bc41b2b179'}}}
+SERVICE_BACKENDS = {'tracker_wiki': {'file': 'tracker_wiki_backend.py', 'sha256': '28c81e83f7d0255b2eef4409830a754622b0851fb246e8d6eaac9354aeac5fd7', 'catalog': 'tracker_wiki_catalog.json', 'catalog_sha256': 'b9917cb78fe780d9c0f4bcc49561c72d7b48054a0f799e471d888b971e5ac254'}, 'work_services': {'file': 'work_services_backend.py', 'sha256': '5800624d712c732b0beb967636623884ddbd75e91266624628ab4f01063ade62', 'catalog': 'work_services_manifest.json', 'catalog_sha256': '051f83adb30280acbcef4ed3a68e0c922829afdf2976ab717974092a77fcf78e', 'dependencies': {'select_parser.py': '0ef0ffd9b61f2b90ebc102ba37df1b6ee1e89f38726f087f9c0f41bc41b2b179'}}}
 PAGING_SHA256 = '169bcf2fb51373f49eec0f1f6d0bec32cf4f22e117e1ef56270955f0cc79a465'
 # Internal code-owned merged service implementation, inserted into sidecar.py.
 _SERVICE_CACHE={}

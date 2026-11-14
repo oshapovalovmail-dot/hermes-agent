@@ -11312,7 +11312,7 @@
         },
         "query": {
           "type": "string",
-          "description": "The search query string",
+          "description": "Explicit text search: when vertical is supplied, query must contain a non-whitespace character; use genuine search text with the namespaced filters, not an empty filter-only query. For filter-only Arcanum author/reviewer/date searches use intrasearch.arcanum_search with its documented legacy operator query: s_author:\"<login>\" or s_reviewer:\"<login>\", and s_created:\"'<from>'..'<to>'\", s_updated:\"'<from>'..'<to>'\", or s_closed:\"'<from>'..'<to>'\" (YYYYMMDD dates). These are legacy operators for arcanum_search, not explicit-search text substitutions. Do not invent query text, substitute a wildcard, or rewrite query/filters. When vertical is omitted the native legacy contract differs; this schema retains its existing required fields.",
           "maxLength": 16384
         },
         "filters": {
@@ -11389,7 +11389,23 @@
             "people"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "vertical"
+            ]
+          },
+          "then": {
+            "properties": {
+              "query": {
+                "pattern": "\\S"
+              }
+            }
+          }
+        }
+      ]
     },
     "defaults": {
       "page_size": 20,
