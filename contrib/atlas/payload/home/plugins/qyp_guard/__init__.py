@@ -143,6 +143,14 @@ class Service:
             control=self.ctx.get_config('admission_control')
             mutations=self.ctx.get_config('reviewed_mutation_tools',{})
             if control and isinstance(mutations,dict) and reviewed_mutation(tool_name,mutations.get(tool_name)) and consume_mutation_grant(Path(control),who,tool_name,args or {},kwargs.get('turn_id')):return None
+            # Admission and every allow/grant predicate above are unchanged.
+            # A reviewed service read reaching this point failed local preflight,
+            # including unavailable/invalid pinned contracts; no upstream ran.
+            from .policy import reviewed_read
+            entries=self.ctx.get_config('reviewed_read_tools',{})
+            entry=entries.get(tool_name) if isinstance(entries,dict) else None
+            if reviewed_read(tool_name,entry) and entry['service']=='atlas_read' and entry['method'] in ('service_read','service_catalog'):
+                return {'action':'block','message':'Local preflight input/contract rejection before upstream. Re-read service_catalog and correct exact field names and values; this is not an upstream ACL denial.'}
         except Exception:
             return {'action':'block','message':'Bound admitted private Telegram profile and valid policy required.'}
         return {'action':'block','message':'Capability outside reviewed principal ceiling.'}
