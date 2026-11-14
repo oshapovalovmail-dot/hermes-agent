@@ -202,7 +202,7 @@
       "source": "deployment/all-read/response-contract-fix/sidecar.py",
       "target": "payload/services/atlas-read/sidecar.py",
       "source_sha256": "485da15e80ac92d9f0d7d66826e51464822e00e4ca431950e1555f3325b71660",
-      "distributed_sha256": "c8d747fb2c4e2db78d235bb0d84bd201778c972889f930071dc5966b934b46e1",
+      "distributed_sha256": "077ffb3cf2d20ef90f8e7d848b1982b3e32bc8882b203f46f3c77ad0e4768a34",
       "modified": true
     },
     {
